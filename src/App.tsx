@@ -1,6 +1,8 @@
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Circle,
   Copy,
   FolderOpen,
@@ -17,40 +19,44 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   generateImages,
+  getConfigStatus,
   hasGeminiApiKey,
   loadAppState,
   readImageDataUrl,
   saveAppSettings,
   saveCurrentPrompt,
+  saveOutputTemplate,
   setGeminiApiKey,
 } from "./api";
-import type { AppSettings, GenerationBatch, OutputImage } from "./types";
+import type { AppSettings, ConfigStatus, GenerationBatch, OutputImage } from "./types";
 
-const MODELS = [
-  "gemini-3-pro-image-preview",
-  "gemini-3.1-flash-image-preview",
-  "gemini-2.5-flash-image",
-];
+type GenerationMode = "image" | "video";
 
-const ASPECT_RATIOS = [
-  "Auto",
-  "1:1",
-  "2:3",
-  "3:2",
-  "3:4",
-  "4:3",
-  "4:5",
-  "5:4",
-  "9:16",
-  "16:9",
-  "21:9",
-  "1:4",
-  "4:1",
-  "1:8",
-  "8:1",
-];
+type ModelConfig = {
+  aspectRatios: string[];
+  imageSizes: string[] | null;
+  supportsThinking: boolean;
+};
 
-const IMAGE_SIZES = ["512", "1K", "2K", "4K"];
+const MODEL_CONFIGS: Record<string, ModelConfig> = {
+  "gemini-3-pro-image-preview": {
+    aspectRatios: ["Auto", "1:1", "9:16", "16:9", "3:4", "4:3", "2:3", "3:2", "4:5", "5:4"],
+    imageSizes: ["512", "1K", "2K", "4K"],
+    supportsThinking: false,
+  },
+  "gemini-3.1-flash-image-preview": {
+    aspectRatios: ["Auto", "1:1", "9:16", "16:9", "3:4", "4:3", "2:3", "3:2", "4:5", "5:4"],
+    imageSizes: ["512", "1K", "2K", "4K"],
+    supportsThinking: true,
+  },
+  "gemini-2.5-flash-image": {
+    aspectRatios: ["Auto", "1:1", "9:16", "16:9", "3:4", "4:3"],
+    imageSizes: null,
+    supportsThinking: false,
+  },
+};
+
+const MODELS = Object.keys(MODEL_CONFIGS);
 const MIN_COLUMN_WIDTHS = [24, 24, 28];
 
 type Status = "ready" | "running" | "error";
@@ -61,19 +67,25 @@ export function App() {
   const [prompt, setPrompt] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [apiKeySaved, setApiKeySaved] = useState(false);
+  const [mode, setMode] = useState<GenerationMode>("image");
   const [batchCount, setBatchCount] = useState(1);
-  const [aspectRatio, setAspectRatio] = useState("16:9");
-  const [imageSize, setImageSize] = useState("1K");
-  const [temperature, setTemperature] = useState(0.5);
+  const [aspectRatio, setAspectRatio] = useState("4:3");
+  const [imageSize, setImageSize] = useState("2K");
+  const [temperature, setTemperature] = useState(-1);
   const [topP, setTopP] = useState(0.95);
   const [seed, setSeed] = useState("");
-  const [thinkingLevel, setThinkingLevel] = useState("MINIMAL");
+  const [thinkingLevel, setThinkingLevel] = useState("HIGH");
   const [batches, setBatches] = useState<GenerationBatch[]>([]);
-  const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+  const [historyDate, setHistoryDate] = useState<string>(() =>
+    localDateString(new Date().toISOString()),
+  );
   const [imageDataUrls, setImageDataUrls] = useState<Record<string, string>>({});
+  const [failedImagePaths, setFailedImagePaths] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<Status>("ready");
   const [message, setMessage] = useState("Ready");
   const [showSettings, setShowSettings] = useState(false);
+  const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
   const [columnWidths, setColumnWidths] = useState([35.5, 27.2, 37.3]);
   const [resizingDivider, setResizingDivider] = useState<number | null>(null);
 
@@ -83,8 +95,6 @@ export function App() {
         setSettings(state.settings);
         setPrompt(state.currentPrompt);
         setBatches(state.batches);
-        setActiveBatchId(state.batches[0]?.id ?? null);
-        setImageSize(state.settings.defaultModel === "gemini-2.5-flash-image" ? "1K" : "1K");
         setMessage("Ready");
       })
       .catch((error) => {
@@ -95,25 +105,41 @@ export function App() {
     void hasGeminiApiKey()
       .then(setApiKeySaved)
       .catch(() => setApiKeySaved(false));
+
+    void getConfigStatus()
+      .then(setConfigStatus)
+      .catch(() => undefined);
   }, []);
 
-  const activeBatch = useMemo(
-    () => batches.find((batch) => batch.id === activeBatchId) ?? batches[0],
-    [activeBatchId, batches],
+  const filteredBatches = useMemo(
+    () => batches.filter((b) => localDateString(b.createdAt) === historyDate),
+    [batches, historyDate],
   );
 
-  const activeImages = activeBatch?.images ?? [];
+  const previewBatch = filteredBatches[0];
+
+  const expandedBatch = useMemo(
+    () => batches.find((b) => b.id === expandedBatchId),
+    [batches, expandedBatchId],
+  );
+
+  const imagesToLoad = useMemo(() => {
+    const seen = new Set<string>();
+    for (const img of previewBatch?.images ?? []) seen.add(img.path);
+    for (const img of expandedBatch?.images ?? []) seen.add(img.path);
+    return [...seen];
+  }, [previewBatch, expandedBatch]);
 
   useEffect(() => {
-    for (const image of activeImages) {
-      if (imageDataUrls[image.path]) {
+    for (const path of imagesToLoad) {
+      if (imageDataUrls[path] || failedImagePaths.has(path)) {
         continue;
       }
-      void readImageDataUrl(image.path)
-        .then((url) => setImageDataUrls((current) => ({ ...current, [image.path]: url })))
-        .catch(() => undefined);
+      void readImageDataUrl(path)
+        .then((url) => setImageDataUrls((cur) => ({ ...cur, [path]: url })))
+        .catch(() => setFailedImagePaths((cur) => new Set([...cur, path])));
     }
-  }, [activeImages, imageDataUrls]);
+  }, [imagesToLoad, imageDataUrls, failedImagePaths]);
 
   const updateSettings = useCallback(
     async (next: AppSettings) => {
@@ -134,6 +160,13 @@ export function App() {
     setMessage("Generating images");
     await saveCurrentPrompt(prompt);
 
+    const requestSeed = seed.trim()
+      ? Number(seed)
+      : Math.floor(Math.random() * 2_147_483_647);
+    if (!seed.trim()) {
+      setSeed(String(requestSeed));
+    }
+
     try {
       await saveAppSettings(settings);
       const batch = await generateImages({
@@ -149,12 +182,11 @@ export function App() {
           imageSize,
           temperature,
           topP,
-          seed: seed.trim() ? Number(seed) : null,
+          seed: requestSeed,
           thinkingLevel,
         },
       });
       setBatches((current) => [batch, ...current.filter((item) => item.id !== batch.id)]);
-      setActiveBatchId(batch.id);
       setStatus("ready");
       setMessage(`Completed ${batch.images.length} image${batch.images.length === 1 ? "" : "s"}`);
     } catch (error) {
@@ -167,6 +199,7 @@ export function App() {
     imageSize,
     prompt,
     seed,
+    setSeed,
     settings,
     temperature,
     thinkingLevel,
@@ -180,6 +213,7 @@ export function App() {
       setApiKeySaved(apiKey.trim().length > 0);
       setStatus("ready");
       setMessage(apiKey.trim().length > 0 ? "API key saved" : "API key cleared");
+      void getConfigStatus().then(setConfigStatus).catch(() => undefined);
     } catch (error) {
       setStatus("error");
       setMessage(String(error));
@@ -250,11 +284,13 @@ export function App() {
   return (
     <main className="app-shell">
       <header className="toolbar">
-        <div className="brand">
-          <div className="brand-mark">V</div>
-          <strong>VisionCraft</strong>
+        <div className="toolbar-left">
+          <div className="brand">
+            <div className="brand-mark">V</div>
+            <strong>VisionCraft</strong>
+          </div>
         </div>
-        <div className="toolbar-actions">
+        <div className="toolbar-center">
           <button className="primary-button" disabled={status === "running"} onClick={runGeneration}>
             {status === "running" ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
             Run
@@ -263,32 +299,21 @@ export function App() {
             <Square size={14} />
             Stop
           </button>
+        </div>
+        <div className="toolbar-right">
+          <ModeSwitch mode={mode} setMode={setMode} />
           <div className="divider" />
-          <label className="stepper">
-            <span>Batch</span>
-            <input
-              min={1}
-              max={8}
-              type="number"
-              value={batchCount}
-              onChange={(event) => setBatchCount(Number(event.target.value))}
-            />
-          </label>
+          <button className="icon-button" title="Settings" onClick={() => setShowSettings((value) => !value)}>
+            <Settings size={18} />
+          </button>
         </div>
-        <div className="toolbar-status">
-          <StatusPill status={status} label={message} />
-          <span>Provider: Gemini</span>
-          <span>Model: {settings.defaultModel}</span>
-        </div>
-        <button className="icon-button" title="Settings" onClick={() => setShowSettings((value) => !value)}>
-          <Settings size={18} />
-        </button>
       </header>
 
       {showSettings ? (
         <SettingsPanel
           apiKey={apiKey}
           apiKeySaved={apiKeySaved}
+          configStatus={configStatus}
           settings={settings}
           setApiKey={setApiKey}
           setSettings={setSettings}
@@ -334,17 +359,28 @@ export function App() {
           onPointerDown={(event) => startColumnResize(1, event)}
         />
         <OutputColumn
-          activeBatch={activeBatch}
-          batches={batches}
+          batches={filteredBatches}
+          expandedBatchId={expandedBatchId}
+          failedImagePaths={failedImagePaths}
+          historyDate={historyDate}
           imageDataUrls={imageDataUrls}
+          previewBatch={previewBatch}
           settings={settings}
-          setActiveBatchId={setActiveBatchId}
+          setExpandedBatchId={setExpandedBatchId}
+          setHistoryDate={setHistoryDate}
           setSettings={setSettings}
+          onSaveTemplate={(template) => {
+            void saveOutputTemplate(template).catch(() => undefined);
+          }}
         />
       </section>
 
       <footer className="statusbar">
         <StatusPill status={status} label={message} />
+        <div className="status-info">
+          <span>Provider: Gemini</span>
+          <span>Model: {settings.defaultModel}</span>
+        </div>
         <div className="status-counts">
           <span>Queue: 0</span>
           <span>Running: {status === "running" ? 1 : 0}</span>
@@ -482,6 +518,8 @@ function GenerationColumn(props: {
   thinkingLevel: string;
   setThinkingLevel: (value: string) => void;
 }) {
+  const modelConfig = MODEL_CONFIGS[props.settings.defaultModel] ?? MODEL_CONFIGS[MODELS[0]];
+
   return (
     <section className="panel generation-panel">
       <PanelHeader icon={<SlidersHorizontal size={16} />} title="Image Generation" />
@@ -491,7 +529,7 @@ function GenerationColumn(props: {
         <button disabled>Grok Imagine</button>
       </div>
       <div className="form-grid">
-        <Field label="Model">
+        <Field label="Model" className="field-full">
           <select
             value={props.settings.defaultModel}
             onChange={(event) =>
@@ -507,29 +545,35 @@ function GenerationColumn(props: {
         </Field>
         <Field label="Aspect Ratio">
           <select value={props.aspectRatio} onChange={(event) => props.setAspectRatio(event.target.value)}>
-            {ASPECT_RATIOS.map((ratio) => (
+            {modelConfig.aspectRatios.map((ratio) => (
               <option key={ratio} value={ratio}>
                 {ratio}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Image Size">
-          <select value={props.imageSize} onChange={(event) => props.setImageSize(event.target.value)}>
-            {IMAGE_SIZES.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </Field>
+        {modelConfig.imageSizes ? (
+          <Field label="Image Size">
+            <select value={props.imageSize} onChange={(event) => props.setImageSize(event.target.value)}>
+              {modelConfig.imageSizes.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : null}
         <Field label="Seed">
-          <input placeholder="Random" value={props.seed} onChange={(event) => props.setSeed(event.target.value)} />
+          <input
+            placeholder="Auto"
+            value={props.seed}
+            onChange={(event) => props.setSeed(event.target.value)}
+          />
         </Field>
         <Field label="Temperature">
           <input
             max={1}
-            min={0}
+            min={-1}
             step={0.01}
             type="number"
             value={props.temperature}
@@ -546,17 +590,19 @@ function GenerationColumn(props: {
             onChange={(event) => props.setTopP(Number(event.target.value))}
           />
         </Field>
-        <Field label="Thinking">
-          <select
-            value={props.thinkingLevel}
-            onChange={(event) => props.setThinkingLevel(event.target.value)}
-          >
-            <option value="MINIMAL">Minimal</option>
-            <option value="LOW">Low</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="HIGH">High</option>
-          </select>
-        </Field>
+        {modelConfig.supportsThinking ? (
+          <Field label="Thinking">
+            <select
+              value={props.thinkingLevel}
+              onChange={(event) => props.setThinkingLevel(event.target.value)}
+            >
+              <option value="MINIMAL">Minimal</option>
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+            </select>
+          </Field>
+        ) : null}
         <Field label="Batch">
           <input
             max={8}
@@ -576,20 +622,39 @@ function GenerationColumn(props: {
 }
 
 function OutputColumn({
-  activeBatch,
   batches,
+  expandedBatchId,
+  failedImagePaths,
+  historyDate,
   imageDataUrls,
+  previewBatch,
   settings,
-  setActiveBatchId,
+  setExpandedBatchId,
+  setHistoryDate,
   setSettings,
+  onSaveTemplate,
 }: {
-  activeBatch?: GenerationBatch;
   batches: GenerationBatch[];
+  expandedBatchId: string | null;
+  failedImagePaths: Set<string>;
+  historyDate: string;
   imageDataUrls: Record<string, string>;
+  previewBatch?: GenerationBatch;
   settings: AppSettings;
-  setActiveBatchId: (id: string) => void;
+  setExpandedBatchId: (id: string | null) => void;
+  setHistoryDate: (date: string) => void;
   setSettings: (settings: AppSettings) => void;
+  onSaveTemplate: (template: string) => void;
 }) {
+  const templateIssues = validateOutputTemplate(settings.outputTemplate);
+  const todayStr = localDateString(new Date().toISOString());
+
+  function shiftDate(days: number) {
+    const d = new Date(historyDate + "T12:00:00");
+    d.setDate(d.getDate() + days);
+    setHistoryDate(d.toISOString().slice(0, 10));
+  }
+
   return (
     <section className="panel output-panel">
       <PanelHeader icon={<ImageIcon size={16} />} title="Output Images" />
@@ -598,21 +663,30 @@ function OutputColumn({
           <input
             value={settings.outputTemplate}
             onChange={(event) => setSettings({ ...settings, outputTemplate: event.target.value })}
+            onBlur={(event) => onSaveTemplate(event.target.value)}
           />
           <button className="icon-button" title="Copy template">
             <Copy size={16} />
           </button>
         </div>
+        {templateIssues.length > 0 ? (
+          <div className="template-issues">
+            {templateIssues.map((issue, index) => (
+              <span className="template-issue" key={index}>{issue}</span>
+            ))}
+          </div>
+        ) : null}
       </Field>
+
       <div className="active-batch">
         <div className="batch-heading">
-          <strong>{activeBatch ? `Batch ${shortId(activeBatch.id)}` : "No batches yet"}</strong>
-          <span>{activeBatch?.images.length ?? 0} images</span>
-          {activeBatch ? <StatusText status={activeBatch.status} /> : null}
+          <strong>{previewBatch ? batchTitle(previewBatch) : "No batches yet"}</strong>
+          {previewBatch ? <StatusText status={previewBatch.status} /> : null}
         </div>
         <div className="gallery">
-          {(activeBatch?.images ?? []).map((image, index) => (
+          {(previewBatch?.images ?? []).map((image, index) => (
             <ImageTile
+              failed={failedImagePaths.has(image.path)}
               image={image}
               index={index + 1}
               key={image.id}
@@ -621,15 +695,60 @@ function OutputColumn({
           ))}
         </div>
       </div>
-      <div className="history">
-        {batches.slice(0, 12).map((batch) => (
-          <button className="history-row" key={batch.id} onClick={() => setActiveBatchId(batch.id)}>
-            <strong>Batch {shortId(batch.id)}</strong>
-            <span>{batch.images.length} images</span>
-            <StatusText status={batch.status} />
-            <time>{formatTime(batch.createdAt)}</time>
-          </button>
-        ))}
+
+      <div className="history-section">
+        <div className="history-date-bar">
+          <button className="date-nav-btn" onClick={() => shiftDate(-1)}>‹</button>
+          <span>{historyDate === todayStr ? "Today" : historyDate}</span>
+          <button
+            className="date-nav-btn"
+            disabled={historyDate >= todayStr}
+            onClick={() => shiftDate(1)}
+          >›</button>
+        </div>
+        <div className="history">
+          {batches.length === 0 ? (
+            <div className="history-empty">No tasks on this day</div>
+          ) : null}
+          {batches.map((batch) => (
+            <div className="history-entry" key={batch.id}>
+              <button
+                className="history-row"
+                onClick={() => setExpandedBatchId(expandedBatchId === batch.id ? null : batch.id)}
+              >
+                {expandedBatchId === batch.id
+                  ? <ChevronDown size={12} />
+                  : <ChevronRight size={12} />}
+                <span className="history-title">{batchTitle(batch)}</span>
+                <StatusText status={batch.status} />
+              </button>
+              {expandedBatchId === batch.id ? (
+                <div className="history-expand">
+                  {batch.images.length > 0 ? (
+                    <div className="history-thumbnails">
+                      {batch.images.map((image) => (
+                        <div className="history-thumb" key={image.id}>
+                          {failedImagePaths.has(image.path) ? (
+                            <div className="thumb-state missing">File not found</div>
+                          ) : imageDataUrls[image.path] ? (
+                            <img alt={image.filename} src={imageDataUrls[image.path]} />
+                          ) : (
+                            <div className="thumb-state">Loading</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {batch.status === "failed" && batch.error ? (
+                    <div className="batch-error-detail">
+                      <pre>{batch.error}</pre>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -638,6 +757,7 @@ function OutputColumn({
 function SettingsPanel({
   apiKey,
   apiKeySaved,
+  configStatus,
   settings,
   setApiKey,
   setSettings,
@@ -646,6 +766,7 @@ function SettingsPanel({
 }: {
   apiKey: string;
   apiKeySaved: boolean;
+  configStatus: ConfigStatus | null;
   settings: AppSettings;
   setApiKey: (value: string) => void;
   setSettings: (settings: AppSettings) => void;
@@ -704,14 +825,50 @@ function SettingsPanel({
         <Save size={15} />
         Save Settings
       </button>
+      {configStatus ? (
+        <div className="config-status">
+          <div className="config-status-row">
+            <span className="config-status-label">Config file</span>
+            <code className="config-status-value">{configStatus.configPath}</code>
+          </div>
+          <div className="config-status-row">
+            <span className="config-status-label">Gemini API key</span>
+            <span className={`config-status-badge ${configStatus.hasApiKey ? "ok" : "missing"}`}>
+              {configStatus.hasApiKey ? "Configured" : "Missing"}
+            </span>
+          </div>
+          <div className="config-status-row">
+            <span className="config-status-label">Proxy</span>
+            <span className={`config-status-badge ${configStatus.hasProxy ? "ok" : "missing"}`}>
+              {configStatus.hasProxy ? "Configured" : "Not set"}
+            </span>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function ImageTile({ image, index, src }: { image: OutputImage; index: number; src?: string }) {
+function ImageTile({
+  failed,
+  image,
+  index,
+  src,
+}: {
+  failed?: boolean;
+  image: OutputImage;
+  index: number;
+  src?: string;
+}) {
   return (
     <article className="image-tile">
-      {src ? <img alt={image.filename} src={src} /> : <div className="image-placeholder">Loading</div>}
+      {failed ? (
+        <div className="image-placeholder missing">File not found</div>
+      ) : src ? (
+        <img alt={image.filename} src={src} />
+      ) : (
+        <div className="image-placeholder">Loading</div>
+      )}
       <footer>
         <span>#{index}</span>
         <span>{image.filename}</span>
@@ -743,12 +900,40 @@ function PanelHeader({ icon, title }: { icon: React.ReactNode; title: string }) 
   );
 }
 
-function Field({ children, label }: { children: React.ReactNode; label: string }) {
+function Field({
+  children,
+  className,
+  label,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  label: string;
+}) {
   return (
-    <label className="field">
+    <label className={`field${className ? ` ${className}` : ""}`}>
       <span>{label}</span>
       {children}
     </label>
+  );
+}
+
+function ModeSwitch({
+  mode,
+  setMode,
+}: {
+  mode: GenerationMode;
+  setMode: (mode: GenerationMode) => void;
+}) {
+  return (
+    <div className="mode-switch">
+      <button className={mode === "image" ? "active" : ""} onClick={() => setMode("image")}>
+        <ImageIcon size={14} />
+        Image
+      </button>
+      <button disabled className={mode === "video" ? "active" : ""}>
+        Video
+      </button>
+    </div>
   );
 }
 
@@ -770,6 +955,45 @@ function shortId(id: string) {
   return id.slice(0, 6);
 }
 
+function localDateString(isoUtc: string): string {
+  const d = new Date(isoUtc);
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function providerDisplayName(provider: string): string {
+  switch (provider) {
+    case "nano-banana": return "Gemini";
+    default: return provider;
+  }
+}
+
+function modelDisplayName(model: string): string {
+  switch (model) {
+    case "gemini-3-pro-image-preview": return "Nano Banana Pro";
+    case "gemini-3.1-flash-image-preview": return "Nano Banana 2";
+    case "gemini-2.5-flash-image": return "Nano Banana";
+    default: return model;
+  }
+}
+
+function batchTitle(batch: GenerationBatch): string {
+  const d = new Date(batch.createdAt);
+  const date = localDateString(batch.createdAt);
+  const time = [
+    String(d.getHours()).padStart(2, "0"),
+    String(d.getMinutes()).padStart(2, "0"),
+    String(d.getSeconds()).padStart(2, "0"),
+  ].join(":");
+  const prov = providerDisplayName(batch.provider);
+  const mod = modelDisplayName(batch.model);
+  const suffix = batch.images.length > 1 ? " (batch)" : "";
+  return `${date} ${time} - ${prov} / ${mod} - ${shortId(batch.id)}${suffix}`;
+}
+
 function formatTime(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     hour: "2-digit",
@@ -780,3 +1004,38 @@ function formatTime(value: string) {
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
+
+const SUPPORTED_DATE_TOKENS = new Set([
+  "yyyyMMdd_HHmmss", "yyyyMMdd", "yyMMdd_HHmmss", "yyMMdd",
+  "yyyy", "yy", "MM", "dd", "HH", "mm", "ss",
+]);
+
+function validateOutputTemplate(template: string): string[] {
+  const issues: string[] = [];
+  if (!template.trim()) {
+    issues.push("Template cannot be empty.");
+    return issues;
+  }
+  const tokenRegex = /\{([^}]+)\}/g;
+  const known = new Set([
+    "provider", "model", "id", "batch_id", "extension", "datetime",
+    ...SUPPORTED_DATE_TOKENS,
+  ]);
+  let match;
+  while ((match = tokenRegex.exec(template)) !== null) {
+    const token = match[1];
+    if (token.startsWith("datetime:")) {
+      continue;
+    }
+    if (!known.has(token)) {
+      const looksLikeDate = /^[YMDHhmsS_]+$/.test(token);
+      if (looksLikeDate) {
+        issues.push(`{${token}} — use lowercase tokens, e.g. {yyyyMMdd_HHmmss}`);
+      } else {
+        issues.push(`{${token}} is not a recognised token and will render literally.`);
+      }
+    }
+  }
+  return issues;
+}
+

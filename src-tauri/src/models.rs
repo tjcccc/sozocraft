@@ -87,9 +87,6 @@ impl GenerationRequest {
         if self.output_template.trim().is_empty() {
             return Err("Output filename template cannot be empty.".to_string());
         }
-        if !self.output_template.contains("{extension}") {
-            return Err("Output filename template must include {extension}.".to_string());
-        }
         Ok(())
     }
 }

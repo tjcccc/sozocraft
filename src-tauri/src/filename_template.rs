@@ -31,11 +31,20 @@ where
     }
 
     let rendered_path = PathBuf::from(rendered);
-    let candidate = if rendered_path.is_absolute() {
+    let mut candidate = if rendered_path.is_absolute() {
         rendered_path
     } else {
         Path::new(output_dir).join(rendered_path)
     };
+
+    if !template.contains("{extension}") && !extension.is_empty() {
+        let filename = candidate
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("image")
+            .to_string();
+        candidate = candidate.with_file_name(format!("{filename}.{extension}"));
+    }
 
     unique_path(candidate)
 }
@@ -192,6 +201,29 @@ mod tests {
 
         let rendered = path.to_string_lossy();
         assert!(rendered.contains("260426/gemini_nano-banana-2_20260426_090807_001.jpg"));
+    }
+
+    #[test]
+    fn appends_extension_when_template_omits_it() {
+        let date = Utc.with_ymd_and_hms(2026, 4, 26, 9, 8, 7).unwrap();
+        let path = resolve_output_path(
+            "/tmp/out",
+            "{provider}_{model}_{datetime:yyyyMMdd_HHmmss}_{id}",
+            "gemini",
+            "nano-banana-2",
+            "001",
+            "batch",
+            "webp",
+            date,
+        )
+        .unwrap();
+
+        let rendered = path.to_string_lossy();
+        assert!(
+            rendered.ends_with(".webp"),
+            "expected .webp suffix, got: {rendered}"
+        );
+        assert!(rendered.contains("gemini_nano-banana-2_20260426_090807_001.webp"));
     }
 
     #[test]

@@ -84,6 +84,12 @@ pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
     save_config(&config)
 }
 
+pub fn save_output_template(template: &str) -> io::Result<()> {
+    let mut config = load_config().unwrap_or_default();
+    config.output.template = Some(template.trim().to_string());
+    save_config(&config)
+}
+
 pub fn set_gemini_api_key(api_key: &str) -> io::Result<()> {
     let mut config = load_config().unwrap_or_default();
     config.gemini.api_key = api_key.trim().to_string();
@@ -104,6 +110,14 @@ pub fn get_gemini_api_key() -> io::Result<String> {
 
 pub fn has_gemini_api_key() -> bool {
     get_gemini_api_key()
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+}
+
+pub fn has_proxy_configured() -> bool {
+    load_config()
+        .ok()
+        .and_then(|config| config.gemini.proxy_url)
         .map(|value| !value.trim().is_empty())
         .unwrap_or(false)
 }

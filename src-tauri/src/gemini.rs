@@ -120,7 +120,9 @@ fn build_request_body(request: &GenerationRequest) -> Value {
     });
 
     if let Some(temp) = request.options.temperature {
-        generation_config["temperature"] = json!(temp);
+        if temp >= 0.0 {
+            generation_config["temperature"] = json!(temp);
+        }
     }
     if let Some(top_p) = request.options.top_p {
         generation_config["topP"] = json!(top_p);

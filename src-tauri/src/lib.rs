@@ -1,6 +1,7 @@
 mod app_state;
 mod filename_template;
 mod gemini;
+mod image_meta;
 mod local_config;
 mod models;
 
@@ -12,8 +13,31 @@ use gemini::GeminiClient;
 use models::{
     AppSettings, AppState, GenerationBatch, GenerationRequest, GenerationStatus, OutputImage,
 };
+use serde::Serialize;
 use std::{fs, path::PathBuf};
 use uuid::Uuid;
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ConfigStatus {
+    config_path: String,
+    has_api_key: bool,
+    has_proxy: bool,
+}
+
+#[tauri::command]
+fn get_config_status() -> ConfigStatus {
+    ConfigStatus {
+        config_path: local_config::config_path().to_string_lossy().to_string(),
+        has_api_key: local_config::has_gemini_api_key(),
+        has_proxy: local_config::has_proxy_configured(),
+    }
+}
+
+#[tauri::command]
+fn save_output_template(template: String) -> Result<(), String> {
+    local_config::save_output_template(&template).map_err(|err| err.to_string())
+}
 
 #[tauri::command]
 fn load_app_state() -> Result<AppState, String> {
@@ -135,14 +159,56 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                         fs::create_dir_all(parent)
                             .map_err(|err| format!("Failed to create output directory: {err}"))?;
                     }
-                    fs::write(&path, &image.bytes)
-                        .map_err(|err| format!("Failed to save generated image: {err}"))?;
 
                     let filename = path
                         .file_name()
                         .and_then(|value| value.to_str())
                         .unwrap_or_default()
                         .to_string();
+                    let image_created_at = Utc::now();
+
+                    let sidecar = serde_json::json!({
+                        "promptSource": request.prompt,
+                        "promptSnapshot": request.prompt,
+                        "provider": request.provider,
+                        "model": request.model,
+                        "options": {
+                            "aspectRatio": request.options.aspect_ratio,
+                            "imageSize": request.options.image_size,
+                            "temperature": request.options.temperature,
+                            "topP": request.options.top_p,
+                            "seed": request.options.seed,
+                            "thinkingLevel": request.options.thinking_level,
+                        },
+                        "outputTemplate": request.output_template,
+                        "batchId": batch_id,
+                        "imageId": image_id,
+                        "filename": filename,
+                        "path": path.to_string_lossy(),
+                        "createdAt": image_created_at,
+                        "batchCreatedAt": created_at,
+                        "responseMetadata": response.metadata,
+                    });
+
+                    let write_bytes = if image.extension == "png" {
+                        let meta = serde_json::to_string(&sidecar).unwrap_or_default();
+                        image_meta::embed_png_text(&image.bytes, "visioncraft", &meta)
+                    } else {
+                        image.bytes
+                    };
+                    fs::write(&path, &write_bytes)
+                        .map_err(|err| format!("Failed to save generated image: {err}"))?;
+
+                    let sidecar_path = path.with_extension(
+                        path.extension()
+                            .and_then(|ext| ext.to_str())
+                            .map(|ext| format!("{ext}.json"))
+                            .unwrap_or_else(|| "json".to_string()),
+                    );
+                    let _ = serde_json::to_string_pretty(&sidecar)
+                        .ok()
+                        .and_then(|raw| fs::write(&sidecar_path, raw).ok());
+
                     batch.images.push(OutputImage {
                         id: image_id,
                         batch_id: batch_id.clone(),
@@ -150,7 +216,7 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                         model: request.model.clone(),
                         path: path.to_string_lossy().to_string(),
                         filename,
-                        created_at: Utc::now(),
+                        created_at: image_created_at,
                         prompt_snapshot: request.prompt.clone(),
                         metadata: Some(response.metadata.clone()),
                     });
@@ -219,10 +285,12 @@ pub fn run() {
             load_app_state,
             save_app_settings,
             save_current_prompt,
+            save_output_template,
             set_gemini_api_key,
             has_gemini_api_key,
             read_image_data_url,
-            generate_images
+            generate_images,
+            get_config_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running VisionCraft");

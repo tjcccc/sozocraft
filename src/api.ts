@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AppSettings, AppState, GenerationBatch, GenerationRequest } from "./types";
+import type { AppSettings, AppState, ConfigStatus, GenerationBatch, GenerationRequest } from "./types";
 
 export function loadAppState() {
   return invoke<AppState>("load_app_state");
@@ -27,4 +27,12 @@ export function generateImages(request: GenerationRequest) {
 
 export function readImageDataUrl(path: string) {
   return invoke<string>("read_image_data_url", { path });
+}
+
+export function saveOutputTemplate(template: string) {
+  return invoke<void>("save_output_template", { template });
+}
+
+export function getConfigStatus() {
+  return invoke<ConfigStatus>("get_config_status");
 }

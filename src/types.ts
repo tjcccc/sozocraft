@@ -1,5 +1,11 @@
 export type GenerationStatus = "queued" | "running" | "completed" | "failed";
 
+export type ConfigStatus = {
+  configPath: string;
+  hasApiKey: boolean;
+  hasProxy: boolean;
+};
+
 export type AppSettings = {
   defaultModel: string;
   outputDirectory: string;
