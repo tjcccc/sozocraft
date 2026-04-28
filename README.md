@@ -96,6 +96,37 @@ The MVP enables these models:
 
 The backend uses the Gemini `generateContent` REST API and extracts image bytes from inline image response parts.
 
+Generation controls are model-aware:
+
+- Gemini 3.1 Flash Image Preview supports aspect ratios `1:1`, `1:4`, `1:8`,
+  `2:3`, `3:2`, `3:4`, `4:1`, `4:3`, `4:5`, `5:4`, `8:1`, `9:16`, `16:9`,
+  and `21:9`; image sizes `512`, `1K`, `2K`, and `4K`; and thinking levels
+  `minimal` or `high`. The UI accepts up to 14 reference images.
+- Gemini 3 Pro Image Preview supports aspect ratios `1:1`, `2:3`, `3:2`,
+  `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, and `21:9`; image sizes
+  `1K`, `2K`, and `4K`; thinking is model-managed. The UI accepts up to 14
+  reference images.
+- Gemini 2.5 Flash Image supports aspect ratios `1:1`, `2:3`, `3:2`, `3:4`,
+  `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, and `21:9`; image size is
+  model-managed. The UI accepts up to 3 reference images.
+
+Reference images are selected with the native file picker and sent to Gemini as
+inline image data. Supported picker formats are PNG, JPEG, and WebP.
+
+## Output Metadata
+
+Generated images are always saved as PNG files. Non-PNG provider responses are
+converted before writing so SozoCraft can embed stable PNG `tEXt` metadata:
+
+- `prompt`: final rendered prompt sent to the image model
+- `sozocraft`: JSON metadata with `schemaVersion`, `promptSnapshot`,
+  `renderedPrompt`, provider/model/options, batch/image ids, timestamps, and
+  provider response metadata
+
+`promptSnapshot` is the original SozoCraft source prompt. Today it matches the
+plain prompt text; when the PromptCraft DSL is added, it will store the DSL
+source while `prompt` and `renderedPrompt` store the rendered output prompt.
+
 ## Output Filename Template
 
 Default:

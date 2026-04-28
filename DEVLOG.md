@@ -1,5 +1,17 @@
 # DEVLOG
 
+## 2026-04-28 (session 4)
+
+- Bumped app/package/crate version metadata to `0.6.0` for the reference-image and architecture checkpoint.
+- Implemented reference image upload in the generation panel with a compact add tile, thumbnail tiles, per-model max counts, and inline Gemini request payloads.
+- Split frontend UI out of `App.tsx` into panel components, shared UI primitives, focused hooks, utilities, and a Gemini image model catalog.
+- Split backend Gemini model capability constants into `gemini_models.rs`, leaving `models.rs` focused on serializable app/request/history types.
+- Added `spec/ui.md` and `docs/architecture.md` to document current UI conventions and module boundaries.
+- Updated Gemini image option controls from the current official Gemini image-generation docs: model changes now clamp aspect ratio, image size, and thinking options to the selected model's supported profile.
+- Enforced PNG as the saved output format for generated images so metadata embedding is always available.
+- Updated PNG metadata schema: `prompt` stores the rendered model prompt, and the `sozocraft` JSON chunk now includes `schemaVersion`, `promptSnapshot`, and `renderedPrompt`.
+- Added `promptSnapshot` to generation requests for future PromptCraft DSL source retention; current UI sends the plain prompt as both source and rendered prompt.
+
 ## 2026-04-28 (session 3)
 
 - Bumped app/package/crate version metadata to `0.4.0` for the SozoCraft rename checkpoint.

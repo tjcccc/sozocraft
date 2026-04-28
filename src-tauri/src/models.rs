@@ -1,3 +1,4 @@
+use crate::gemini_models::max_reference_images;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -57,8 +58,10 @@ pub struct GenerationRequest {
     pub provider: String,
     pub model: String,
     pub prompt: String,
+    #[serde(default)]
+    pub prompt_snapshot: Option<String>,
     pub batch_count: u32,
-    pub reference_images: Option<Vec<String>>,
+    pub reference_images: Option<Vec<ReferenceImageInput>>,
     pub output_template: String,
     pub options: GenerationOptions,
     pub base_url: Option<String>,
@@ -84,11 +87,31 @@ impl GenerationRequest {
         if !SUPPORTED_MODELS.contains(&self.model.as_str()) {
             return Err(format!("Unsupported Gemini image model: {}", self.model));
         }
+        if self
+            .reference_images
+            .as_ref()
+            .map(|items| items.len() > max_reference_images(&self.model))
+            .unwrap_or(false)
+        {
+            return Err(format!(
+                "{} supports at most {} reference images.",
+                self.model,
+                max_reference_images(&self.model)
+            ));
+        }
         if self.output_template.trim().is_empty() {
             return Err("Output filename template cannot be empty.".to_string());
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceImageInput {
+    pub name: String,
+    pub mime_type: String,
+    pub data: String,
 }
 
 pub const SUPPORTED_MODELS: [&str; 3] = [

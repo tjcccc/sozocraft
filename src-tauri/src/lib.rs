@@ -1,6 +1,7 @@
 mod app_state;
 mod filename_template;
 mod gemini;
+mod gemini_models;
 mod image_meta;
 mod local_config;
 mod models;
@@ -96,6 +97,12 @@ fn read_image_data_url(path: String) -> Result<String, String> {
 async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, String> {
     request.validate()?;
 
+    let rendered_prompt = request.prompt.trim().to_string();
+    let prompt_snapshot = request
+        .prompt_snapshot
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| request.prompt.clone());
     let api_key = local_config::get_gemini_api_key().map_err(|err| err.to_string())?;
     let mut state = load_state().map_err(|err| err.to_string())?;
     let settings = state.settings.clone();
@@ -107,7 +114,7 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
         id: batch_id.clone(),
         provider: request.provider.clone(),
         model: request.model.clone(),
-        prompt_snapshot: request.prompt.clone(),
+        prompt_snapshot: prompt_snapshot.clone(),
         status: GenerationStatus::Running,
         images: Vec::new(),
         created_at,
@@ -144,15 +151,16 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                     let image_id = Uuid::new_v4().to_string();
                     let file_id = format!("{:03}", batch.images.len() + 1);
 
-                    // Normalize to PNG regardless of what the API returned
-                    let (image_bytes, image_ext) = {
-                        let ext = image.extension.clone();
-                        if ext == "png" {
-                            (image.bytes, ext)
-                        } else {
-                            match image_meta::to_png(&image.bytes) {
-                                Ok(png) => (png, "png".to_string()),
-                                Err(_) => (image.bytes, ext),
+                    let image_bytes = if image_meta::is_png(&image.bytes) {
+                        image.bytes
+                    } else {
+                        match image_meta::to_png(&image.bytes) {
+                            Ok(png) => png,
+                            Err(err) => {
+                                last_error = Some(format!(
+                                    "Failed to convert generated image to PNG: {err}"
+                                ));
+                                continue;
                             }
                         }
                     };
@@ -164,7 +172,7 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                         filename_model(&request.model),
                         &file_id,
                         &short_id(&batch_id),
-                        &image_ext,
+                        "png",
                         filename_datetime,
                     )
                     .map_err(|err| err.to_string())?;
@@ -181,32 +189,32 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                         .to_string();
                     let image_created_at = Utc::now();
 
-                    let write_bytes = if image_ext == "png" {
-                        let vc_meta = serde_json::json!({
-                            "promptSource": request.prompt,
-                            "provider": request.provider,
-                            "model": request.model,
-                            "options": {
-                                "aspectRatio": request.options.aspect_ratio,
-                                "imageSize": request.options.image_size,
-                                "temperature": request.options.temperature,
-                                "topP": request.options.top_p,
-                                "seed": request.options.seed,
-                                "thinkingLevel": request.options.thinking_level,
-                            },
-                            "batchId": batch_id,
-                            "imageId": image_id,
-                            "createdAt": image_created_at,
-                            "batchCreatedAt": created_at,
-                            "responseMetadata": response.metadata,
-                        });
-                        let prompt_str = request.prompt.trim().to_string();
-                        let vc_str = serde_json::to_string(&vc_meta).unwrap_or_default();
-                        let with_prompt = image_meta::embed_png_text(&image_bytes, "prompt", &prompt_str);
-                        image_meta::embed_png_text(&with_prompt, "sozocraft", &vc_str)
-                    } else {
-                        image_bytes
-                    };
+                    let vc_meta = serde_json::json!({
+                        "schemaVersion": 1,
+                        "promptSnapshot": prompt_snapshot.clone(),
+                        "renderedPrompt": rendered_prompt.clone(),
+                        "provider": request.provider.clone(),
+                        "model": request.model.clone(),
+                        "options": {
+                            "aspectRatio": request.options.aspect_ratio.clone(),
+                            "imageSize": request.options.image_size.clone(),
+                            "temperature": request.options.temperature,
+                            "topP": request.options.top_p,
+                            "seed": request.options.seed,
+                            "thinkingLevel": request.options.thinking_level.clone(),
+                        },
+                        "batchId": batch_id.clone(),
+                        "imageId": image_id.clone(),
+                        "createdAt": image_created_at,
+                        "batchCreatedAt": created_at,
+                        "responseMetadata": response.metadata.clone(),
+                    });
+                    let vc_str = serde_json::to_string(&vc_meta).unwrap_or_default();
+                    let with_prompt =
+                        image_meta::embed_png_text(&image_bytes, "prompt", &rendered_prompt);
+                    let write_bytes =
+                        image_meta::embed_png_text(&with_prompt, "sozocraft", &vc_str);
+
                     fs::write(&path, &write_bytes)
                         .map_err(|err| format!("Failed to save generated image: {err}"))?;
 
@@ -218,7 +226,7 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                         path: path.to_string_lossy().to_string(),
                         filename,
                         created_at: image_created_at,
-                        prompt_snapshot: request.prompt.clone(),
+                        prompt_snapshot: prompt_snapshot.clone(),
                         metadata: Some(response.metadata.clone()),
                     });
                 }
@@ -245,7 +253,7 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
         batch.completed_at = Some(Utc::now());
     }
 
-    state.current_prompt = request.prompt.clone();
+    state.current_prompt = prompt_snapshot;
     state.batches.insert(0, batch.clone());
     state.batches.truncate(50);
     save_state(&state).map_err(|err| err.to_string())?;

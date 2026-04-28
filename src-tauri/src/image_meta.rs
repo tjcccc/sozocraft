@@ -6,9 +6,13 @@ pub fn to_png(bytes: &[u8]) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-pub fn embed_png_text(bytes: &[u8], key: &str, value: &str) -> Vec<u8> {
+pub fn is_png(bytes: &[u8]) -> bool {
     const PNG_SIG: &[u8] = b"\x89PNG\r\n\x1a\n";
-    if bytes.len() < 8 || &bytes[..8] != PNG_SIG {
+    bytes.len() >= PNG_SIG.len() && &bytes[..PNG_SIG.len()] == PNG_SIG
+}
+
+pub fn embed_png_text(bytes: &[u8], key: &str, value: &str) -> Vec<u8> {
+    if !is_png(bytes) {
         return bytes.to_vec();
     }
 
@@ -42,9 +46,7 @@ pub fn embed_png_text(bytes: &[u8], key: &str, value: &str) -> Vec<u8> {
 fn find_iend(bytes: &[u8]) -> usize {
     let mut pos = 8;
     while pos + 12 <= bytes.len() {
-        let len = u32::from_be_bytes(
-            bytes[pos..pos + 4].try_into().unwrap_or([0; 4]),
-        ) as usize;
+        let len = u32::from_be_bytes(bytes[pos..pos + 4].try_into().unwrap_or([0; 4])) as usize;
         if &bytes[pos + 4..pos + 8] == b"IEND" {
             return pos;
         }
@@ -67,7 +69,11 @@ fn make_crc32_table() -> [u32; 256] {
     for i in 0..256 {
         let mut c = i as u32;
         for _ in 0..8 {
-            c = if c & 1 != 0 { 0xedb88320 ^ (c >> 1) } else { c >> 1 };
+            c = if c & 1 != 0 {
+                0xedb88320 ^ (c >> 1)
+            } else {
+                c >> 1
+            };
         }
         table[i] = c;
     }
@@ -95,10 +101,30 @@ mod tests {
     }
 
     #[test]
+    fn embed_preserves_multiple_text_chunks() {
+        let png = minimal_png();
+        let with_prompt = embed_png_text(&png, "prompt", "rendered prompt");
+        let result = embed_png_text(&with_prompt, "sozocraft", r#"{"schemaVersion":1}"#);
+        let chunks = text_chunks(&result);
+
+        assert!(chunks.contains(&("prompt".to_string(), "rendered prompt".to_string())));
+        assert!(chunks.contains(&(
+            "sozocraft".to_string(),
+            r#"{"schemaVersion":1}"#.to_string()
+        )));
+    }
+
+    #[test]
     fn non_png_returned_unchanged() {
         let jpeg = b"\xff\xd8\xff\xe0hello world";
         let result = embed_png_text(jpeg, "key", "value");
         assert_eq!(result, jpeg.to_vec());
+    }
+
+    #[test]
+    fn is_png_checks_signature() {
+        assert!(is_png(&minimal_png()));
+        assert!(!is_png(b"\xff\xd8\xff\xe0hello world"));
     }
 
     fn minimal_png() -> Vec<u8> {
@@ -118,5 +144,31 @@ mod tests {
         buf.extend_from_slice(b"IEND");
         buf.extend_from_slice(&crc32(b"IEND").to_be_bytes());
         buf
+    }
+
+    fn text_chunks(bytes: &[u8]) -> Vec<(String, String)> {
+        let mut chunks = Vec::new();
+        let mut pos = 8;
+        while pos + 12 <= bytes.len() {
+            let len = u32::from_be_bytes(bytes[pos..pos + 4].try_into().unwrap()) as usize;
+            let chunk_type = &bytes[pos + 4..pos + 8];
+            let data_start = pos + 8;
+            let data_end = data_start + len;
+            if data_end > bytes.len() {
+                break;
+            }
+            if chunk_type == b"tEXt" {
+                if let Some(split) = bytes[data_start..data_end]
+                    .iter()
+                    .position(|byte| *byte == 0)
+                {
+                    let key = String::from_utf8_lossy(&bytes[data_start..data_start + split]);
+                    let value = String::from_utf8_lossy(&bytes[data_start + split + 1..data_end]);
+                    chunks.push((key.to_string(), value.to_string()));
+                }
+            }
+            pos += 12 + len;
+        }
+        chunks
     }
 }

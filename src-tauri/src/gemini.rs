@@ -1,4 +1,10 @@
-use crate::models::GenerationRequest;
+use crate::{
+    gemini_models::{
+        GEMINI_2_5_FLASH_ASPECT_RATIOS, GEMINI_3_FLASH_ASPECT_RATIOS, GEMINI_3_FLASH_IMAGE_SIZES,
+        GEMINI_3_FLASH_THINKING_LEVELS, GEMINI_3_PRO_ASPECT_RATIOS, GEMINI_3_PRO_IMAGE_SIZES,
+    },
+    models::GenerationRequest,
+};
 use base64::{engine::general_purpose, Engine as _};
 use reqwest::{Client, Proxy, StatusCode};
 use serde_json::{json, Value};
@@ -28,7 +34,6 @@ pub struct GeminiClient {
 #[derive(Debug, Clone)]
 pub struct GeminiGeneratedImage {
     pub bytes: Vec<u8>,
-    pub extension: String,
 }
 
 #[derive(Debug, Clone)]
@@ -100,18 +105,16 @@ fn build_request_body(request: &GenerationRequest) -> Value {
     let mut parts = vec![json!({ "text": request.prompt.trim() })];
 
     if let Some(reference_images) = &request.reference_images {
-        for path in reference_images {
-            if path.trim().is_empty() {
+        for image in reference_images {
+            if image.data.trim().is_empty() {
                 continue;
             }
-            if let Ok(bytes) = std::fs::read(path) {
-                parts.push(json!({
-                    "inline_data": {
-                        "mimeType": guess_mime(path),
-                        "data": general_purpose::STANDARD.encode(bytes)
-                    }
-                }));
-            }
+            parts.push(json!({
+                "inline_data": {
+                    "mimeType": supported_input_mime(&image.mime_type),
+                    "data": image.data
+                }
+            }));
         }
     }
 
@@ -134,29 +137,23 @@ fn build_request_body(request: &GenerationRequest) -> Value {
     }
 
     let mut image_config = serde_json::Map::new();
-    if let Some(aspect_ratio) = &request.options.aspect_ratio {
-        if aspect_ratio != "Auto" {
-            image_config.insert("aspectRatio".to_string(), json!(aspect_ratio));
-        }
+    if let Some(aspect_ratio) = supported_aspect_ratio(request) {
+        image_config.insert("aspectRatio".to_string(), json!(aspect_ratio));
     }
 
-    if request.model != "gemini-2.5-flash-image" {
-        if let Some(image_size) = &request.options.image_size {
-            image_config.insert("imageSize".to_string(), json!(image_size));
-        }
+    if let Some(image_size) = supported_image_size(request) {
+        image_config.insert("imageSize".to_string(), json!(image_size));
     }
 
     if !image_config.is_empty() {
         generation_config["imageConfig"] = Value::Object(image_config);
     }
 
-    if request.model == "gemini-3.1-flash-image-preview" {
-        if let Some(thinking_level) = &request.options.thinking_level {
-            generation_config["thinkingConfig"] = json!({
-                "thinkingLevel": thinking_level,
-                "includeThoughts": false
-            });
-        }
+    if let Some(thinking_level) = supported_thinking_level(request) {
+        generation_config["thinkingConfig"] = json!({
+            "thinkingLevel": thinking_level,
+            "includeThoughts": false
+        });
     }
 
     json!({
@@ -166,6 +163,44 @@ fn build_request_body(request: &GenerationRequest) -> Value {
         }],
         "generationConfig": generation_config
     })
+}
+
+fn supported_aspect_ratio(request: &GenerationRequest) -> Option<&str> {
+    let aspect_ratio = request.options.aspect_ratio.as_deref()?;
+    if aspect_ratio == "Auto" {
+        return None;
+    }
+
+    let supported = match request.model.as_str() {
+        "gemini-3-pro-image-preview" => GEMINI_3_PRO_ASPECT_RATIOS.as_slice(),
+        "gemini-3.1-flash-image-preview" => GEMINI_3_FLASH_ASPECT_RATIOS.as_slice(),
+        "gemini-2.5-flash-image" => GEMINI_2_5_FLASH_ASPECT_RATIOS.as_slice(),
+        _ => return None,
+    };
+
+    supported.contains(&aspect_ratio).then_some(aspect_ratio)
+}
+
+fn supported_image_size(request: &GenerationRequest) -> Option<&str> {
+    let image_size = request.options.image_size.as_deref()?;
+    let supported = match request.model.as_str() {
+        "gemini-3-pro-image-preview" => GEMINI_3_PRO_IMAGE_SIZES.as_slice(),
+        "gemini-3.1-flash-image-preview" => GEMINI_3_FLASH_IMAGE_SIZES.as_slice(),
+        _ => return None,
+    };
+
+    supported.contains(&image_size).then_some(image_size)
+}
+
+fn supported_thinking_level(request: &GenerationRequest) -> Option<&str> {
+    if request.model != "gemini-3.1-flash-image-preview" {
+        return None;
+    }
+
+    let thinking_level = request.options.thinking_level.as_deref()?;
+    GEMINI_3_FLASH_THINKING_LEVELS
+        .contains(&thinking_level)
+        .then_some(thinking_level)
 }
 
 fn parse_response(json: Value) -> Result<GeminiResponse, GeminiError> {
@@ -188,15 +223,7 @@ fn parse_response(json: Value) -> Result<GeminiResponse, GeminiError> {
                     let bytes = general_purpose::STANDARD
                         .decode(data)
                         .map_err(|_| GeminiError::InvalidImageData)?;
-                    let mime = inline
-                        .get("mimeType")
-                        .or_else(|| inline.get("mime_type"))
-                        .and_then(|value| value.as_str())
-                        .unwrap_or("image/png");
-                    images.push(GeminiGeneratedImage {
-                        bytes,
-                        extension: extension_for_mime(mime).to_string(),
-                    });
+                    images.push(GeminiGeneratedImage { bytes });
                 }
             }
         }
@@ -210,24 +237,10 @@ fn parse_response(json: Value) -> Result<GeminiResponse, GeminiError> {
     Ok(GeminiResponse { images, metadata })
 }
 
-fn extension_for_mime(mime: &str) -> &'static str {
-    match mime {
-        "image/jpeg" | "image/jpg" => "jpg",
-        "image/webp" => "webp",
-        _ => "png",
-    }
-}
-
-fn guess_mime(path: &str) -> &'static str {
-    match std::path::Path::new(path)
-        .extension()
-        .and_then(|value| value.to_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "jpg" | "jpeg" => "image/jpeg",
-        "webp" => "image/webp",
+fn supported_input_mime(mime_type: &str) -> &'static str {
+    match mime_type.trim().to_ascii_lowercase().as_str() {
+        "image/jpeg" | "image/jpg" => "image/jpeg",
+        "image/webp" => "image/webp",
         _ => "image/png",
     }
 }
@@ -235,6 +248,7 @@ fn guess_mime(path: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::{GenerationOptions, ReferenceImageInput};
 
     #[test]
     fn parses_inline_image_response() {
@@ -254,6 +268,76 @@ mod tests {
         let parsed = parse_response(response).unwrap();
         assert_eq!(parsed.images.len(), 1);
         assert_eq!(parsed.images[0].bytes, vec![1, 2, 3]);
-        assert_eq!(parsed.images[0].extension, "png");
+    }
+
+    #[test]
+    fn flash_3_1_payload_allows_extended_size_and_thinking_options() {
+        let body = build_request_body(&request_for_model("gemini-3.1-flash-image-preview"));
+        let config = body.get("generationConfig").unwrap();
+
+        assert_eq!(config["imageConfig"]["aspectRatio"], "1:8");
+        assert_eq!(config["imageConfig"]["imageSize"], "512");
+        assert_eq!(config["thinkingConfig"]["thinkingLevel"], "high");
+    }
+
+    #[test]
+    fn payload_includes_reference_images_as_inline_data() {
+        let mut request = request_for_model("gemini-3.1-flash-image-preview");
+        request.reference_images = Some(vec![ReferenceImageInput {
+            name: "ref.png".to_string(),
+            mime_type: "image/png".to_string(),
+            data: "abc123".to_string(),
+        }]);
+
+        let body = build_request_body(&request);
+        let parts = body["contents"][0]["parts"].as_array().unwrap();
+
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[1]["inline_data"]["mimeType"], "image/png");
+        assert_eq!(parts[1]["inline_data"]["data"], "abc123");
+    }
+
+    #[test]
+    fn pro_payload_rejects_512_and_model_managed_thinking() {
+        let body = build_request_body(&request_for_model("gemini-3-pro-image-preview"));
+        let config = body.get("generationConfig").unwrap();
+
+        assert_eq!(config["imageConfig"]["aspectRatio"], "21:9");
+        assert_eq!(config["imageConfig"].get("imageSize"), None);
+        assert_eq!(config.get("thinkingConfig"), None);
+    }
+
+    #[test]
+    fn flash_2_5_payload_omits_image_size_and_thinking() {
+        let body = build_request_body(&request_for_model("gemini-2.5-flash-image"));
+        let config = body.get("generationConfig").unwrap();
+
+        assert_eq!(config["imageConfig"]["aspectRatio"], "21:9");
+        assert_eq!(config["imageConfig"].get("imageSize"), None);
+        assert_eq!(config.get("thinkingConfig"), None);
+    }
+
+    fn request_for_model(model: &str) -> GenerationRequest {
+        GenerationRequest {
+            provider: "nano-banana".to_string(),
+            model: model.to_string(),
+            prompt: "Render a test image".to_string(),
+            prompt_snapshot: None,
+            batch_count: 1,
+            reference_images: None,
+            output_template: "{id}.{extension}".to_string(),
+            options: GenerationOptions {
+                aspect_ratio: Some(match model {
+                    "gemini-3.1-flash-image-preview" => "1:8".to_string(),
+                    _ => "21:9".to_string(),
+                }),
+                image_size: Some("512".to_string()),
+                temperature: Some(-1.0),
+                top_p: Some(0.95),
+                seed: Some(7),
+                thinking_level: Some("high".to_string()),
+            },
+            base_url: None,
+        }
     }
 }

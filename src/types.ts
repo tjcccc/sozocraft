@@ -34,11 +34,20 @@ export type GenerationRequest = {
   provider: "nano-banana";
   model: string;
   prompt: string;
+  promptSnapshot?: string | null;
   batchCount: number;
-  referenceImages?: string[];
+  referenceImages?: ReferenceImageInput[];
   outputTemplate: string;
   options: GenerationOptions;
   baseUrl?: string | null;
+};
+
+export type ReferenceImageInput = {
+  id: string;
+  name: string;
+  mimeType: string;
+  data: string;
+  dataUrl: string;
 };
 
 export type OutputImage = {
