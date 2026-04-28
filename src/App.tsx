@@ -4,7 +4,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  Circle,
+  ScrollText,
   Copy,
   FolderOpen,
   Image as ImageIcon,
@@ -465,7 +465,7 @@ function PromptColumn({
 
   return (
     <section className="panel prompt-panel">
-      <PanelHeader icon={<Circle size={16} />} title="Prompt Editor" />
+      <PanelHeader icon={<ScrollText size={16} />} title="Prompt Editor" />
       <div className="prompt-body">
         <aside className="prompt-library">
           <div className="search-box">
@@ -577,13 +577,6 @@ function GenerationColumn(props: {
             </select>
           </Field>
         ) : null}
-        <Field label="Seed">
-          <input
-            placeholder="Auto"
-            value={props.seed}
-            onChange={(event) => props.setSeed(event.target.value)}
-          />
-        </Field>
         <Field label="Temperature">
           <input
             max={1}
@@ -617,6 +610,13 @@ function GenerationColumn(props: {
             </select>
           </Field>
         ) : null}
+        <Field label="Seed">
+          <input
+            placeholder="Auto"
+            value={props.seed}
+            onChange={(event) => props.setSeed(event.target.value)}
+          />
+        </Field>
         <Field label="Batch">
           <input
             max={8}
@@ -755,10 +755,7 @@ function OutputColumn({
         ) : null}
       </div>
 
-      <div
-        className="history-section"
-        style={historyOpen ? { flex: `0 0 ${historyHeight}px` } : { flex: "0 0 32px" }}
-      >
+      <div className="history-section" style={historyOpen ? { flex: `0 0 ${historyHeight}px` } : { flex: "0 0 32px" }}>
         {historyOpen ? (
           <div
             aria-label="Resize history panel"
@@ -952,8 +949,8 @@ function ImageTile({
         <div className="image-placeholder">Loading</div>
       )}
       <footer>
-        <span>#{index}</span>
-        <span>{image.filename}</span>
+        <span># {index}</span>
+        {/*<span>{image.filename}</span>*/}
         <time>{formatTime(image.createdAt)}</time>
       </footer>
     </article>
@@ -1080,6 +1077,7 @@ function formatTime(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   }).format(new Date(value));
 }
 
