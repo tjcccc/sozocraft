@@ -102,7 +102,7 @@ pub fn get_gemini_api_key() -> io::Result<String> {
     if key.is_empty() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
-            "Gemini API key is missing in ~/.visioncraft/config.toml",
+            "Gemini API key is missing in ~/.sozocraft/config.toml",
         ));
     }
     Ok(key)
@@ -125,7 +125,7 @@ pub fn has_proxy_configured() -> bool {
 pub fn config_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| Path::new(".").to_path_buf())
-        .join(".visioncraft")
+        .join(".sozocraft")
         .join("config.toml")
 }
 

@@ -35,7 +35,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         let output_directory = dirs::picture_dir()
             .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))
-            .join("VisionCraft")
+            .join("SozoCraft")
             .to_string_lossy()
             .to_string();
 

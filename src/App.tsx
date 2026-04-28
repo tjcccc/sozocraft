@@ -288,7 +288,7 @@ export function App() {
     return (
       <main className="loading">
         <Loader2 className="spin" size={22} />
-        <span>Loading VisionCraft</span>
+        <span>Loading SōzōCraft</span>
       </main>
     );
   }
@@ -298,8 +298,8 @@ export function App() {
       <header className="toolbar">
         <div className="toolbar-left">
           <div className="brand">
-            <div className="brand-mark">V</div>
-            <strong>VisionCraft</strong>
+            <div className="brand-mark">S</div>
+            <strong>SōzōCraft</strong>
           </div>
         </div>
         <div className="toolbar-center">
@@ -857,7 +857,7 @@ function SettingsPanel({
       <Field label="Gemini API Key">
         <div className="template-row">
           <input
-            placeholder={apiKeySaved ? "Stored in ~/.visioncraft/config.toml" : "Paste API key"}
+            placeholder={apiKeySaved ? "Stored in ~/.sozocraft/config.toml" : "Paste API key"}
             type="password"
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}

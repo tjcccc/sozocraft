@@ -203,7 +203,7 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                         let prompt_str = request.prompt.trim().to_string();
                         let vc_str = serde_json::to_string(&vc_meta).unwrap_or_default();
                         let with_prompt = image_meta::embed_png_text(&image_bytes, "prompt", &prompt_str);
-                        image_meta::embed_png_text(&with_prompt, "visioncraft", &vc_str)
+                        image_meta::embed_png_text(&with_prompt, "sozocraft", &vc_str)
                     } else {
                         image_bytes
                     };
@@ -230,7 +230,7 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                     .filter(|value| !value.trim().is_empty())
                     .map(|value| format!("Proxy configured: {value}"))
                     .unwrap_or_else(|| {
-                        "No proxy configured. Set gemini.proxy_url in ~/.visioncraft/config.toml or save Proxy URL in settings.".to_string()
+                        "No proxy configured. Set gemini.proxy_url in ~/.sozocraft/config.toml or save Proxy URL in settings.".to_string()
                     });
                 last_error = Some(format!("{err}. {proxy_note}"));
             }
@@ -294,5 +294,5 @@ pub fn run() {
             get_config_status
         ])
         .run(tauri::generate_context!())
-        .expect("error while running VisionCraft");
+        .expect("error while running SozoCraft");
 }

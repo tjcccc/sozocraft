@@ -36,5 +36,5 @@ fn app_data_dir() -> PathBuf {
     dirs::data_local_dir()
         .or_else(dirs::data_dir)
         .unwrap_or_else(|| Path::new(".").to_path_buf())
-        .join("VisionCraft")
+        .join("SozoCraft")
 }

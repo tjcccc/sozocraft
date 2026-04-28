@@ -1,11 +1,11 @@
-# VisionCraft Next TODOs
+# SozoCraft Next TODOs
 
 ## v0.1.x Stabilization
 
 - Make `.{extension}` optional in output templates. If omitted, append the extension detected from the generated image MIME type.
 - Save per-image sidecar metadata JSON next to each output image, including prompt source, final prompt snapshot, provider, model, generation options, filename template, timestamps, and response metadata.
 - Add template validation feedback in the UI before generation, including unsupported date tokens, missing output directory, and examples for `yyyyMMdd_HHmmss`.
-- Add a small config status panel showing the active `~/.visioncraft/config.toml` path, whether proxy is configured, and whether the Gemini API key is present.
+- Add a small config status panel showing the active `~/.sozocraft/config.toml` path, whether proxy is configured, and whether the Gemini API key is present.
 - Improve failed batch history entries so the user can expand and inspect the exact provider error.
 
 ## Prompt Workflow

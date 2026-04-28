@@ -1,5 +1,14 @@
 # DEVLOG
 
+## 2026-04-28 (session 3)
+
+- Bumped app/package/crate version metadata to `0.4.0` for the SozoCraft rename checkpoint.
+- Completed the repository/package/product rename to SozoCraft / `sozocraft`.
+- Updated Tauri product name, window title, bundle identifier, Rust crate/lib names, npm package name, visible UI copy, docs, and config examples.
+- App UI name/logo uses the stylized `SōzōCraft` spelling while repo/package identifiers remain ASCII.
+- New local config/state paths use `~/.sozocraft/config.toml` and `SozoCraft/state.json`.
+- New PNG metadata tEXt chunks use `sozocraft` as the app metadata key.
+
 ## 2026-04-28 (session 2)
 
 - Preview area is blank on startup; only shows a batch after the user explicitly generates or clicks a history row. Replaced `expandedBatch ?? filteredBatches[0]` fallback with a dedicated `previewBatchId` state (null on startup). Generation sets it to the new batch; history-row click sets it to that batch.
@@ -17,7 +26,7 @@
 - Error messages from failed generation are shown inline in the output preview area (red banner) in addition to the status bar.
 - Added `image` crate (JPEG/PNG codec only) for client-side format conversion.
 - Output images are now always PNG: non-PNG responses (JPEG/WebP) are converted via `image_meta::to_png` before saving.
-- Changed PNG tEXt embedding from a single `visioncraft` chunk to two chunks: `prompt` (raw prompt text as sent to the API) and `visioncraft` (generation metadata without `promptSnapshot`, `filename`, `outputTemplate`, `path`).
+- Changed PNG tEXt embedding from a single `sozocraft` chunk to two chunks: `prompt` (raw prompt text as sent to the API) and `sozocraft` (generation metadata without `promptSnapshot`, `filename`, `outputTemplate`, `path`).
 
 ## 2026-04-27 (session 3)
 
@@ -35,7 +44,7 @@
 
 ## 2026-04-27 (session 2)
 
-- Added `save_output_template` Tauri command that write-modify-writes only the `output.template` key in `~/.visioncraft/config.toml`; hooked to `onBlur` on the filename template input in the Output panel.
+- Added `save_output_template` Tauri command that write-modify-writes only the `output.template` key in `~/.sozocraft/config.toml`; hooked to `onBlur` on the filename template input in the Output panel.
 - Restructured toolbar to a 3-column grid (`toolbar-left` / `toolbar-center` / `toolbar-right`): brand stays left, Run/Stop are centered, Image/Video mode switch + Settings button are right-aligned.
 - Removed batch stepper and StatusPill from the toolbar; StatusPill and Provider/Model info now live exclusively in the status bar.
 - Added Image/Video mode switch (Video disabled, placeholder for v0.2) to the right side of the toolbar.
@@ -43,7 +52,7 @@
 - Changed generation option defaults: aspect ratio → 4:3, image size → 2K, temperature → −1 (model default / not sent to API), thinking → HIGH.
 - Fixed temperature guard in `gemini.rs`: values < 0 are no longer forwarded to the Gemini API.
 - Auto-generate random seed when seed input is empty at generation time; populated value shown in the seed field after run.
-- Added `src-tauri/src/image_meta.rs`: PNG tEXt chunk embedding with inline CRC32 (IEEE 802.3, no external deps); sidecar JSON is now also embedded in PNG output files as a `visioncraft` tEXt chunk for future drag-drop metadata loading (ComfyUI-style).
+- Added `src-tauri/src/image_meta.rs`: PNG tEXt chunk embedding with inline CRC32 (IEEE 802.3, no external deps); sidecar JSON is now also embedded in PNG output files as a `sozocraft` tEXt chunk for future drag-drop metadata loading (ComfyUI-style).
 - Added `field-hint` style shown below Temperature input when value is −1.
 
 ## 2026-04-27
@@ -51,18 +60,18 @@
 - Made `{extension}` optional in output filename templates; the MIME-detected extension is appended automatically when the token is absent.
 - Removed the corresponding validation gate that previously rejected templates without `{extension}`.
 - Added per-image sidecar JSON files (`<image>.png.json`) saved alongside each output image, containing prompt source/snapshot, provider, model, generation options, filename template, batch/image timestamps, and Gemini response metadata.
-- Added `get_config_status` Tauri command returning the active `~/.visioncraft/config.toml` path, Gemini API key presence, and proxy configuration status.
+- Added `get_config_status` Tauri command returning the active `~/.sozocraft/config.toml` path, Gemini API key presence, and proxy configuration status.
 - Added config status panel inside SettingsPanel showing the three config indicators as coloured badges.
 - Added live template validation feedback in the Output Images panel: flags unsupported/uppercase date tokens and shows a rendered example of the current template.
 - Made failed batch history entries expandable to show the full provider error text inline.
 
 ## 2026-04-26
 
-- Scaffolded VisionCraft `0.1.0` MVP plan into a Tauri 2 + React + TypeScript + Rust desktop app.
+- Scaffolded SozoCraft `0.1.0` MVP plan into a Tauri 2 + React + TypeScript + Rust desktop app.
 - Added Rust backend modules for state persistence, local Gemini config, Gemini generation, filename template resolution, and output image saving.
 - Added a three-column desktop UI for prompt editing, Nano Banana generation controls, and output gallery/history.
 - Kept PromptCraft DSL, Prompt Bridge, ComfyUI, GPT-Image, Grok Imagine, reference image upload, and video generation as roadmap items.
-- Switched local configuration to `~/.visioncraft/config.toml`, including Gemini API key, model, output path, proxy, and timeout.
+- Switched local configuration to `~/.sozocraft/config.toml`, including Gemini API key, model, output path, proxy, and timeout.
 - Added resizable workspace columns and a resizable prompt preview pane.
 - Updated filename handling to use Unicode-style date tokens such as `yyyyMMdd_HHmmss`, local-time output names, batch-local image ids like `001`, and Gemini-friendly filename aliases.
 - Added `TODO.md` with the next stabilization and PromptCraft integration plan.

@@ -1,6 +1,9 @@
-# VisionCraft
+# SozoCraft
 
-VisionCraft is a macOS-first, cross-platform desktop AI visual generation studio and prompt management workspace.
+SozoCraft is a macOS-first, cross-platform desktop AI visual generation studio and prompt management workspace.
+
+The name comes from Japanese `sōzō` / `souzou`, evoking both imagination
+(`想像`) and creation (`創造`).
 
 This repository currently targets the `0.1.0` MVP:
 
@@ -58,10 +61,10 @@ Open the settings button in the top toolbar and configure:
 - optional proxy URL, for example `http://127.0.0.1:7890`
 - timeout
 
-VisionCraft stores local configuration in:
+SozoCraft stores local configuration in:
 
 ```text
-~/.visioncraft/config.toml
+~/.sozocraft/config.toml
 ```
 
 Example:
@@ -75,13 +78,13 @@ proxy_url = "http://127.0.0.1:7890"
 timeout_seconds = 180
 
 [output]
-directory = "/Users/you/Pictures/VisionCraft"
+directory = "/Users/you/Pictures/SozoCraft"
 template = "{yyMMdd}/{provider}_{model}_{datetime:yyyyMMdd_HHmmss}_{id}.{extension}"
 ```
 
 The config file is local-only and must not be committed. API keys are never stored in project files.
 
-Non-secret app state is stored in the platform local data directory under `VisionCraft/state.json`. Generated images are saved to the configured output directory.
+Non-secret app state is stored in the platform local data directory under `SozoCraft/state.json`. Generated images are saved to the configured output directory.
 
 ## Gemini Models
 
@@ -111,7 +114,7 @@ Supported variables:
 - `{batch_id}`
 - `{extension}`
 
-Provider and model values are sanitized for filesystem safety. For Gemini generation, filename aliases use `gemini` as provider and names such as `nano-banana-2` as model. `{id}` is the batch-local image order, for example `001`. Existing files are not overwritten; VisionCraft appends a numeric suffix when needed.
+Provider and model values are sanitized for filesystem safety. For Gemini generation, filename aliases use `gemini` as provider and names such as `nano-banana-2` as model. `{id}` is the batch-local image order, for example `001`. Existing files are not overwritten; SozoCraft appends a numeric suffix when needed.
 
 ## Validation
 

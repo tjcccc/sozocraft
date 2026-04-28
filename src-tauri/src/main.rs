@@ -1,3 +1,3 @@
 fn main() {
-    visioncraft_lib::run();
+    sozocraft_lib::run();
 }
