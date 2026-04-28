@@ -143,6 +143,20 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                 for image in response.images {
                     let image_id = Uuid::new_v4().to_string();
                     let file_id = format!("{:03}", batch.images.len() + 1);
+
+                    // Normalize to PNG regardless of what the API returned
+                    let (image_bytes, image_ext) = {
+                        let ext = image.extension.clone();
+                        if ext == "png" {
+                            (image.bytes, ext)
+                        } else {
+                            match image_meta::to_png(&image.bytes) {
+                                Ok(png) => (png, "png".to_string()),
+                                Err(_) => (image.bytes, ext),
+                            }
+                        }
+                    };
+
                     let path = resolve_output_path(
                         &settings.output_directory,
                         &request.output_template,
@@ -150,7 +164,7 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                         filename_model(&request.model),
                         &file_id,
                         &short_id(&batch_id),
-                        image.extension.as_str(),
+                        &image_ext,
                         filename_datetime,
                     )
                     .map_err(|err| err.to_string())?;
@@ -167,47 +181,34 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                         .to_string();
                     let image_created_at = Utc::now();
 
-                    let sidecar = serde_json::json!({
-                        "promptSource": request.prompt,
-                        "promptSnapshot": request.prompt,
-                        "provider": request.provider,
-                        "model": request.model,
-                        "options": {
-                            "aspectRatio": request.options.aspect_ratio,
-                            "imageSize": request.options.image_size,
-                            "temperature": request.options.temperature,
-                            "topP": request.options.top_p,
-                            "seed": request.options.seed,
-                            "thinkingLevel": request.options.thinking_level,
-                        },
-                        "outputTemplate": request.output_template,
-                        "batchId": batch_id,
-                        "imageId": image_id,
-                        "filename": filename,
-                        "path": path.to_string_lossy(),
-                        "createdAt": image_created_at,
-                        "batchCreatedAt": created_at,
-                        "responseMetadata": response.metadata,
-                    });
-
-                    let write_bytes = if image.extension == "png" {
-                        let meta = serde_json::to_string(&sidecar).unwrap_or_default();
-                        image_meta::embed_png_text(&image.bytes, "visioncraft", &meta)
+                    let write_bytes = if image_ext == "png" {
+                        let vc_meta = serde_json::json!({
+                            "promptSource": request.prompt,
+                            "provider": request.provider,
+                            "model": request.model,
+                            "options": {
+                                "aspectRatio": request.options.aspect_ratio,
+                                "imageSize": request.options.image_size,
+                                "temperature": request.options.temperature,
+                                "topP": request.options.top_p,
+                                "seed": request.options.seed,
+                                "thinkingLevel": request.options.thinking_level,
+                            },
+                            "batchId": batch_id,
+                            "imageId": image_id,
+                            "createdAt": image_created_at,
+                            "batchCreatedAt": created_at,
+                            "responseMetadata": response.metadata,
+                        });
+                        let prompt_str = request.prompt.trim().to_string();
+                        let vc_str = serde_json::to_string(&vc_meta).unwrap_or_default();
+                        let with_prompt = image_meta::embed_png_text(&image_bytes, "prompt", &prompt_str);
+                        image_meta::embed_png_text(&with_prompt, "visioncraft", &vc_str)
                     } else {
-                        image.bytes
+                        image_bytes
                     };
                     fs::write(&path, &write_bytes)
                         .map_err(|err| format!("Failed to save generated image: {err}"))?;
-
-                    let sidecar_path = path.with_extension(
-                        path.extension()
-                            .and_then(|ext| ext.to_str())
-                            .map(|ext| format!("{ext}.json"))
-                            .unwrap_or_else(|| "json".to_string()),
-                    );
-                    let _ = serde_json::to_string_pretty(&sidecar)
-                        .ok()
-                        .and_then(|raw| fs::write(&sidecar_path, raw).ok());
 
                     batch.images.push(OutputImage {
                         id: image_id,

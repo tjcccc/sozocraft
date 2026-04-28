@@ -1,3 +1,11 @@
+pub fn to_png(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let img = image::load_from_memory(bytes).map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    img.write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
+    Ok(out)
+}
+
 pub fn embed_png_text(bytes: &[u8], key: &str, value: &str) -> Vec<u8> {
     const PNG_SIG: &[u8] = b"\x89PNG\r\n\x1a\n";
     if bytes.len() < 8 || &bytes[..8] != PNG_SIG {

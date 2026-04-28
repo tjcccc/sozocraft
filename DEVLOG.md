@@ -1,5 +1,24 @@
 # DEVLOG
 
+## 2026-04-28 (session 2)
+
+- Preview area is blank on startup; only shows a batch after the user explicitly generates or clicks a history row. Replaced `expandedBatch ?? filteredBatches[0]` fallback with a dedicated `previewBatchId` state (null on startup). Generation sets it to the new batch; history-row click sets it to that batch.
+- Resize handle for the history drawer is now `position: absolute` and transparent — no longer renders as a visible extra bar above the History toggle.
+- Removed card border/border-radius from preview gallery image tiles; image fills full tile width. Gallery `align-content` changed to `flex-start`.
+- Single-image batch uses `gallery-single` class: tile takes 100% gallery width instead of 50%.
+- Batch info bar moved from top heading to bottom-center of the preview area with 16 px bottom padding (`batch-info-bar`).
+
+## 2026-04-28
+
+- Removed `mimeType: "image/png"` from `imageConfig` request — API returned 400. Client-side JPEG→PNG conversion (`image_meta::to_png`) is the only path now.
+- Removed sidecar `.json` file output; metadata is embedded directly in the PNG tEXt chunks only.
+- History panel converted to a collapsible bottom drawer: collapsed = 32px bar showing "History" label; click to open at 280px default; height is resizable by dragging the top handle.
+- Preview area (upper section) now follows the selected history batch: clicking a row updates the gallery above. Falls back to the latest batch for the current date when nothing is selected. `expandedBatchId` is cleared on date change and after each new generation.
+- Error messages from failed generation are shown inline in the output preview area (red banner) in addition to the status bar.
+- Added `image` crate (JPEG/PNG codec only) for client-side format conversion.
+- Output images are now always PNG: non-PNG responses (JPEG/WebP) are converted via `image_meta::to_png` before saving.
+- Changed PNG tEXt embedding from a single `visioncraft` chunk to two chunks: `prompt` (raw prompt text as sent to the API) and `visioncraft` (generation metadata without `promptSnapshot`, `filename`, `outputTemplate`, `path`).
+
 ## 2026-04-27 (session 3)
 
 - Fixed status bar Provider/Model alignment: switched `.statusbar` to `display: grid; grid-template-columns: 1fr auto 1fr` so the center item is geometrically centered.
