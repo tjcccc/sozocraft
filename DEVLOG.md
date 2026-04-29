@@ -1,5 +1,10 @@
 # DEVLOG
 
+## 2026-04-29
+
+- Added Gemini REST `safetySettings` with `BLOCK_NONE` for the adjustable sexually explicit category.
+- Expanded the `Gemini returned no image data.` failure path to include prompt feedback, candidate finish reasons/messages, safety ratings, and text response snippets when Gemini returns them without inline image parts.
+
 ## 2026-04-28 (session 4)
 
 - Bumped app/package/crate version metadata to `0.6.0` for the reference-image and architecture checkpoint.

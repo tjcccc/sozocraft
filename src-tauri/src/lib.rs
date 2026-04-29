@@ -143,7 +143,7 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
         match client.generate(&item_request).await {
             Ok(response) => {
                 if response.images.is_empty() {
-                    last_error = Some("Gemini returned no image data.".to_string());
+                    last_error = Some(gemini::no_image_data_error(&response.metadata));
                     continue;
                 }
 

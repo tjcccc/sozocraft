@@ -157,12 +157,22 @@ fn build_request_body(request: &GenerationRequest) -> Value {
     }
 
     json!({
+        "safetySettings": default_safety_settings(),
         "contents": [{
             "role": "user",
             "parts": parts
         }],
         "generationConfig": generation_config
     })
+}
+
+fn default_safety_settings() -> Value {
+    json!([
+        {
+            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "BLOCK_NONE"
+        }
+    ])
 }
 
 fn supported_aspect_ratio(request: &GenerationRequest) -> Option<&str> {
@@ -231,10 +241,123 @@ fn parse_response(json: Value) -> Result<GeminiResponse, GeminiError> {
 
     let metadata = json!({
         "usageMetadata": json.get("usageMetadata").cloned().unwrap_or(Value::Null),
-        "modelVersion": json.get("modelVersion").cloned().unwrap_or(Value::Null)
+        "modelVersion": json.get("modelVersion").cloned().unwrap_or(Value::Null),
+        "promptFeedback": json.get("promptFeedback").cloned().unwrap_or(Value::Null),
+        "candidates": summarize_candidates(&json)
     });
 
     Ok(GeminiResponse { images, metadata })
+}
+
+pub fn no_image_data_error(metadata: &Value) -> String {
+    let mut details = vec!["Gemini returned no image data.".to_string()];
+
+    if let Some(prompt_feedback) = metadata.get("promptFeedback") {
+        if let Some(block_reason) = prompt_feedback.get("blockReason").and_then(Value::as_str) {
+            details.push(format!("Prompt block reason: {block_reason}."));
+        }
+        if let Some(safety) = prompt_feedback.get("safetyRatings") {
+            if let Some(summary) = safety_ratings_summary(safety) {
+                details.push(format!("Prompt safety ratings: {summary}."));
+            }
+        }
+    }
+
+    if let Some(candidates) = metadata.get("candidates").and_then(Value::as_array) {
+        if candidates.is_empty() {
+            details.push("Response contained no candidates.".to_string());
+        }
+
+        for (index, candidate) in candidates.iter().enumerate() {
+            let label = format!("Candidate {}", index + 1);
+            if let Some(finish_reason) = candidate.get("finishReason").and_then(Value::as_str) {
+                details.push(format!("{label} finish reason: {finish_reason}."));
+            }
+            if let Some(finish_message) = candidate.get("finishMessage").and_then(Value::as_str) {
+                details.push(format!("{label} finish message: {finish_message}."));
+            }
+            if let Some(safety) = candidate.get("safetyRatings") {
+                if let Some(summary) = safety_ratings_summary(safety) {
+                    details.push(format!("{label} safety ratings: {summary}."));
+                }
+            }
+            if let Some(text) = candidate
+                .get("textParts")
+                .and_then(Value::as_array)
+                .and_then(|items| items.first())
+                .and_then(Value::as_str)
+            {
+                details.push(format!("{label} text response: {}.", truncate(text, 500)));
+            }
+        }
+    }
+
+    details.join("\n")
+}
+
+fn summarize_candidates(json: &Value) -> Value {
+    let Some(candidates) = json.get("candidates").and_then(Value::as_array) else {
+        return Value::Null;
+    };
+
+    Value::Array(
+        candidates
+            .iter()
+            .map(|candidate| {
+                let text_parts = candidate
+                    .get("content")
+                    .and_then(|content| content.get("parts"))
+                    .and_then(Value::as_array)
+                    .map(|parts| {
+                        parts
+                            .iter()
+                            .filter_map(|part| part.get("text").and_then(Value::as_str))
+                            .map(|text| Value::String(truncate(text, 1000)))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+
+                json!({
+                    "finishReason": candidate.get("finishReason").cloned().unwrap_or(Value::Null),
+                    "finishMessage": candidate.get("finishMessage").cloned().unwrap_or(Value::Null),
+                    "safetyRatings": candidate.get("safetyRatings").cloned().unwrap_or(Value::Null),
+                    "textParts": text_parts
+                })
+            })
+            .collect(),
+    )
+}
+
+fn safety_ratings_summary(value: &Value) -> Option<String> {
+    let ratings = value.as_array()?;
+    let items = ratings
+        .iter()
+        .filter_map(|rating| {
+            let category = rating.get("category").and_then(Value::as_str)?;
+            let probability = rating
+                .get("probability")
+                .and_then(Value::as_str)
+                .unwrap_or("UNKNOWN");
+            let blocked = rating
+                .get("blocked")
+                .and_then(Value::as_bool)
+                .map(|value| if value { ", blocked" } else { "" })
+                .unwrap_or("");
+            Some(format!("{category}={probability}{blocked}"))
+        })
+        .collect::<Vec<_>>();
+
+    (!items.is_empty()).then(|| items.join(", "))
+}
+
+fn truncate(value: &str, max_chars: usize) -> String {
+    let mut chars = value.chars();
+    let truncated = chars.by_ref().take(max_chars).collect::<String>();
+    if chars.next().is_some() {
+        format!("{truncated}...")
+    } else {
+        truncated
+    }
 }
 
 fn supported_input_mime(mime_type: &str) -> &'static str {
@@ -254,6 +377,11 @@ mod tests {
     fn parses_inline_image_response() {
         let response = json!({
             "candidates": [{
+                "finishReason": "STOP",
+                "safetyRatings": [{
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "probability": "NEGLIGIBLE"
+                }],
                 "content": {
                     "parts": [{
                         "inlineData": {
@@ -268,6 +396,53 @@ mod tests {
         let parsed = parse_response(response).unwrap();
         assert_eq!(parsed.images.len(), 1);
         assert_eq!(parsed.images[0].bytes, vec![1, 2, 3]);
+        assert_eq!(parsed.metadata["candidates"][0]["finishReason"], "STOP");
+        assert_eq!(
+            parsed.metadata["candidates"][0]["safetyRatings"][0]["category"],
+            "HARM_CATEGORY_SEXUALLY_EXPLICIT"
+        );
+    }
+
+    #[test]
+    fn payload_includes_adjustable_safety_settings() {
+        let body = build_request_body(&request_for_model("gemini-3.1-flash-image-preview"));
+        let safety = body["safetySettings"].as_array().unwrap();
+
+        assert!(safety.iter().any(|setting| {
+            setting["category"] == "HARM_CATEGORY_SEXUALLY_EXPLICIT"
+                && setting["threshold"] == "BLOCK_NONE"
+        }));
+        assert_eq!(safety.len(), 1);
+    }
+
+    #[test]
+    fn no_image_data_error_includes_safety_diagnostics() {
+        let metadata = json!({
+            "promptFeedback": {
+                "blockReason": "SAFETY",
+                "safetyRatings": [{
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "probability": "HIGH",
+                    "blocked": true
+                }]
+            },
+            "candidates": [{
+                "finishReason": "SAFETY",
+                "finishMessage": "Safety filters blocked the candidate.",
+                "safetyRatings": [{
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "probability": "LOW"
+                }],
+                "textParts": ["I cannot provide that image."]
+            }]
+        });
+
+        let message = no_image_data_error(&metadata);
+
+        assert!(message.contains("Prompt block reason: SAFETY."));
+        assert!(message.contains("HARM_CATEGORY_SEXUALLY_EXPLICIT=HIGH, blocked"));
+        assert!(message.contains("Candidate 1 finish reason: SAFETY."));
+        assert!(message.contains("I cannot provide that image."));
     }
 
     #[test]
