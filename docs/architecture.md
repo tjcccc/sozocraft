@@ -11,6 +11,8 @@
   - `useImagePreviews` loads saved image files into data URLs.
   - `useModelOptions` clamps generation options to the selected model.
 - `src/models/geminiImageModels.ts` is the frontend Gemini image model capability catalog.
+- `src/models/imageProviders.ts` is the frontend provider catalog for Nano Banana,
+  GPT-Image, and Grok Imagine.
 - `src/utils/` contains pure formatting, validation, and numeric helpers.
 
 ## Backend
@@ -18,6 +20,10 @@
 - `src-tauri/src/models.rs` contains serializable app/request/history types.
 - `src-tauri/src/gemini_models.rs` contains Gemini image model capability constants.
 - `src-tauri/src/gemini.rs` builds Gemini requests, parses responses, and guards model-specific options.
+- `src-tauri/src/openai_image.rs` builds OpenAI Image API generation requests and
+  parses base64 image responses.
+- `src-tauri/src/xai_image.rs` builds xAI Grok Imagine generation requests and
+  parses base64 image responses.
 - `src-tauri/src/image_meta.rs` handles PNG conversion and metadata embedding.
 - `src-tauri/src/local_config.rs` manages `~/.sozocraft/config.toml`.
 - `src-tauri/src/app_state.rs` manages local app state under the platform data directory.
@@ -33,5 +39,9 @@
 
 - Frontend option clamping improves UX, but backend request building is the source of safety for API payloads.
 - Reference images are selected in the frontend, stored as browser data URLs/base64 payloads for the current run, and sent to the backend as inline image data.
+- Reference images are enabled for Nano Banana and Grok Imagine. Grok Imagine
+  reference-image runs use xAI's JSON `/v1/images/edits` endpoint with data URI
+  image objects and no mask support. GPT-Image currently enables `gpt-image-2`
+  generation only; reference-image/edit flows are left explicit for later work.
 - Keep frontend and backend Gemini model capability catalogs synchronized when the official API changes.
 - Avoid adding global state libraries, generated schemas, or routing until the app has a concrete need.

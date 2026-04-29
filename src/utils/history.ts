@@ -11,7 +11,8 @@ export function batchTitle(batch: GenerationBatch): string {
     String(d.getSeconds()).padStart(2, "0"),
   ].join(":");
   const suffix = batch.images.length > 1 ? " (batch)" : "";
-  return `${date} ${time} - ${providerDisplayName(batch.provider)} / ${geminiImageModelDisplayName(batch.model)} - ${shortId(batch.id)}${suffix}`;
+  // return `${date} ${time} - ${providerDisplayName(batch.provider)} / ${geminiImageModelDisplayName(batch.model)} - ${shortId(batch.id)}${suffix}`;
+  return `${date} ${time} - ${shortId(batch.id)}${suffix}`;
 }
 
 function providerDisplayName(provider: string): string {

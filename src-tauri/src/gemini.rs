@@ -130,12 +130,6 @@ fn build_request_body(request: &GenerationRequest) -> Value {
     if let Some(top_p) = request.options.top_p {
         generation_config["topP"] = json!(top_p);
     }
-    if let Some(seed) = request.options.seed {
-        if seed >= 0 {
-            generation_config["seed"] = json!(seed);
-        }
-    }
-
     let mut image_config = serde_json::Map::new();
     if let Some(aspect_ratio) = supported_aspect_ratio(request) {
         image_config.insert("aspectRatio".to_string(), json!(aspect_ratio));
@@ -509,8 +503,8 @@ mod tests {
                 image_size: Some("512".to_string()),
                 temperature: Some(-1.0),
                 top_p: Some(0.95),
-                seed: Some(7),
                 thinking_level: Some("high".to_string()),
+                quality: None,
             },
             base_url: None,
         }

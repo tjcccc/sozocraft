@@ -24,28 +24,61 @@ impl Default for AppState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
+    #[serde(default = "default_provider")]
+    pub default_provider: String,
+    #[serde(default = "default_model")]
     pub default_model: String,
+    #[serde(default = "default_output_directory")]
     pub output_directory: String,
+    #[serde(default = "default_output_template")]
     pub output_template: String,
+    #[serde(default)]
     pub optional_base_url: Option<String>,
+    #[serde(default)]
+    pub openai_base_url: Option<String>,
+    #[serde(default)]
+    pub xai_base_url: Option<String>,
+    #[serde(default)]
     pub proxy_url: Option<String>,
+    #[serde(default = "default_timeout_seconds")]
     pub timeout_seconds: u64,
+}
+
+fn default_provider() -> String {
+    "nano-banana".to_string()
+}
+
+fn default_model() -> String {
+    "gemini-3-pro-image-preview".to_string()
+}
+
+fn default_output_template() -> String {
+    "{provider}_{model}_{datetime:yyyyMMdd_HHmmss}_{id}.{extension}".to_string()
+}
+
+fn default_timeout_seconds() -> u64 {
+    180
+}
+
+fn default_output_directory() -> String {
+    dirs::picture_dir()
+        .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))
+        .join("SozoCraft")
+        .to_string_lossy()
+        .to_string()
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
-        let output_directory = dirs::picture_dir()
-            .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))
-            .join("SozoCraft")
-            .to_string_lossy()
-            .to_string();
-
         Self {
+            default_provider: "nano-banana".to_string(),
             default_model: "gemini-3-pro-image-preview".to_string(),
-            output_directory,
+            output_directory: default_output_directory(),
             output_template: "{provider}_{model}_{datetime:yyyyMMdd_HHmmss}_{id}.{extension}"
                 .to_string(),
             optional_base_url: None,
+            openai_base_url: None,
+            xai_base_url: None,
             proxy_url: None,
             timeout_seconds: 180,
         }
@@ -69,8 +102,8 @@ pub struct GenerationRequest {
 
 impl GenerationRequest {
     pub fn validate(&self) -> Result<(), String> {
-        if self.provider != "nano-banana" {
-            return Err("Only the nano-banana provider is implemented in v0.1.0.".to_string());
+        if !["nano-banana", "gpt-image", "grok-imagine"].contains(&self.provider.as_str()) {
+            return Err(format!("Unsupported image provider: {}", self.provider));
         }
         if self.prompt.trim().is_empty()
             && self
@@ -84,19 +117,35 @@ impl GenerationRequest {
         if !(1..=8).contains(&self.batch_count) {
             return Err("Batch count must be between 1 and 8.".to_string());
         }
-        if !SUPPORTED_MODELS.contains(&self.model.as_str()) {
-            return Err(format!("Unsupported Gemini image model: {}", self.model));
+        if !supported_models(&self.provider).contains(&self.model.as_str()) {
+            return Err(format!(
+                "Unsupported {} image model: {}",
+                self.provider, self.model
+            ));
+        }
+        if !["nano-banana", "grok-imagine"].contains(&self.provider.as_str())
+            && self
+                .reference_images
+                .as_ref()
+                .map(|items| !items.is_empty())
+                .unwrap_or(false)
+        {
+            return Err(
+                "Reference images are currently implemented for Nano Banana only.".to_string(),
+            );
         }
         if self
             .reference_images
             .as_ref()
-            .map(|items| items.len() > max_reference_images(&self.model))
+            .map(|items| {
+                items.len() > max_reference_images_for_provider(&self.provider, &self.model)
+            })
             .unwrap_or(false)
         {
             return Err(format!(
                 "{} supports at most {} reference images.",
                 self.model,
-                max_reference_images(&self.model)
+                max_reference_images_for_provider(&self.provider, &self.model)
             ));
         }
         if self.output_template.trim().is_empty() {
@@ -120,6 +169,26 @@ pub const SUPPORTED_MODELS: [&str; 3] = [
     "gemini-2.5-flash-image",
 ];
 
+pub const OPENAI_IMAGE_MODELS: [&str; 1] = ["gpt-image-2"];
+
+pub const XAI_IMAGE_MODELS: [&str; 1] = ["grok-imagine-image"];
+
+fn supported_models(provider: &str) -> &'static [&'static str] {
+    match provider {
+        "nano-banana" => &SUPPORTED_MODELS,
+        "gpt-image" => &OPENAI_IMAGE_MODELS,
+        "grok-imagine" => &XAI_IMAGE_MODELS,
+        _ => &[],
+    }
+}
+
+fn max_reference_images_for_provider(provider: &str, model: &str) -> usize {
+    match provider {
+        "grok-imagine" => 5,
+        _ => max_reference_images(model),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerationOptions {
@@ -127,8 +196,8 @@ pub struct GenerationOptions {
     pub image_size: Option<String>,
     pub temperature: Option<f32>,
     pub top_p: Option<f32>,
-    pub seed: Option<i64>,
     pub thinking_level: Option<String>,
+    pub quality: Option<String>,
 }
 
 impl Default for GenerationOptions {
@@ -138,8 +207,8 @@ impl Default for GenerationOptions {
             image_size: Some("1K".to_string()),
             temperature: Some(0.5),
             top_p: Some(0.95),
-            seed: None,
             thinking_level: Some("MINIMAL".to_string()),
+            quality: None,
         }
     }
 }

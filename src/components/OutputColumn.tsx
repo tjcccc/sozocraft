@@ -6,13 +6,14 @@ import {
   Copy,
   Image as ImageIcon,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { AppSettings, GenerationBatch } from "../types";
 import { localDateString } from "../utils/dates";
 import { batchTitle } from "../utils/history";
 import { clamp } from "../utils/math";
 import { validateOutputTemplate } from "../utils/outputTemplate";
 import { Field, ImageTile, PanelHeader, StatusText } from "./common";
+import type { LightboxImage } from "./ImageLightbox";
 
 export function OutputColumn({
   batches,
@@ -27,6 +28,7 @@ export function OutputColumn({
   setHistoryDate,
   setPreviewBatchId,
   setSettings,
+  onPreviewImages,
   onSaveTemplate,
 }: {
   batches: GenerationBatch[];
@@ -41,6 +43,7 @@ export function OutputColumn({
   setHistoryDate: (date: string) => void;
   setPreviewBatchId: (id: string | null) => void;
   setSettings: (settings: AppSettings) => void;
+  onPreviewImages: (images: LightboxImage[], index: number) => void;
   onSaveTemplate: (template: string) => void;
 }) {
   const panelRef = useRef<HTMLElement>(null);
@@ -50,6 +53,10 @@ export function OutputColumn({
 
   const templateIssues = validateOutputTemplate(settings.outputTemplate);
   const todayStr = localDateString(new Date().toISOString());
+  const previewImages = useMemo(
+    () => lightboxImagesForBatch(previewBatch, imageDataUrls, failedImagePaths),
+    [failedImagePaths, imageDataUrls, previewBatch],
+  );
 
   function shiftDate(days: number) {
     const d = new Date(historyDate + "T12:00:00");
@@ -124,6 +131,10 @@ export function OutputColumn({
               image={image}
               index={index + 1}
               key={image.id}
+              onPreview={() => {
+                const previewIndex = previewImages.findIndex((item) => item.id === image.id);
+                onPreviewImages(previewImages, Math.max(0, previewIndex));
+              }}
               src={imageDataUrls[image.path]}
             />
           ))}
@@ -192,7 +203,21 @@ export function OutputColumn({
                               {failedImagePaths.has(image.path) ? (
                                 <div className="thumb-state missing">File not found</div>
                               ) : imageDataUrls[image.path] ? (
-                                <img alt={image.filename} src={imageDataUrls[image.path]} />
+                                <button
+                                  className="history-preview-button"
+                                  onClick={() => {
+                                    const images = lightboxImagesForBatch(
+                                      batch,
+                                      imageDataUrls,
+                                      failedImagePaths,
+                                    );
+                                    const previewIndex = images.findIndex((item) => item.id === image.id);
+                                    onPreviewImages(images, Math.max(0, previewIndex));
+                                  }}
+                                  type="button"
+                                >
+                                  <img alt={image.filename} src={imageDataUrls[image.path]} />
+                                </button>
                               ) : (
                                 <div className="thumb-state">Loading</div>
                               )}
@@ -215,4 +240,18 @@ export function OutputColumn({
       </div>
     </section>
   );
+}
+
+function lightboxImagesForBatch(
+  batch: GenerationBatch | undefined,
+  imageDataUrls: Record<string, string>,
+  failedImagePaths: Set<string>,
+): LightboxImage[] {
+  return (batch?.images ?? [])
+    .filter((image) => imageDataUrls[image.path] && !failedImagePaths.has(image.path))
+    .map((image) => ({
+      id: image.id,
+      alt: image.filename,
+      src: imageDataUrls[image.path],
+    }));
 }

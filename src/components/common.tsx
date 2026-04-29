@@ -54,24 +54,28 @@ export function ImageTile({
   image,
   index,
   src,
+  onPreview,
 }: {
   failed?: boolean;
   image: OutputImage;
   index: number;
   src?: string;
+  onPreview?: () => void;
 }) {
   return (
     <article className="image-tile">
       {failed ? (
         <div className="image-placeholder missing">File not found</div>
       ) : src ? (
-        <img alt={image.filename} src={src} />
+        <button className="image-preview-button" onClick={onPreview} type="button">
+          <img alt={image.filename} src={src} />
+        </button>
       ) : (
         <div className="image-placeholder">Loading</div>
       )}
       <footer>
-        <span># {index}</span>
-        <time>{formatTime(image.createdAt)}</time>
+        {index > 1 && <span># {index}</span>}
+        {/*<time>{formatTime(image.createdAt)}</time>*/}
       </footer>
     </article>
   );

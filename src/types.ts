@@ -3,14 +3,19 @@ export type GenerationStatus = "queued" | "running" | "completed" | "failed";
 export type ConfigStatus = {
   configPath: string;
   hasApiKey: boolean;
+  hasOpenaiApiKey: boolean;
+  hasXaiApiKey: boolean;
   hasProxy: boolean;
 };
 
 export type AppSettings = {
+  defaultProvider: "nano-banana" | "gpt-image" | "grok-imagine";
   defaultModel: string;
   outputDirectory: string;
   outputTemplate: string;
   optionalBaseUrl?: string | null;
+  openaiBaseUrl?: string | null;
+  xaiBaseUrl?: string | null;
   proxyUrl?: string | null;
   timeoutSeconds: number;
 };
@@ -26,12 +31,12 @@ export type GenerationOptions = {
   imageSize?: string | null;
   temperature?: number | null;
   topP?: number | null;
-  seed?: number | null;
   thinkingLevel?: string | null;
+  quality?: string | null;
 };
 
 export type GenerationRequest = {
-  provider: "nano-banana";
+  provider: "nano-banana" | "gpt-image" | "grok-imagine";
   model: string;
   prompt: string;
   promptSnapshot?: string | null;

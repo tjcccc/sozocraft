@@ -8,9 +8,21 @@ use std::{
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct LocalConfig {
     #[serde(default)]
+    app: AppConfig,
+    #[serde(default)]
     gemini: GeminiConfig,
     #[serde(default)]
+    openai: OpenAiConfig,
+    #[serde(default)]
+    xai: XaiConfig,
+    #[serde(default)]
     output: OutputConfig,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct AppConfig {
+    #[serde(default)]
+    default_provider: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -28,6 +40,26 @@ struct GeminiConfig {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct OpenAiConfig {
+    #[serde(default)]
+    api_key: String,
+    #[serde(default)]
+    default_model: Option<String>,
+    #[serde(default)]
+    base_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct XaiConfig {
+    #[serde(default)]
+    api_key: String,
+    #[serde(default)]
+    default_model: Option<String>,
+    #[serde(default)]
+    base_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct OutputConfig {
     #[serde(default)]
     directory: Option<String>,
@@ -40,12 +72,32 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
         return defaults;
     };
 
-    AppSettings {
-        default_model: config
+    let default_provider = config
+        .app
+        .default_provider
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(defaults.default_provider);
+    let default_model = match default_provider.as_str() {
+        "gpt-image" => config
+            .openai
+            .default_model
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(defaults.default_model),
+        "grok-imagine" => config
+            .xai
+            .default_model
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(defaults.default_model),
+        _ => config
             .gemini
             .default_model
             .filter(|value| !value.trim().is_empty())
             .unwrap_or(defaults.default_model),
+    };
+
+    AppSettings {
+        default_provider,
+        default_model,
         output_directory: config
             .output
             .directory
@@ -61,6 +113,16 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .base_url
             .filter(|value| !value.trim().is_empty())
             .or(defaults.optional_base_url),
+        openai_base_url: config
+            .openai
+            .base_url
+            .filter(|value| !value.trim().is_empty())
+            .or(defaults.openai_base_url),
+        xai_base_url: config
+            .xai
+            .base_url
+            .filter(|value| !value.trim().is_empty())
+            .or(defaults.xai_base_url),
         proxy_url: config
             .gemini
             .proxy_url
@@ -75,8 +137,15 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
 
 pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
     let mut config = load_config().unwrap_or_default();
-    config.gemini.default_model = Some(settings.default_model.clone());
+    config.app.default_provider = Some(settings.default_provider.clone());
+    match settings.default_provider.as_str() {
+        "gpt-image" => config.openai.default_model = Some(settings.default_model.clone()),
+        "grok-imagine" => config.xai.default_model = Some(settings.default_model.clone()),
+        _ => config.gemini.default_model = Some(settings.default_model.clone()),
+    }
     config.gemini.base_url = normalize_optional(settings.optional_base_url.clone());
+    config.openai.base_url = normalize_optional(settings.openai_base_url.clone());
+    config.xai.base_url = normalize_optional(settings.xai_base_url.clone());
     config.gemini.proxy_url = normalize_optional(settings.proxy_url.clone());
     config.gemini.timeout_seconds = Some(settings.timeout_seconds);
     config.output.directory = Some(settings.output_directory.clone());
@@ -96,6 +165,18 @@ pub fn set_gemini_api_key(api_key: &str) -> io::Result<()> {
     save_config(&config)
 }
 
+pub fn set_openai_api_key(api_key: &str) -> io::Result<()> {
+    let mut config = load_config().unwrap_or_default();
+    config.openai.api_key = api_key.trim().to_string();
+    save_config(&config)
+}
+
+pub fn set_xai_api_key(api_key: &str) -> io::Result<()> {
+    let mut config = load_config().unwrap_or_default();
+    config.xai.api_key = api_key.trim().to_string();
+    save_config(&config)
+}
+
 pub fn get_gemini_api_key() -> io::Result<String> {
     let config = load_config()?;
     let key = config.gemini.api_key.trim().to_string();
@@ -108,8 +189,44 @@ pub fn get_gemini_api_key() -> io::Result<String> {
     Ok(key)
 }
 
+pub fn get_openai_api_key() -> io::Result<String> {
+    let config = load_config()?;
+    let key = config.openai.api_key.trim().to_string();
+    if key.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "OpenAI API key is missing in ~/.sozocraft/config.toml",
+        ));
+    }
+    Ok(key)
+}
+
+pub fn get_xai_api_key() -> io::Result<String> {
+    let config = load_config()?;
+    let key = config.xai.api_key.trim().to_string();
+    if key.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "xAI API key is missing in ~/.sozocraft/config.toml",
+        ));
+    }
+    Ok(key)
+}
+
 pub fn has_gemini_api_key() -> bool {
     get_gemini_api_key()
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+}
+
+pub fn has_openai_api_key() -> bool {
+    get_openai_api_key()
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+}
+
+pub fn has_xai_api_key() -> bool {
+    get_xai_api_key()
         .map(|value| !value.trim().is_empty())
         .unwrap_or(false)
 }
@@ -123,10 +240,13 @@ pub fn has_proxy_configured() -> bool {
 }
 
 pub fn config_path() -> PathBuf {
+    config_dir().join("config.toml")
+}
+
+pub fn config_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| Path::new(".").to_path_buf())
         .join(".sozocraft")
-        .join("config.toml")
 }
 
 fn load_config() -> io::Result<LocalConfig> {

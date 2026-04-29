@@ -25,7 +25,7 @@ export function useGeneration({
   const [imageSize, setImageSize] = useState("2K");
   const [temperature, setTemperature] = useState(-1);
   const [topP, setTopP] = useState(0.95);
-  const [seed, setSeed] = useState("");
+  const [quality, setQuality] = useState("auto");
   const [thinkingLevel, setThinkingLevel] = useState("minimal");
   const [referenceImages, setReferenceImages] = useState<ReferenceImageInput[]>([]);
 
@@ -37,31 +37,29 @@ export function useGeneration({
     setMessage("Generating images");
     await saveCurrentPrompt(prompt);
 
-    const requestSeed = seed.trim()
-      ? Number(seed)
-      : Math.floor(Math.random() * 2_147_483_647);
-    if (!seed.trim()) {
-      setSeed(String(requestSeed));
-    }
-
     try {
       await saveAppSettings(settings);
       const batch = await generateImages({
-        provider: "nano-banana",
+        provider: settings.defaultProvider,
         model: settings.defaultModel,
         prompt,
         promptSnapshot: prompt,
         batchCount,
         referenceImages,
         outputTemplate: settings.outputTemplate,
-        baseUrl: settings.optionalBaseUrl,
+        baseUrl:
+          settings.defaultProvider === "gpt-image"
+            ? settings.openaiBaseUrl
+            : settings.defaultProvider === "grok-imagine"
+              ? settings.xaiBaseUrl
+              : settings.optionalBaseUrl,
         options: {
           aspectRatio,
           imageSize,
           temperature,
           topP,
-          seed: requestSeed,
           thinkingLevel,
+          quality,
         },
       });
       setBatches((current) => [batch, ...current.filter((item) => item.id !== batch.id)]);
@@ -78,8 +76,8 @@ export function useGeneration({
     batchCount,
     imageSize,
     prompt,
+    quality,
     referenceImages,
-    seed,
     setBatches,
     setExpandedBatchId,
     setMessage,
@@ -95,7 +93,7 @@ export function useGeneration({
     aspectRatio,
     batchCount,
     imageSize,
-    seed,
+    quality,
     temperature,
     thinkingLevel,
     topP,
@@ -104,8 +102,8 @@ export function useGeneration({
     setAspectRatio,
     setBatchCount,
     setImageSize,
+    setQuality,
     setReferenceImages,
-    setSeed,
     setTemperature,
     setThinkingLevel,
     setTopP,

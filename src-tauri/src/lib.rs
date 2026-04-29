@@ -1,28 +1,36 @@
 mod app_state;
+mod error_log;
 mod filename_template;
 mod gemini;
 mod gemini_models;
 mod image_meta;
 mod local_config;
 mod models;
+mod openai_image;
+mod xai_image;
 
 use app_state::{load_state, save_state};
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{Local, Utc};
+use error_log::GenerationErrorLog;
 use filename_template::resolve_output_path;
 use gemini::GeminiClient;
 use models::{
     AppSettings, AppState, GenerationBatch, GenerationRequest, GenerationStatus, OutputImage,
 };
+use openai_image::OpenAiImageClient;
 use serde::Serialize;
 use std::{fs, path::PathBuf};
 use uuid::Uuid;
+use xai_image::XaiImageClient;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ConfigStatus {
     config_path: String,
     has_api_key: bool,
+    has_openai_api_key: bool,
+    has_xai_api_key: bool,
     has_proxy: bool,
 }
 
@@ -31,6 +39,8 @@ fn get_config_status() -> ConfigStatus {
     ConfigStatus {
         config_path: local_config::config_path().to_string_lossy().to_string(),
         has_api_key: local_config::has_gemini_api_key(),
+        has_openai_api_key: local_config::has_openai_api_key(),
+        has_xai_api_key: local_config::has_xai_api_key(),
         has_proxy: local_config::has_proxy_configured(),
     }
 }
@@ -69,8 +79,30 @@ fn set_gemini_api_key(api_key: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+fn set_openai_api_key(api_key: String) -> Result<bool, String> {
+    local_config::set_openai_api_key(&api_key).map_err(|err| err.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn set_xai_api_key(api_key: String) -> Result<bool, String> {
+    local_config::set_xai_api_key(&api_key).map_err(|err| err.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
 fn has_gemini_api_key() -> bool {
     local_config::has_gemini_api_key()
+}
+
+#[tauri::command]
+fn has_openai_api_key() -> bool {
+    local_config::has_openai_api_key()
+}
+
+#[tauri::command]
+fn has_xai_api_key() -> bool {
+    local_config::has_xai_api_key()
 }
 
 #[tauri::command]
@@ -103,7 +135,6 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
         .clone()
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| request.prompt.clone());
-    let api_key = local_config::get_gemini_api_key().map_err(|err| err.to_string())?;
     let mut state = load_state().map_err(|err| err.to_string())?;
     let settings = state.settings.clone();
     let batch_id = Uuid::new_v4().to_string();
@@ -122,28 +153,37 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
         error: None,
     };
 
-    let client = GeminiClient::new(
-        api_key,
-        request
-            .base_url
-            .clone()
-            .or_else(|| settings.optional_base_url.clone()),
-        settings.proxy_url.clone(),
-        settings.timeout_seconds,
-    )
-    .map_err(|err| err.to_string())?;
-
     let mut last_error: Option<String> = None;
-    for index in 0..request.batch_count {
-        let mut item_request = request.clone();
-        if let Some(seed) = request.options.seed {
-            item_request.options.seed = Some(seed + index as i64);
-        }
+    let attempts = if ["gpt-image", "grok-imagine"].contains(&request.provider.as_str()) {
+        1
+    } else {
+        request.batch_count
+    };
+    for index in 0..attempts {
+        let item_request = request.clone();
 
-        match client.generate(&item_request).await {
+        match generate_with_provider(&item_request, &settings).await {
             Ok(response) => {
                 if response.images.is_empty() {
-                    last_error = Some(gemini::no_image_data_error(&response.metadata));
+                    let message = no_image_data_error(&request.provider, &response.metadata);
+                    error_log::log_generation_error(&GenerationErrorLog {
+                        timestamp: Utc::now(),
+                        batch_id: &batch_id,
+                        provider: &request.provider,
+                        model: &request.model,
+                        attempt: index + 1,
+                        kind: "no_image_data",
+                        message: &message,
+                        base_url: request
+                            .base_url
+                            .as_deref()
+                            .or(effective_base_url(&request.provider, &settings)),
+                        proxy_url: settings.proxy_url.as_deref(),
+                        timeout_seconds: settings.timeout_seconds,
+                        reference_image_count: error_log::reference_image_count(&item_request),
+                        response_metadata: Some(error_log::no_image_metadata(&response.metadata)),
+                    });
+                    last_error = Some(message);
                     continue;
                 }
 
@@ -200,8 +240,8 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                             "imageSize": request.options.image_size.clone(),
                             "temperature": request.options.temperature,
                             "topP": request.options.top_p,
-                            "seed": request.options.seed,
                             "thinkingLevel": request.options.thinking_level.clone(),
+                            "quality": request.options.quality.clone(),
                         },
                         "batchId": batch_id.clone(),
                         "imageId": image_id.clone(),
@@ -238,8 +278,27 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
                     .filter(|value| !value.trim().is_empty())
                     .map(|value| format!("Proxy configured: {value}"))
                     .unwrap_or_else(|| {
-                        "No proxy configured. Set gemini.proxy_url in ~/.sozocraft/config.toml or save Proxy URL in settings.".to_string()
+                        "No proxy configured. Save Proxy URL in settings or set the provider proxy in ~/.sozocraft/config.toml.".to_string()
                     });
+                let detailed_error = err.clone();
+                let message = format!("{detailed_error}. {proxy_note}");
+                error_log::log_generation_error(&GenerationErrorLog {
+                    timestamp: Utc::now(),
+                    batch_id: &batch_id,
+                    provider: &request.provider,
+                    model: &request.model,
+                    attempt: index + 1,
+                    kind: "request_failed",
+                    message: &message,
+                    base_url: request
+                        .base_url
+                        .as_deref()
+                        .or(effective_base_url(&request.provider, &settings)),
+                    proxy_url: settings.proxy_url.as_deref(),
+                    timeout_seconds: settings.timeout_seconds,
+                    reference_image_count: error_log::reference_image_count(&item_request),
+                    response_metadata: None,
+                });
                 last_error = Some(format!("{err}. {proxy_note}"));
             }
         }
@@ -271,6 +330,8 @@ async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, 
 fn filename_provider(provider: &str) -> &str {
     match provider {
         "nano-banana" => "gemini",
+        "gpt-image" => "openai",
+        "grok-imagine" => "xai",
         value => value,
     }
 }
@@ -280,7 +341,118 @@ fn filename_model(model: &str) -> &str {
         "gemini-3-pro-image-preview" => "nano-banana-pro",
         "gemini-3.1-flash-image-preview" => "nano-banana-2",
         "gemini-2.5-flash-image" => "nano-banana",
+        "gpt-image-2" => "gpt-image-2",
+        "grok-imagine-image" => "grok-imagine",
         value => value,
+    }
+}
+
+fn effective_base_url<'a>(provider: &str, settings: &'a AppSettings) -> Option<&'a str> {
+    match provider {
+        "gpt-image" => settings.openai_base_url.as_deref(),
+        "grok-imagine" => settings.xai_base_url.as_deref(),
+        _ => settings.optional_base_url.as_deref(),
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ProviderGeneratedImage {
+    bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+struct ProviderResponse {
+    images: Vec<ProviderGeneratedImage>,
+    metadata: serde_json::Value,
+}
+
+async fn generate_with_provider(
+    request: &GenerationRequest,
+    settings: &AppSettings,
+) -> Result<ProviderResponse, String> {
+    match request.provider.as_str() {
+        "nano-banana" => {
+            let client = GeminiClient::new(
+                local_config::get_gemini_api_key().map_err(|err| err.to_string())?,
+                request
+                    .base_url
+                    .clone()
+                    .or_else(|| settings.optional_base_url.clone()),
+                settings.proxy_url.clone(),
+                settings.timeout_seconds,
+            )
+            .map_err(|err| err.to_string())?;
+            let response = client
+                .generate(request)
+                .await
+                .map_err(|err| err.to_string())?;
+            Ok(ProviderResponse {
+                images: response
+                    .images
+                    .into_iter()
+                    .map(|image| ProviderGeneratedImage { bytes: image.bytes })
+                    .collect(),
+                metadata: response.metadata,
+            })
+        }
+        "gpt-image" => {
+            let client = OpenAiImageClient::new(
+                local_config::get_openai_api_key().map_err(|err| err.to_string())?,
+                request
+                    .base_url
+                    .clone()
+                    .or_else(|| settings.openai_base_url.clone()),
+                settings.proxy_url.clone(),
+                settings.timeout_seconds,
+            )
+            .map_err(|err| err.to_string())?;
+            let response = client
+                .generate(request)
+                .await
+                .map_err(|err| err.to_string())?;
+            Ok(ProviderResponse {
+                images: response
+                    .images
+                    .into_iter()
+                    .map(|image| ProviderGeneratedImage { bytes: image.bytes })
+                    .collect(),
+                metadata: response.metadata,
+            })
+        }
+        "grok-imagine" => {
+            let client = XaiImageClient::new(
+                local_config::get_xai_api_key().map_err(|err| err.to_string())?,
+                request
+                    .base_url
+                    .clone()
+                    .or_else(|| settings.xai_base_url.clone()),
+                settings.proxy_url.clone(),
+                settings.timeout_seconds,
+            )
+            .map_err(|err| err.to_string())?;
+            let response = client
+                .generate(request)
+                .await
+                .map_err(|err| err.to_string())?;
+            Ok(ProviderResponse {
+                images: response
+                    .images
+                    .into_iter()
+                    .map(|image| ProviderGeneratedImage { bytes: image.bytes })
+                    .collect(),
+                metadata: response.metadata,
+            })
+        }
+        value => Err(format!("Unsupported image provider: {value}")),
+    }
+}
+
+fn no_image_data_error(provider: &str, metadata: &serde_json::Value) -> String {
+    match provider {
+        "nano-banana" => gemini::no_image_data_error(metadata),
+        "gpt-image" => "OpenAI returned no image data.".to_string(),
+        "grok-imagine" => "xAI returned no image data.".to_string(),
+        _ => "Provider returned no image data.".to_string(),
     }
 }
 
@@ -296,7 +468,11 @@ pub fn run() {
             save_current_prompt,
             save_output_template,
             set_gemini_api_key,
+            set_openai_api_key,
+            set_xai_api_key,
             has_gemini_api_key,
+            has_openai_api_key,
+            has_xai_api_key,
             read_image_data_url,
             generate_images,
             get_config_status

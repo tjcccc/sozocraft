@@ -2,6 +2,19 @@
 
 ## 2026-04-29
 
+- Bumped app/package/crate version metadata to `0.8.0` for the multi-provider image generation checkpoint. GPT-Image generation is wired but remains unfinished until live endpoint validation passes.
+- Added active GPT-Image and Grok Imagine image provider tabs alongside Nano Banana, with text-to-image generation routed through provider-specific Rust clients.
+- Added OpenAI and xAI API key/base URL settings in the full-page Settings view; settings now replaces the workspace instead of expanding inline.
+- Changed `Save Settings` to also persist any non-empty provider API key fields so users do not have to click each per-key save button first.
+- Fixed OpenAI/xAI API key saves by avoiding a frontend name collision where React state setters shadowed the Tauri persistence functions.
+- Aligned Grok Imagine options with xAI image docs: full aspect-ratio list, `1k`/`2k` resolution, no-op `quality` selector, API `n` usage for batches, and up to 5 reference images through `/v1/images/edits` without masks.
+- Changed the status bar provider label for Grok Imagine from `Grok Imagine` to `xAI` while keeping the tab/model label as `Grok Imagine`.
+- Updated the output preview gallery so single images scale down to fit the available preview height instead of creating an internal vertical scrollbar.
+- Removed the Seed generation option and stopped sending Gemini `seed`, since current Nano Banana image generation does not expose a supported seed control.
+- Narrowed GPT-Image to `gpt-image-2` only, with documented `size` and `quality` controls; live generation remains marked unfinished until tested against the target OpenAI-compatible endpoint.
+- Kept GPT-Image reference-image editing out of scope for this pass.
+- Added an in-app image lightbox for reference images, output gallery images, and output history thumbnails with Esc/backdrop close and subtle arrow-key/click navigation.
+- Added append-only generation failure logging to `~/.sozocraft/error.log` with JSON-lines entries for client setup, request, and no-image failures.
 - Added Gemini REST `safetySettings` with `BLOCK_NONE` for the adjustable sexually explicit category.
 - Expanded the `Gemini returned no image data.` failure path to include prompt feedback, candidate finish reasons/messages, safety ratings, and text response snippets when Gemini returns them without inline image parts.
 

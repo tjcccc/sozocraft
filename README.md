@@ -11,6 +11,8 @@ This repository currently targets the `0.1.0` MVP:
 - React + TypeScript frontend
 - Rust backend
 - Gemini image generation for Nano Banana / Nano Banana Pro
+- OpenAI GPT-Image text-to-image generation
+- xAI Grok Imagine text-to-image generation
 - local output saving
 - recent generation history
 - plain prompt editing with a future-ready PromptCraft DSL path
@@ -52,12 +54,16 @@ pnpm dev
 
 ## Configuration
 
-Open the settings button in the top toolbar and configure:
+Open the settings button in the top toolbar to switch to the full-page settings view and configure:
 
 - Gemini API key
+- OpenAI API key
+- xAI API key
 - default Gemini image model
 - output directory
 - optional Gemini-compatible base URL
+- optional OpenAI-compatible base URL
+- optional xAI-compatible base URL
 - optional proxy URL, for example `http://127.0.0.1:7890`
 - timeout
 
@@ -66,6 +72,16 @@ SozoCraft stores local configuration in:
 ```text
 ~/.sozocraft/config.toml
 ```
+
+Generation failures are appended to:
+
+```text
+~/.sozocraft/error.log
+```
+
+The log is JSON-lines formatted and is local-only. It records timestamps, batch
+ids, model/proxy settings, failure class, and sanitized provider error details;
+it does not record API keys or prompt text.
 
 Example:
 
@@ -76,6 +92,16 @@ default_model = "gemini-3-pro-image-preview"
 base_url = "https://generativelanguage.googleapis.com/v1beta/models"
 proxy_url = "http://127.0.0.1:7890"
 timeout_seconds = 180
+
+[openai]
+api_key = "your_openai_api_key_here"
+default_model = "gpt-image-2"
+base_url = "https://api.openai.com/v1"
+
+[xai]
+api_key = "your_xai_api_key_here"
+default_model = "grok-imagine-image"
+base_url = "https://api.x.ai/v1"
 
 [output]
 directory = "/Users/you/Pictures/SozoCraft"
@@ -112,6 +138,32 @@ Generation controls are model-aware:
 
 Reference images are selected with the native file picker and sent to Gemini as
 inline image data. Supported picker formats are PNG, JPEG, and WebP.
+
+## GPT-Image Models
+
+The GPT-Image tab is wired for OpenAI text-to-image generation through the Image API:
+
+- `gpt-image-2`
+
+The current implementation enables `gpt-image-2` only, requests PNG output, and
+uses OpenAI's documented generation `size` values: `auto`, `1024x1024`,
+`1536x1024`, and `1024x1536`. Reference-image editing for GPT-Image is not
+enabled yet. GPT-Image generation still needs live endpoint validation before it
+should be treated as finished.
+
+## Grok Imagine Models
+
+The Grok Imagine tab enables xAI text-to-image generation through
+`/v1/images/generations`:
+
+- `grok-imagine-image`
+
+The current implementation requests `b64_json` responses so generated images
+can be saved locally with the same SozoCraft PNG metadata path as other
+providers. The Grok Imagine tab supports xAI aspect ratios, `1k`/`2k`
+resolution, the documented `quality` field, and up to 5 uploaded reference
+images through xAI's JSON image edit endpoint. Mask editing is intentionally not
+implemented yet.
 
 ## Output Metadata
 
@@ -162,6 +214,5 @@ cd src-tauri && cargo test
 - reference image upload UI
 - Prompt Bridge local HTTP server for external tools
 - ComfyUI local backend
-- GPT-Image provider
-- Grok Imagine provider
+- provider-specific image editing/reference-image flows for GPT-Image and Grok Imagine
 - future video generation backend

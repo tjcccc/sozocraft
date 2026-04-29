@@ -14,6 +14,7 @@ The current design uses:
 
 - three-column workspace: prompt editor, generation controls, output/history
 - top toolbar for app identity, run controls, mode switch, and settings
+- settings opens as a full-page tool view in place of the workspace
 - bottom status bar for run state and aggregate counts
 - light neutral surface with subtle blue accents
 - restrained panels with persistent borders and small-radius controls
@@ -43,7 +44,9 @@ The current design uses:
 - Use native form controls for settings and generation options unless a richer control is needed.
 - Use icon buttons for compact toolbar/tool actions when the icon is familiar.
 - Keep text labels on primary run/save actions.
-- Disabled future providers or modes may stay visible when they clarify the roadmap, but should not distract from the active Gemini flow.
+- Provider tabs should be active only when the backend can generate through that
+  provider. Keep provider-specific controls hidden when the active provider does
+  not support them in the current implementation.
 
 ## Typography And Color
 

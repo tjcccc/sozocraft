@@ -17,8 +17,24 @@ export function setGeminiApiKey(apiKey: string) {
   return invoke<boolean>("set_gemini_api_key", { apiKey });
 }
 
+export function setOpenaiApiKey(apiKey: string) {
+  return invoke<boolean>("set_openai_api_key", { apiKey });
+}
+
+export function setXaiApiKey(apiKey: string) {
+  return invoke<boolean>("set_xai_api_key", { apiKey });
+}
+
 export function hasGeminiApiKey() {
   return invoke<boolean>("has_gemini_api_key");
+}
+
+export function hasOpenaiApiKey() {
+  return invoke<boolean>("has_openai_api_key");
+}
+
+export function hasXaiApiKey() {
+  return invoke<boolean>("has_xai_api_key");
 }
 
 export function generateImages(request: GenerationRequest) {
