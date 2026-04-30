@@ -31,6 +31,7 @@ export function App() {
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const [columnWidths, setColumnWidths] = useState([35.5, 27.2, 37.3]);
   const [resizingDivider, setResizingDivider] = useState<number | null>(null);
+  const promptRef = useRef("");
 
   const {
     apiKey,
@@ -59,6 +60,10 @@ export function App() {
     xaiApiKeySaved,
   } = useAppState();
 
+  useEffect(() => {
+    promptRef.current = prompt;
+  }, [prompt]);
+
   const { filteredBatches, historyDate, setHistoryDate } = useHistoryDate(batches);
   useEffect(() => {
     setExpandedBatchId(null);
@@ -76,8 +81,9 @@ export function App() {
     expandedBatch,
     previewBatch,
   });
+  const getCurrentPrompt = useCallback(() => promptRef.current, []);
   const generation = useGeneration({
-    prompt,
+    getPrompt: getCurrentPrompt,
     setBatches,
     setExpandedBatchId,
     setMessage,
@@ -157,6 +163,14 @@ export function App() {
     setLightbox({ images, index: clamp(index, 0, images.length - 1) });
   }, []);
 
+  const updatePrompt = useCallback(
+    (nextPrompt: string) => {
+      promptRef.current = nextPrompt;
+      setPrompt(nextPrompt);
+    },
+    [setPrompt],
+  );
+
   if (!settings) {
     return (
       <main className="loading">
@@ -229,7 +243,7 @@ export function App() {
             gridTemplateColumns: `${columnWidths[0]}fr 10px ${columnWidths[1]}fr 10px ${columnWidths[2]}fr`,
           }}
         >
-          <PromptColumn prompt={prompt} setPrompt={setPrompt} />
+          <PromptColumn prompt={prompt} onPromptChange={updatePrompt} />
           <ColumnResizer
             active={resizingDivider === 0}
             label="Resize prompt and generation columns"

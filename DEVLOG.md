@@ -1,7 +1,13 @@
 # DEVLOG
 
+## 2026-04-30
+
+- Bumped app/package/crate version metadata to `0.10.0` for the reference-image compression and prompt race fix checkpoint.
+- Fixed a prompt race where pressing Run immediately after editing could send the previous prompt; the Run path now reads from a live prompt ref updated directly by the textarea change handler.
+
 ## 2026-04-29
 
+- Added backend reference-image optimization before provider dispatch: large non-alpha PNG/JPEG uploads are cached as quality-85 JPEGs with a 1600 px max long edge under `~/.sozocraft/cache/reference-images`, with opportunistic cleanup for entries older than about 30 days. WebP and transparent inputs pass through unchanged.
 - Bumped app/package/crate version metadata to `0.9.0` for the completed GPT-Image OpenRouter and reference-image checkpoint.
 - Enabled GPT-Image reference images with a 16-image limit. OpenAI-compatible endpoints use multipart `/images/edits` `image[]` inputs; OpenRouter endpoints use chat message image data URLs.
 - Fixed GPT-Image response parsing for OpenRouter/OpenAI shape mismatches: OpenAI Image API `data[].b64_json`, OpenAI Responses `image_generation_call.result`, and OpenRouter `choices[].message.images[]` data URLs are now accepted. OpenRouter model API page URLs are routed through `/api/v1/chat/completions` with image modalities.

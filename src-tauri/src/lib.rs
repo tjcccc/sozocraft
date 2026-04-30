@@ -7,6 +7,7 @@ mod image_meta;
 mod local_config;
 mod models;
 mod openai_image;
+mod reference_image_cache;
 mod xai_image;
 
 use app_state::{load_state, save_state};
@@ -126,8 +127,9 @@ fn read_image_data_url(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn generate_images(request: GenerationRequest) -> Result<GenerationBatch, String> {
+async fn generate_images(mut request: GenerationRequest) -> Result<GenerationBatch, String> {
     request.validate()?;
+    reference_image_cache::optimize_request_reference_images(&mut request)?;
 
     let rendered_prompt = request.prompt.trim().to_string();
     let prompt_snapshot = request

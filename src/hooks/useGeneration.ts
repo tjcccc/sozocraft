@@ -4,7 +4,7 @@ import type { AppSettings, GenerationBatch, ReferenceImageInput } from "../types
 import type { AppStatus } from "../components/common";
 
 export function useGeneration({
-  prompt,
+  getPrompt,
   setBatches,
   setExpandedBatchId,
   setMessage,
@@ -12,7 +12,7 @@ export function useGeneration({
   setStatus,
   settings,
 }: {
-  prompt: string;
+  getPrompt: () => string;
   setBatches: React.Dispatch<React.SetStateAction<GenerationBatch[]>>;
   setExpandedBatchId: (id: string | null) => void;
   setMessage: (message: string) => void;
@@ -35,15 +35,16 @@ export function useGeneration({
     }
     setStatus("running");
     setMessage("Generating images");
-    await saveCurrentPrompt(prompt);
+    const currentPrompt = getPrompt();
+    await saveCurrentPrompt(currentPrompt);
 
     try {
       await saveAppSettings(settings);
       const batch = await generateImages({
         provider: settings.defaultProvider,
         model: settings.defaultModel,
-        prompt,
-        promptSnapshot: prompt,
+        prompt: currentPrompt,
+        promptSnapshot: currentPrompt,
         batchCount,
         referenceImages,
         outputTemplate: settings.outputTemplate,
@@ -74,8 +75,8 @@ export function useGeneration({
   }, [
     aspectRatio,
     batchCount,
+    getPrompt,
     imageSize,
-    prompt,
     quality,
     referenceImages,
     setBatches,

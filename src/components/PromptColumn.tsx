@@ -5,10 +5,10 @@ import { PanelHeader, TreeGroup } from "./common";
 
 export function PromptColumn({
   prompt,
-  setPrompt,
+  onPromptChange,
 }: {
   prompt: string;
-  setPrompt: (value: string) => void;
+  onPromptChange: (value: string) => void;
 }) {
   const editorWrapRef = useRef<HTMLDivElement>(null);
   const [previewHeight, setPreviewHeight] = useState(260);
@@ -67,7 +67,7 @@ export function PromptColumn({
           <textarea
             className="prompt-textarea"
             value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
+            onChange={(event) => onPromptChange(event.target.value)}
             spellCheck={false}
           />
           <div

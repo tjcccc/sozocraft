@@ -139,6 +139,21 @@ Generation controls are model-aware:
 Reference images are selected with the native file picker and sent to Gemini as
 inline image data. Supported picker formats are PNG, JPEG, and WebP.
 
+Before provider requests, SozoCraft optimizes large PNG/JPEG reference images
+into high-quality JPEGs when the image has no alpha channel. The default keeps a
+maximum long edge of 1600 px and JPEG quality 85, which reduces upload size and
+timeout risk while preserving recognizability for photo references. WebP and
+transparent PNG inputs are left unchanged. Optimized reference images are cached
+under:
+
+```text
+~/.sozocraft/cache/reference-images
+```
+
+The cache is content-addressed, so reusing the same reference image can reuse
+the same optimized bytes across generation runs. Cache entries older than about
+30 days are cleaned up opportunistically.
+
 ## GPT-Image Models
 
 The GPT-Image tab is wired for OpenAI text-to-image and reference-image
