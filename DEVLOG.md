@@ -2,6 +2,9 @@
 
 ## 2026-04-29
 
+- Bumped app/package/crate version metadata to `0.9.0` for the completed GPT-Image OpenRouter and reference-image checkpoint.
+- Enabled GPT-Image reference images with a 16-image limit. OpenAI-compatible endpoints use multipart `/images/edits` `image[]` inputs; OpenRouter endpoints use chat message image data URLs.
+- Fixed GPT-Image response parsing for OpenRouter/OpenAI shape mismatches: OpenAI Image API `data[].b64_json`, OpenAI Responses `image_generation_call.result`, and OpenRouter `choices[].message.images[]` data URLs are now accepted. OpenRouter model API page URLs are routed through `/api/v1/chat/completions` with image modalities.
 - Bumped app/package/crate version metadata to `0.8.0` for the multi-provider image generation checkpoint. GPT-Image generation is wired but remains unfinished until live endpoint validation passes.
 - Added active GPT-Image and Grok Imagine image provider tabs alongside Nano Banana, with text-to-image generation routed through provider-specific Rust clients.
 - Added OpenAI and xAI API key/base URL settings in the full-page Settings view; settings now replaces the workspace instead of expanding inline.
@@ -12,7 +15,7 @@
 - Updated the output preview gallery so single images scale down to fit the available preview height instead of creating an internal vertical scrollbar.
 - Removed the Seed generation option and stopped sending Gemini `seed`, since current Nano Banana image generation does not expose a supported seed control.
 - Narrowed GPT-Image to `gpt-image-2` only, with documented `size` and `quality` controls; live generation remains marked unfinished until tested against the target OpenAI-compatible endpoint.
-- Kept GPT-Image reference-image editing out of scope for this pass.
+- Initially kept GPT-Image reference-image editing out of scope before enabling it in the follow-up fix.
 - Added an in-app image lightbox for reference images, output gallery images, and output history thumbnails with Esc/backdrop close and subtle arrow-key/click navigation.
 - Added append-only generation failure logging to `~/.sozocraft/error.log` with JSON-lines entries for client setup, request, and no-image failures.
 - Added Gemini REST `safetySettings` with `BLOCK_NONE` for the adjustable sexually explicit category.

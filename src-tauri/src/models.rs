@@ -123,7 +123,7 @@ impl GenerationRequest {
                 self.provider, self.model
             ));
         }
-        if !["nano-banana", "grok-imagine"].contains(&self.provider.as_str())
+        if !["nano-banana", "gpt-image", "grok-imagine"].contains(&self.provider.as_str())
             && self
                 .reference_images
                 .as_ref()
@@ -131,7 +131,7 @@ impl GenerationRequest {
                 .unwrap_or(false)
         {
             return Err(
-                "Reference images are currently implemented for Nano Banana only.".to_string(),
+                "Reference images are currently implemented for image providers only.".to_string(),
             );
         }
         if self
@@ -184,6 +184,7 @@ fn supported_models(provider: &str) -> &'static [&'static str] {
 
 fn max_reference_images_for_provider(provider: &str, model: &str) -> usize {
     match provider {
+        "gpt-image" => 16,
         "grok-imagine" => 5,
         _ => max_reference_images(model),
     }

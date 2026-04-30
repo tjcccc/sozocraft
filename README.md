@@ -141,15 +141,26 @@ inline image data. Supported picker formats are PNG, JPEG, and WebP.
 
 ## GPT-Image Models
 
-The GPT-Image tab is wired for OpenAI text-to-image generation through the Image API:
+The GPT-Image tab is wired for OpenAI text-to-image and reference-image
+generation:
 
 - `gpt-image-2`
 
 The current implementation enables `gpt-image-2` only, requests PNG output, and
 uses OpenAI's documented generation `size` values: `auto`, `1024x1024`,
-`1536x1024`, and `1024x1536`. Reference-image editing for GPT-Image is not
-enabled yet. GPT-Image generation still needs live endpoint validation before it
-should be treated as finished.
+`1536x1024`, and `1024x1536`. It accepts OpenAI Image API `data[].b64_json`
+responses, OpenAI Responses API `image_generation_call.result` image payloads,
+and OpenRouter chat image outputs under `choices[].message.images[]`. When an
+OpenRouter model API page URL such as
+`https://openrouter.ai/openai/gpt-5.4-image-2/api` is configured as the OpenAI
+base URL, SozoCraft routes the request through OpenRouter's
+`/api/v1/chat/completions` endpoint with image modalities and uses the model
+slug from that page URL.
+
+GPT-Image reference-image runs support up to 16 PNG, JPEG, or WebP inputs. For
+OpenAI-compatible Image API endpoints, SozoCraft sends reference-image runs to
+`/images/edits` as multipart `image[]` inputs. For OpenRouter endpoints, it
+sends reference images as chat message `image_url` data URLs.
 
 ## Grok Imagine Models
 
@@ -214,5 +225,5 @@ cd src-tauri && cargo test
 - reference image upload UI
 - Prompt Bridge local HTTP server for external tools
 - ComfyUI local backend
-- provider-specific image editing/reference-image flows for GPT-Image and Grok Imagine
+- provider-specific mask editing flows for GPT-Image and Grok Imagine
 - future video generation backend

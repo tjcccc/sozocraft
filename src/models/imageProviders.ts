@@ -60,13 +60,13 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ProviderConfig> = {
     label: "GPT-Image",
     providerName: "OpenAI",
     models: [
-      { id: "gpt-image-2", label: "GPT Image 2", productName: "GPT Image 2", maxReferenceImages: 0 },
+      { id: "gpt-image-2", label: "GPT Image 2", productName: "GPT Image 2", maxReferenceImages: 16 },
     ],
     aspectRatios: [],
     imageSizes: ["auto", "1024x1024", "1536x1024", "1024x1536"],
     qualityLevels: ["auto", "low", "medium", "high"],
     thinkingLevels: null,
-    maxReferenceImages: 0,
+    maxReferenceImages: 16,
     defaults: {
       model: "gpt-image-2",
       aspectRatio: "auto",
