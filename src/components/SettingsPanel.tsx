@@ -92,6 +92,12 @@ export function SettingsPanel({
             onChange={(event) => setSettings({ ...settings, outputDirectory: event.target.value })}
           />
         </Field>
+        <Field label="Prompt Directory">
+          <input
+            value={settings.promptDirectory}
+            onChange={(event) => setSettings({ ...settings, promptDirectory: event.target.value })}
+          />
+        </Field>
       </div>
       <div className="settings-section">
         <h2>Provider Endpoints</h2>

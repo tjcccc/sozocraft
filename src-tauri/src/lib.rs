@@ -7,6 +7,7 @@ mod image_meta;
 mod local_config;
 mod models;
 mod openai_image;
+mod prompt_library;
 mod reference_image_cache;
 mod xai_image;
 
@@ -20,6 +21,10 @@ use models::{
     AppSettings, AppState, GenerationBatch, GenerationRequest, GenerationStatus, OutputImage,
 };
 use openai_image::OpenAiImageClient;
+use prompt_library::{
+    CreatePromptRequest, PromptDocument, PromptListItem, RenderPromptResult, SavePromptRequest,
+    UpdatePromptMetadataRequest,
+};
 use serde::Serialize;
 use std::{fs, path::PathBuf};
 use uuid::Uuid;
@@ -53,7 +58,9 @@ fn save_output_template(template: String) -> Result<(), String> {
 
 #[tauri::command]
 fn load_app_state() -> Result<AppState, String> {
-    load_state().map_err(|err| err.to_string())
+    let state = load_state().map_err(|err| err.to_string())?;
+    let _ = prompt_library::rescan_prompt_directory(&state.settings.prompt_directory);
+    Ok(state)
 }
 
 #[tauri::command]
@@ -71,6 +78,77 @@ fn save_current_prompt(prompt: String) -> Result<AppState, String> {
     state.current_prompt = prompt;
     save_state(&state).map_err(|err| err.to_string())?;
     Ok(state)
+}
+
+#[tauri::command]
+fn save_current_prompt_id(prompt_id: Option<String>) -> Result<AppState, String> {
+    let mut state = load_state().map_err(|err| err.to_string())?;
+    state.current_prompt_id = prompt_id;
+    save_state(&state).map_err(|err| err.to_string())?;
+    Ok(state)
+}
+
+#[tauri::command]
+fn list_prompts(
+    prompt_directory: String,
+    query: Option<String>,
+) -> Result<Vec<PromptListItem>, String> {
+    prompt_library::list_prompts(&prompt_directory, query)
+}
+
+#[tauri::command]
+fn rescan_prompt_library(prompt_directory: String) -> Result<Vec<PromptListItem>, String> {
+    prompt_library::rescan_prompt_directory(&prompt_directory)
+}
+
+#[tauri::command]
+fn create_prompt(
+    prompt_directory: String,
+    request: CreatePromptRequest,
+) -> Result<PromptDocument, String> {
+    prompt_library::create_prompt(&prompt_directory, request)
+}
+
+#[tauri::command]
+fn read_prompt(prompt_directory: String, id: String) -> Result<PromptDocument, String> {
+    prompt_library::read_prompt(&prompt_directory, &id)
+}
+
+#[tauri::command]
+fn save_prompt(
+    prompt_directory: String,
+    request: SavePromptRequest,
+) -> Result<PromptDocument, String> {
+    prompt_library::save_prompt(&prompt_directory, request)
+}
+
+#[tauri::command]
+fn update_prompt_metadata(
+    prompt_directory: String,
+    request: UpdatePromptMetadataRequest,
+) -> Result<PromptListItem, String> {
+    prompt_library::update_prompt_metadata(&prompt_directory, request)
+}
+
+#[tauri::command]
+fn delete_prompt(prompt_directory: String, id: String) -> Result<(), String> {
+    prompt_library::delete_prompt(&prompt_directory, &id)
+}
+
+#[tauri::command]
+fn render_prompt_source(
+    source: String,
+    prompt_directory: Option<String>,
+    current_prompt_id: Option<String>,
+) -> RenderPromptResult {
+    if let Some(prompt_directory) = prompt_directory {
+        return prompt_library::render_prompt_source_with_library(
+            &source,
+            &prompt_directory,
+            current_prompt_id.as_deref(),
+        );
+    }
+    prompt_library::render_prompt_source(&source)
 }
 
 #[tauri::command]
@@ -468,6 +546,15 @@ pub fn run() {
             load_app_state,
             save_app_settings,
             save_current_prompt,
+            save_current_prompt_id,
+            list_prompts,
+            rescan_prompt_library,
+            create_prompt,
+            read_prompt,
+            save_prompt,
+            update_prompt_metadata,
+            delete_prompt,
+            render_prompt_source,
             save_output_template,
             set_gemini_api_key,
             set_openai_api_key,

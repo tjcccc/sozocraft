@@ -16,6 +16,7 @@ import type { AppStatus } from "../components/common";
 export function useAppState() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [prompt, setPrompt] = useState("");
+  const [currentPromptId, setCurrentPromptId] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [xaiApiKey, setXaiApiKey] = useState("");
@@ -32,6 +33,7 @@ export function useAppState() {
       .then((state) => {
         setSettings(state.settings);
         setPrompt(state.currentPrompt);
+        setCurrentPromptId(state.currentPromptId ?? null);
         setBatches(state.batches);
         setMessage("Ready");
       })
@@ -138,6 +140,7 @@ export function useAppState() {
     configStatus,
     message,
     prompt,
+    currentPromptId,
     settings,
     status,
     saveKey,
@@ -149,6 +152,7 @@ export function useAppState() {
     setBatches,
     setMessage,
     setPrompt,
+    setCurrentPromptId,
     setSettings,
     setStatus,
     updateSettings,

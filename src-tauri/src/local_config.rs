@@ -17,6 +17,8 @@ struct LocalConfig {
     xai: XaiConfig,
     #[serde(default)]
     output: OutputConfig,
+    #[serde(default)]
+    prompts: PromptsConfig,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -67,6 +69,14 @@ struct OutputConfig {
     template: Option<String>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct PromptsConfig {
+    #[serde(default)]
+    directory: Option<String>,
+    #[serde(default)]
+    dsl_enabled: Option<bool>,
+}
+
 pub fn load_settings(defaults: AppSettings) -> AppSettings {
     let Ok(config) = load_config() else {
         return defaults;
@@ -108,6 +118,15 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .template
             .filter(|value| !value.trim().is_empty())
             .unwrap_or(defaults.output_template),
+        prompt_directory: config
+            .prompts
+            .directory
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(defaults.prompt_directory),
+        prompt_dsl_enabled: config
+            .prompts
+            .dsl_enabled
+            .unwrap_or(defaults.prompt_dsl_enabled),
         optional_base_url: config
             .gemini
             .base_url
@@ -150,6 +169,8 @@ pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
     config.gemini.timeout_seconds = Some(settings.timeout_seconds);
     config.output.directory = Some(settings.output_directory.clone());
     config.output.template = Some(settings.output_template.clone());
+    config.prompts.directory = Some(settings.prompt_directory.clone());
+    config.prompts.dsl_enabled = Some(settings.prompt_dsl_enabled);
     save_config(&config)
 }
 

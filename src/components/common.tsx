@@ -101,11 +101,20 @@ export function ModeSwitch({
   );
 }
 
-export function PanelHeader({ icon, title }: { icon: ReactNode; title: string }) {
+export function PanelHeader({
+  actions,
+  icon,
+  title,
+}: {
+  actions?: ReactNode;
+  icon: ReactNode;
+  title: string;
+}) {
   return (
     <header className="panel-header">
       {icon}
       <h2>{title}</h2>
+      {actions ? <div className="panel-header-actions">{actions}</div> : null}
     </header>
   );
 }

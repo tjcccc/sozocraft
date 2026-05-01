@@ -13,6 +13,8 @@ export type AppSettings = {
   defaultModel: string;
   outputDirectory: string;
   outputTemplate: string;
+  promptDirectory: string;
+  promptDslEnabled: boolean;
   optionalBaseUrl?: string | null;
   openaiBaseUrl?: string | null;
   xaiBaseUrl?: string | null;
@@ -23,6 +25,7 @@ export type AppSettings = {
 export type AppState = {
   settings: AppSettings;
   currentPrompt: string;
+  currentPromptId?: string | null;
   batches: GenerationBatch[];
 };
 
@@ -77,4 +80,41 @@ export type GenerationBatch = {
   createdAt: string;
   completedAt?: string | null;
   error?: string | null;
+};
+
+export type PromptListItem = {
+  id: string;
+  path: string;
+  name: string;
+  tags: string[];
+  description: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type PromptDocument = {
+  item: PromptListItem;
+  source: string;
+  renderedPrompt: string;
+};
+
+export type CreatePromptRequest = {
+  name: string;
+  tags?: string[];
+  description?: string;
+};
+
+export type SavePromptRequest = {
+  id: string;
+  source: string;
+};
+
+export type UpdatePromptMetadataRequest = {
+  id: string;
+  name: string;
+  tags: string[];
+};
+
+export type RenderPromptResult = {
+  renderedPrompt: string;
 };

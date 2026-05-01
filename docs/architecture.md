@@ -29,6 +29,8 @@
 - `src-tauri/src/image_meta.rs` handles PNG conversion and metadata embedding.
 - `src-tauri/src/local_config.rs` manages `~/.sozocraft/config.toml`.
 - `src-tauri/src/app_state.rs` manages local app state under the platform data directory.
+- `src-tauri/src/prompt_library.rs` manages markdown prompt files, prompt
+  rendering, and the local SQLite prompt index.
 
 ## Data Contract
 
@@ -36,6 +38,12 @@
 - PNG metadata uses a plain `prompt` text chunk for the rendered model prompt.
 - PNG metadata also stores a `sozocraft` JSON chunk with `schemaVersion`, `promptSnapshot`, `renderedPrompt`, provider/model/options, ids, timestamps, and response metadata.
 - Until PromptCraft DSL rendering exists, `promptSnapshot` and `renderedPrompt` carry the same prompt text.
+- Prompt markdown files live under the configured prompt directory and use
+  UUID filenames for stable identity. SQLite metadata lives at
+  `~/.sozocraft/prompts.sqlite` and stores titles, tags, timestamps, and search
+  data.
+- Prompt generation sends the rendered prompt to providers and stores the full
+  markdown source as `promptSnapshot`.
 
 ## Boundaries
 

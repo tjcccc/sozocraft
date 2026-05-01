@@ -170,9 +170,21 @@ button {
   line-height: 1;
 }
 
+.panel-header-actions {
+  margin-left: auto;
+}
+
+.dsl-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #5b6475;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .prompt-body {
   display: grid;
-  grid-template-columns: 230px 1fr;
   min-height: 0;
   flex: 1;
 }
@@ -181,7 +193,7 @@ button {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   flex: 1;
   padding: 10px;
   border-right: 1px solid rgba(124, 136, 158, 0.18);
@@ -205,40 +217,163 @@ button {
   outline: 0;
 }
 
-.tree,
-.tree-group {
+.prompt-library-actions {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
 }
 
-.tree {
-  gap: 16px;
+.prompt-library-actions .icon-button {
+  width: 34px;
+  height: 30px;
 }
 
-.tree-group {
-  gap: 4px;
+.prompt-sort {
+  display: grid;
+  grid-template-columns: 34px 34px;
+  gap: 6px;
+}
+
+.prompt-sort button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  border: 1px solid rgba(124, 136, 158, 0.2);
+  border-radius: 7px;
   color: #5b6475;
-  font-size: 13px;
-}
-
-.tree-group strong {
-  color: #303849;
+  background: #fff;
+  font-size: 12px;
   font-weight: 600;
 }
 
-.tree-group button {
-  height: 31px;
-  padding: 0 12px 0 22px;
+.prompt-sort button.active {
+  color: #1265f4;
+  border-color: rgba(18, 101, 244, 0.34);
+  background: #e7f0ff;
+}
+
+.prompt-list {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 5px;
+  overflow: auto;
+}
+
+.prompt-empty {
+  padding: 10px 6px;
+  color: #7a8496;
+  font-size: 12px;
+}
+
+.prompt-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  border: 0;
+  border-radius: 6px;
+  color: #303849;
+  text-align: left;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.prompt-list-item {
+  position: relative;
+  display: flex;
+  min-height: 38px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 9px;
   border: 0;
   border-radius: 7px;
-  color: #5b6475;
+  color: #4c5668;
   text-align: left;
   background: transparent;
 }
 
-.tree-group button.active {
+.prompt-list-delete {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  display: none;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: #7a8496;
+  transform: translateY(-50%);
+}
+
+.prompt-list-item:hover .prompt-list-delete,
+.prompt-list-item:focus-within .prompt-list-delete {
+  display: flex;
+}
+
+.prompt-list-delete:hover {
+  color: #d14b4b;
+  background: rgba(209, 75, 75, 0.1);
+}
+
+.prompt-list-item.active {
   color: #1265f4;
   background: #e7f0ff;
+}
+
+.prompt-list-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.prompt-list-tags {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #7a8496;
+  font-size: 11px;
+}
+
+.prompt-list-item.active .prompt-list-tags {
+  color: #4f79bd;
+}
+
+.prompt-library-resizer {
+  position: relative;
+  cursor: col-resize;
+  background: #fff;
+  border-right: 1px solid rgba(124, 136, 158, 0.14);
+}
+
+.prompt-library-resizer::before {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 50%;
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(124, 136, 158, 0);
+  content: "";
+  transform: translateX(-50%);
+  transition:
+    background 120ms ease,
+    width 120ms ease;
+}
+
+.prompt-library-resizer:hover::before,
+.prompt-library-resizer.active::before {
+  width: 3px;
+  background: rgba(18, 101, 244, 0.72);
 }
 
 .editor-wrap {
@@ -257,10 +392,19 @@ button {
   border-bottom: 1px solid rgba(124, 136, 158, 0.15);
 }
 
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 7px;
+.prompt-title-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  color: #182238;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.prompt-save-state {
+  flex: 0 0 auto;
   color: #5b6475;
   font-size: 12px;
 }
@@ -277,6 +421,18 @@ button {
   font-family: "SF Mono", "Roboto Mono", ui-monospace, monospace;
   font-size: 13px;
   line-height: 1.7;
+}
+
+.prompt-tags-input {
+  height: 35px;
+  flex: 0 0 35px;
+  padding: 0 18px;
+  border: 0;
+  border-top: 1px solid rgba(124, 136, 158, 0.12);
+  outline: 0;
+  color: #4c5668;
+  background: #fff;
+  font-size: 12.5px;
 }
 
 .preview-resizer {

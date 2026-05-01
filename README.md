@@ -66,6 +66,7 @@ Open the settings button in the top toolbar to switch to the full-page settings 
 - optional xAI-compatible base URL
 - optional proxy URL, for example `http://127.0.0.1:7890`
 - timeout
+- prompt library directory
 
 SozoCraft stores local configuration in:
 
@@ -106,11 +107,73 @@ base_url = "https://api.x.ai/v1"
 [output]
 directory = "/Users/you/Pictures/SozoCraft"
 template = "{yyMMdd}/{provider}_{model}_{datetime:yyyyMMdd_HHmmss}_{id}.{extension}"
+
+[prompts]
+directory = "/Users/you/.sozocraft/prompts"
+dsl_enabled = true
 ```
 
 The config file is local-only and must not be committed. API keys are never stored in project files.
 
 Non-secret app state is stored in the platform local data directory under `SozoCraft/state.json`. Generated images are saved to the configured output directory.
+
+## Prompt Library
+
+SozoCraft can work as a standalone local prompt editor. Prompt files are
+markdown files stored in the configured prompt directory, which defaults to:
+
+```text
+~/.sozocraft/prompts
+```
+
+Prompt files are stored as UUID-named markdown files, for example
+`3e2f...a91.md`. The markdown file contains the editable prompt body only.
+Title, tags, timestamps, and search metadata are stored in:
+
+```text
+~/.sozocraft/prompts.sqlite
+```
+
+The database can be rebuilt by rescanning the prompt folder. Legacy prompt files
+with YAML frontmatter are still readable; SozoCraft strips that frontmatter from
+the editor and imports its metadata into the database when possible.
+
+```markdown
+character = cinematic portrait of a young woman
+location = neon street at night
+style = soft rim light, shallow depth of field, highly detailed
+
+prompt = {
+A realistic photo.
+{character}. She is in a {location}.
+{style}.
+}
+```
+
+The preview and generation path render the first `prompt = { ... }` or
+`prompt { ... }` block, replacing simple `{variable}` placeholders from
+`name = value` lines above it. If a file has no prompt block, the markdown body
+is used as plain prompt text. Generated PNG metadata stores the rendered model
+prompt in `prompt` and the markdown source in `sozocraft.promptSnapshot`.
+
+DSL mode also supports prompt includes by title:
+
+```text
+{#identify_ref}
+{# title with spaces}
+```
+
+The text after `#` is trimmed and matched against prompt titles in the current
+library. If multiple prompts have the same title, the most recently updated one
+is used. If no prompt title matches, the include marker is left unchanged.
+
+Prompt tags support slash-separated nesting such as
+`#nano-banana/aigirl/outdoor-photo`, which the library displays as expandable
+folders.
+
+The Prompt Editor header includes a DSL toggle. When DSL is on, the preview and
+generation path use the variable/block renderer described above. When DSL is
+off, SozoCraft sends the editor text exactly as written.
 
 ## Gemini Models
 

@@ -8,6 +8,8 @@ use std::path::PathBuf;
 pub struct AppState {
     pub settings: AppSettings,
     pub current_prompt: String,
+    #[serde(default)]
+    pub current_prompt_id: Option<String>,
     pub batches: Vec<GenerationBatch>,
 }
 
@@ -16,6 +18,7 @@ impl Default for AppState {
         Self {
             settings: AppSettings::default(),
             current_prompt: "Create a cinematic portrait with realistic lighting.".to_string(),
+            current_prompt_id: None,
             batches: Vec::new(),
         }
     }
@@ -32,6 +35,10 @@ pub struct AppSettings {
     pub output_directory: String,
     #[serde(default = "default_output_template")]
     pub output_template: String,
+    #[serde(default = "default_prompt_directory")]
+    pub prompt_directory: String,
+    #[serde(default = "default_prompt_dsl_enabled")]
+    pub prompt_dsl_enabled: bool,
     #[serde(default)]
     pub optional_base_url: Option<String>,
     #[serde(default)]
@@ -68,6 +75,19 @@ fn default_output_directory() -> String {
         .to_string()
 }
 
+fn default_prompt_directory() -> String {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".sozocraft")
+        .join("prompts")
+        .to_string_lossy()
+        .to_string()
+}
+
+fn default_prompt_dsl_enabled() -> bool {
+    true
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -76,6 +96,8 @@ impl Default for AppSettings {
             output_directory: default_output_directory(),
             output_template: "{provider}_{model}_{datetime:yyyyMMdd_HHmmss}_{id}.{extension}"
                 .to_string(),
+            prompt_directory: default_prompt_directory(),
+            prompt_dsl_enabled: true,
             optional_base_url: None,
             openai_base_url: None,
             xai_base_url: None,

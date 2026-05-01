@@ -1,5 +1,21 @@
 # DEVLOG
 
+## 2026-05-01
+
+- Bumped app/package/crate version metadata to `0.11.0` for the prompt library and DSL editor checkpoint.
+- Added the first real prompt-library/editor milestone: markdown prompt files live under the configurable prompt directory, defaulting to `~/.sozocraft/prompts`, with a rebuildable SQLite metadata index in app data.
+- Added YAML-style prompt file frontmatter for `name`, `tags`, `description`, `createdAt`, `updatedAt`, and `schemaVersion`; prompt files intentionally do not use a user-facing version counter.
+- Added ComfyUI Banana Studio-compatible prompt rendering for simple `name = value` variables and the first `prompt = { ... }` / `prompt { ... }` block, with plain markdown-body fallback.
+- Replaced the placeholder prompt sidebar with create/search/select/refresh/delete actions and debounced autosave state.
+- Changed generation to send the rendered prompt to providers while preserving the full markdown source in `promptSnapshot` metadata.
+- Revised prompt storage so new prompt files are UUID-named markdown bodies, while title/tags/timestamps live in `~/.sozocraft/prompts.sqlite`; legacy YAML frontmatter files are stripped in the editor and indexed for migration.
+- Added title and tags inputs, nested slash-tag library grouping, updated/name sort controls, a resizable prompt-library pane, last-open prompt restoration, and auto-creation of an `Untitled Prompt` file when the library is empty.
+- Fixed empty `prompt = {}` blocks so they render to an empty prompt instead of falling back to the original block text.
+- Added a persisted Prompt Editor DSL toggle under `[prompts].dsl_enabled`; when off, the rendered prompt is the exact editor text.
+- Simplified the prompt sidebar controls by removing refresh, compacting sort controls to icon buttons, and moving delete to a hover action on prompt rows.
+- Changed prompt title saving so title edits commit on blur instead of during typing.
+- Removed tags from prompt list item rows and added DSL prompt includes by title with `{#prompt title}` syntax.
+
 ## 2026-04-30
 
 - Bumped app/package/crate version metadata to `0.10.0` for the reference-image compression and prompt race fix checkpoint.

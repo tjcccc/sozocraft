@@ -17,6 +17,7 @@ import { useGeneration } from "./hooks/useGeneration";
 import { useHistoryDate } from "./hooks/useHistoryDate";
 import { useImagePreviews } from "./hooks/useImagePreviews";
 import { useModelOptions } from "./hooks/useModelOptions";
+import { usePromptLibrary } from "./hooks/usePromptLibrary";
 import { getProviderConfig, getProviderModelDisplayName } from "./models/imageProviders";
 import { clamp } from "./utils/math";
 
@@ -38,6 +39,7 @@ export function App() {
     apiKeySaved,
     batches,
     configStatus,
+    currentPromptId,
     message,
     openaiApiKey,
     openaiApiKeySaved,
@@ -48,6 +50,7 @@ export function App() {
     setApiKey,
     setOpenaiApiKey,
     setBatches,
+    setCurrentPromptId,
     setMessage,
     setPrompt,
     setSettings,
@@ -63,6 +66,17 @@ export function App() {
   useEffect(() => {
     promptRef.current = prompt;
   }, [prompt]);
+
+  const promptLibrary = usePromptLibrary({
+    currentPromptId,
+    prompt,
+    promptDslEnabled: settings?.promptDslEnabled ?? true,
+    setCurrentPromptId,
+    setMessage,
+    setPrompt,
+    setStatus,
+    settings,
+  });
 
   const { filteredBatches, historyDate, setHistoryDate } = useHistoryDate(batches);
   useEffect(() => {
@@ -81,9 +95,11 @@ export function App() {
     expandedBatch,
     previewBatch,
   });
-  const getCurrentPrompt = useCallback(() => promptRef.current, []);
+  const getCurrentPrompt = useCallback(() => promptLibrary.renderedPrompt, [promptLibrary.renderedPrompt]);
+  const getPromptSnapshot = useCallback(() => promptRef.current, []);
   const generation = useGeneration({
     getPrompt: getCurrentPrompt,
+    getPromptSnapshot,
     setBatches,
     setExpandedBatchId,
     setMessage,
@@ -243,7 +259,32 @@ export function App() {
             gridTemplateColumns: `${columnWidths[0]}fr 10px ${columnWidths[1]}fr 10px ${columnWidths[2]}fr`,
           }}
         >
-          <PromptColumn prompt={prompt} onPromptChange={updatePrompt} />
+          <PromptColumn
+            items={promptLibrary.filteredItems}
+            prompt={prompt}
+            query={promptLibrary.query}
+            renderedPrompt={promptLibrary.renderedPrompt}
+            saveState={promptLibrary.saveState}
+            selectedPromptId={promptLibrary.selectedPromptId}
+            sortMode={promptLibrary.sortMode}
+            tagsText={promptLibrary.tagsText}
+            title={promptLibrary.title}
+            dslEnabled={settings.promptDslEnabled}
+            setDslEnabled={(enabled) => {
+              const nextSettings = { ...settings, promptDslEnabled: enabled };
+              setSettings(nextSettings);
+              void updateSettings(nextSettings);
+            }}
+            setQuery={promptLibrary.setQuery}
+            setSortMode={promptLibrary.setSortMode}
+            setTagsText={promptLibrary.setTagsText}
+            setTitle={promptLibrary.setTitle}
+            onCommitMetadata={() => void promptLibrary.commitMetadata()}
+            onCreatePrompt={() => void promptLibrary.createNewPrompt()}
+            onDeletePrompt={(id) => void promptLibrary.deletePromptById(id)}
+            onPromptChange={updatePrompt}
+            onSelectPrompt={(id) => void promptLibrary.selectPrompt(id)}
+          />
           <ColumnResizer
             active={resizingDivider === 0}
             label="Resize prompt and generation columns"
