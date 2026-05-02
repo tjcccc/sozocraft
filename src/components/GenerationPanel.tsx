@@ -1,6 +1,8 @@
 import { FilePlus2, SlidersHorizontal, X } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { readImageDataUrl } from "../api";
 import type { AppSettings, ReferenceImageInput } from "../types";
 import type { LightboxImage } from "./ImageLightbox";
 import { getGeminiImageModelConfig } from "../models/geminiImageModels";
@@ -46,6 +48,7 @@ export function GenerationPanel(props: {
     providerModelConfig?.maxReferenceImages ??
     providerConfig.maxReferenceImages;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isReferenceDropActive, setIsReferenceDropActive] = useState(false);
   const canAddReferenceImages = props.referenceImages.length < maxReferenceImages;
 
   async function addReferenceFiles(files: FileList | null) {
@@ -64,6 +67,48 @@ export function GenerationPanel(props: {
       fileInputRef.current.value = "";
     }
   }
+
+  async function addReferencePaths(paths: string[]) {
+    const remaining = maxReferenceImages - props.referenceImages.length;
+    const nextPaths = paths.filter(isSupportedImagePath).slice(0, Math.max(0, remaining));
+    const nextImages = await Promise.all(nextPaths.map(pathToReferenceImage));
+
+    props.setReferenceImages((current) => [...current, ...nextImages].slice(0, maxReferenceImages));
+  }
+
+  useEffect(() => {
+    let disposed = false;
+    const unlistenPromise = getCurrentWebview()
+      .onDragDropEvent((event) => {
+        if (disposed) {
+          return;
+        }
+        if (event.payload.type === "leave" || !canAddReferenceImages) {
+          setIsReferenceDropActive(false);
+          return;
+        }
+        if (event.payload.type === "enter") {
+          setIsReferenceDropActive(event.payload.paths.some(isSupportedImagePath));
+          return;
+        }
+        if (event.payload.type === "over") {
+          return;
+        }
+        const hasSupportedImage = event.payload.paths.some(isSupportedImagePath);
+        if (!hasSupportedImage) {
+          setIsReferenceDropActive(false);
+          return;
+        }
+        setIsReferenceDropActive(false);
+        void addReferencePaths(event.payload.paths);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      void unlistenPromise.then((unlisten) => unlisten?.());
+    };
+  }, [canAddReferenceImages, maxReferenceImages, props.referenceImages.length]);
 
   return (
     <section className="panel generation-panel">
@@ -211,8 +256,32 @@ export function GenerationPanel(props: {
           <span className="reference-label">Reference Images</span>
           <div className="reference-images">
             <button
-              className="reference-add"
+              className={`reference-add ${isReferenceDropActive ? "drop-active" : ""}`}
               disabled={!canAddReferenceImages}
+              onDragEnter={(event) => {
+                if (!canAddReferenceImages) {
+                  return;
+                }
+                event.preventDefault();
+                setIsReferenceDropActive(true);
+              }}
+              onDragLeave={() => setIsReferenceDropActive(false)}
+              onDragOver={(event) => {
+                if (!canAddReferenceImages) {
+                  return;
+                }
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "copy";
+                setIsReferenceDropActive(true);
+              }}
+              onDrop={(event) => {
+                if (!canAddReferenceImages) {
+                  return;
+                }
+                event.preventDefault();
+                setIsReferenceDropActive(false);
+                void addReferenceFiles(event.dataTransfer.files);
+              }}
               onClick={() => fileInputRef.current?.click()}
               title={
                 canAddReferenceImages
@@ -269,17 +338,46 @@ export function GenerationPanel(props: {
 
 async function fileToReferenceImage(file: File): Promise<ReferenceImageInput> {
   const dataUrl = await readFileAsDataUrl(file);
+  return dataUrlToReferenceImage(file.name, dataUrl, `${file.name}-${file.lastModified}`);
+}
+
+async function pathToReferenceImage(path: string): Promise<ReferenceImageInput> {
+  const dataUrl = await readImageDataUrl(path);
+  return dataUrlToReferenceImage(fileNameFromPath(path), dataUrl, path);
+}
+
+function dataUrlToReferenceImage(name: string, dataUrl: string, idPrefix: string): ReferenceImageInput {
   const base64Marker = ";base64,";
   const base64Index = dataUrl.indexOf(base64Marker);
   const data = base64Index >= 0 ? dataUrl.slice(base64Index + base64Marker.length) : "";
+  const mimeType = dataUrl.startsWith("data:") && base64Index >= 0 ? dataUrl.slice(5, base64Index) : "";
 
   return {
-    id: `${file.name}-${file.lastModified}-${newReferenceImageId()}`,
-    name: file.name,
-    mimeType: file.type || "image/png",
+    id: `${idPrefix}-${newReferenceImageId()}`,
+    name,
+    mimeType: mimeType || mimeTypeFromName(name),
     data,
     dataUrl,
   };
+}
+
+function isSupportedImagePath(path: string): boolean {
+  return /\.(png|jpe?g|webp)$/i.test(path);
+}
+
+function fileNameFromPath(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? "reference-image";
+}
+
+function mimeTypeFromName(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+    return "image/jpeg";
+  }
+  if (lower.endsWith(".webp")) {
+    return "image/webp";
+  }
+  return "image/png";
 }
 
 function newReferenceImageId(): string {

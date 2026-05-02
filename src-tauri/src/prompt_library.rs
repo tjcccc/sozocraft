@@ -182,8 +182,12 @@ pub fn create_prompt(
 
     let item = index_file(&conn, &root, &path)?;
     Ok(PromptDocument {
-        rendered_prompt: render_prompt_source_with_library(&source, prompt_directory, Some(&item.id))
-            .rendered_prompt,
+        rendered_prompt: render_prompt_source_with_library(
+            &source,
+            prompt_directory,
+            Some(&item.id),
+        )
+        .rendered_prompt,
         source,
         item,
     })
@@ -296,7 +300,13 @@ pub fn render_prompt_source_with_library(
     let root = prompt_root(prompt_directory);
     let rendered = match open_db().and_then(|conn| {
         init_db(&conn)?;
-        resolve_prompt_includes(&conn, &root, &render_source_body(source), current_prompt_id, 0)
+        resolve_prompt_includes(
+            &conn,
+            &root,
+            &render_source_body(source),
+            current_prompt_id,
+            0,
+        )
     }) {
         Ok(value) => value,
         Err(_) => render_source_body(source),
@@ -355,7 +365,9 @@ fn index_file(conn: &Connection, root: &Path, path: &Path) -> Result<PromptListI
     let (frontmatter, body) = split_frontmatter(&raw_source);
     let source = body.to_string();
     let id = id_for_path(root, path);
-    let existing = get_item(conn, root, &id).ok();
+    let existing = get_item(conn, root, &id)
+        .or_else(|_| get_item_by_id(conn, &id))
+        .ok();
     let filename = path
         .file_stem()
         .and_then(|value| value.to_str())
@@ -438,6 +450,19 @@ fn get_item(conn: &Connection, root: &Path, id: &str) -> Result<PromptListItem, 
     .ok_or_else(|| "Prompt not found.".to_string())
 }
 
+fn get_item_by_id(conn: &Connection, id: &str) -> Result<PromptListItem, String> {
+    conn.query_row(
+        "SELECT id, path, name, tags, description, created_at, updated_at
+         FROM prompts
+         WHERE id = ?1 AND missing = 0",
+        params![id],
+        row_to_item,
+    )
+    .optional()
+    .map_err(|err| err.to_string())?
+    .ok_or_else(|| "Prompt not found.".to_string())
+}
+
 fn path_for_id(conn: &Connection, root: &Path, id: &str) -> Result<PathBuf, String> {
     let path = conn
         .query_row(
@@ -466,7 +491,10 @@ fn find_prompt_by_title(
         )
         .map_err(|err| err.to_string())?;
     let items = stmt
-        .query_map(params![root.to_string_lossy().to_string(), title], row_to_item)
+        .query_map(
+            params![root.to_string_lossy().to_string(), title],
+            row_to_item,
+        )
         .map_err(|err| err.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|err| err.to_string())?;
@@ -899,5 +927,53 @@ prompt = {
         let source = "subject = cat\nprompt = {\nLine one.\n\nLine two: {subject}.\n}";
         let rendered = render_prompt_source(source);
         assert_eq!(rendered.rendered_prompt, "Line one.\n\nLine two: cat.");
+    }
+
+    #[test]
+    fn preserves_synced_metadata_when_prompt_root_changes() {
+        let temp_root =
+            std::env::temp_dir().join(format!("sozocraft-prompt-root-change-{}", Uuid::new_v4()));
+        let old_root = temp_root.join("old").join("prompts");
+        let new_root = temp_root.join("new").join("prompts");
+        fs::create_dir_all(&old_root).unwrap();
+        fs::create_dir_all(&new_root).unwrap();
+
+        let id = Uuid::new_v4().to_string();
+        let old_path = old_root.join(format!("{id}.md"));
+        let new_path = new_root.join(format!("{id}.md"));
+        fs::write(&old_path, "prompt = {\nOld body.\n}").unwrap();
+        fs::write(&new_path, "prompt = {\nNew body.\n}").unwrap();
+
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO prompts (
+                id, root, path, name, tags, description, created_at, updated_at,
+                content_hash, file_mtime, schema_version, last_indexed_at, missing
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 0)",
+            params![
+                id,
+                old_root.to_string_lossy().to_string(),
+                old_path.to_string_lossy().to_string(),
+                "Identify Reference",
+                r#"["nano-banana/identity"]"#,
+                "portable metadata",
+                "2026-01-01T00:00:00Z",
+                "2026-01-02T00:00:00Z",
+                "old-hash",
+                0,
+                SCHEMA_VERSION,
+                "2026-01-02T00:00:00Z",
+            ],
+        )
+        .unwrap();
+
+        let item = index_file(&conn, &new_root, &new_path).unwrap();
+
+        assert_eq!(item.name, "Identify Reference");
+        assert_eq!(item.tags, vec!["nano-banana/identity"]);
+        assert_eq!(item.description, "portable metadata");
+
+        fs::remove_dir_all(temp_root).unwrap();
     }
 }

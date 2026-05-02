@@ -2,7 +2,10 @@
 
 ## 2026-05-01
 
+- Bumped app/package/crate version metadata to `0.12.0` for the Fedora setup, prompt metadata portability, and reference-image drag/drop checkpoint.
 - Bumped app/package/crate version metadata to `0.11.0` for the prompt library and DSL editor checkpoint.
+- Fixed prompt-library rescans so synced SQLite metadata survives when the prompt directory root changes across machines, such as macOS `~/.sozocraft/prompts` to Fedora `~/.sozocraft/prompts`.
+- Added drag-and-drop image import on the reference-image add tile, using Tauri's native file-drop event so it works in Linux desktop webviews while reusing the existing picker validation and per-model image limits.
 - Added the first real prompt-library/editor milestone: markdown prompt files live under the configurable prompt directory, defaulting to `~/.sozocraft/prompts`, with a rebuildable SQLite metadata index in app data.
 - Added YAML-style prompt file frontmatter for `name`, `tags`, `description`, `createdAt`, `updatedAt`, and `schemaVersion`; prompt files intentionally do not use a user-facing version counter.
 - Added ComfyUI Banana Studio-compatible prompt rendering for simple `name = value` variables and the first `prompt = { ... }` / `prompt { ... }` block, with plain markdown-body fallback.

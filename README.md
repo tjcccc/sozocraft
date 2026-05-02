@@ -26,6 +26,21 @@ This repository currently targets the `0.1.0` MVP:
 
 Linux support is intended to target Fedora Wayland first.
 
+On Fedora, install the native Tauri/WebKitGTK development packages before
+running `pnpm tauri:dev`:
+
+```bash
+sudo dnf install webkit2gtk4.1-devel \
+  openssl-devel \
+  curl \
+  wget \
+  file \
+  libappindicator-gtk3-devel \
+  librsvg2-devel \
+  libxdo-devel
+sudo dnf group install "c-development"
+```
+
 ## Run Locally
 
 Install dependencies:

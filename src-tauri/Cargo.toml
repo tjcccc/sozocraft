@@ -1,6 +1,6 @@
 [package]
 name = "sozocraft"
-version = "0.11.0"
+version = "0.12.0"
 description = "A desktop AI visual generation studio and prompt workspace."
 authors = ["SozoCraft"]
 edition = "2021"
