@@ -35,8 +35,8 @@
 ## Data Contract
 
 - Generated outputs are saved as PNG files.
-- PNG metadata uses a plain `prompt` text chunk for the rendered model prompt.
-- PNG metadata also stores a `sozocraft` JSON chunk with `schemaVersion`, `promptSnapshot`, `renderedPrompt`, provider/model/options, ids, timestamps, and response metadata.
+- PNG metadata stores `prompt` and `sozocraft` as uncompressed UTF-8 `iTXt` chunks so non-Latin prompt text round-trips without mojibake.
+- The `sozocraft` JSON chunk includes `schemaVersion`, `promptSnapshot`, `renderedPrompt`, provider/model/options, ids, timestamps, and response metadata.
 - Until PromptCraft DSL rendering exists, `promptSnapshot` and `renderedPrompt` carry the same prompt text.
 - Prompt markdown files live under the configured prompt directory and use
   UUID filenames for stable identity. SQLite metadata lives at

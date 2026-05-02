@@ -331,9 +331,9 @@ async fn generate_images(mut request: GenerationRequest) -> Result<GenerationBat
                     });
                     let vc_str = serde_json::to_string(&vc_meta).unwrap_or_default();
                     let with_prompt =
-                        image_meta::embed_png_text(&image_bytes, "prompt", &rendered_prompt);
+                        image_meta::embed_png_itxt(&image_bytes, "prompt", &rendered_prompt);
                     let write_bytes =
-                        image_meta::embed_png_text(&with_prompt, "sozocraft", &vc_str);
+                        image_meta::embed_png_itxt(&with_prompt, "sozocraft", &vc_str);
 
                     fs::write(&path, &write_bytes)
                         .map_err(|err| format!("Failed to save generated image: {err}"))?;

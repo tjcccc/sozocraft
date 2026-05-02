@@ -272,7 +272,8 @@ implemented yet.
 ## Output Metadata
 
 Generated images are always saved as PNG files. Non-PNG provider responses are
-converted before writing so SozoCraft can embed stable PNG `tEXt` metadata:
+converted before writing so SozoCraft can embed stable UTF-8 PNG `iTXt`
+metadata:
 
 - `prompt`: final rendered prompt sent to the image model
 - `sozocraft`: JSON metadata with `schemaVersion`, `promptSnapshot`,

@@ -1,5 +1,10 @@
 # DEVLOG
 
+## 2026-05-02
+
+- Bumped app/package/crate version metadata to `0.12.1` for the UTF-8 PNG metadata checkpoint.
+- Changed generated PNG metadata embedding from Latin-1 `tEXt` chunks to UTF-8 `iTXt` chunks so Chinese and other non-Latin prompt text round-trips correctly.
+
 ## 2026-05-01
 
 - Bumped app/package/crate version metadata to `0.12.0` for the Fedora setup, prompt metadata portability, and reference-image drag/drop checkpoint.

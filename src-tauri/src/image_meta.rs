@@ -11,7 +11,7 @@ pub fn is_png(bytes: &[u8]) -> bool {
     bytes.len() >= PNG_SIG.len() && &bytes[..PNG_SIG.len()] == PNG_SIG
 }
 
-pub fn embed_png_text(bytes: &[u8], key: &str, value: &str) -> Vec<u8> {
+pub fn embed_png_itxt(bytes: &[u8], key: &str, value: &str) -> Vec<u8> {
     if !is_png(bytes) {
         return bytes.to_vec();
     }
@@ -20,19 +20,23 @@ pub fn embed_png_text(bytes: &[u8], key: &str, value: &str) -> Vec<u8> {
 
     let keyword = key.as_bytes();
     let text = value.as_bytes();
-    let mut data: Vec<u8> = Vec::with_capacity(keyword.len() + 1 + text.len());
+    let mut data: Vec<u8> = Vec::with_capacity(keyword.len() + 5 + text.len());
     data.extend_from_slice(keyword);
     data.push(0);
+    data.push(0); // compression flag: uncompressed
+    data.push(0); // compression method: zlib, ignored when uncompressed
+    data.push(0); // language tag: empty
+    data.push(0); // translated keyword: empty
     data.extend_from_slice(text);
 
     let mut crc_input = Vec::with_capacity(4 + data.len());
-    crc_input.extend_from_slice(b"tEXt");
+    crc_input.extend_from_slice(b"iTXt");
     crc_input.extend_from_slice(&data);
     let checksum = crc32(&crc_input);
 
     let mut chunk = Vec::with_capacity(12 + data.len());
     chunk.extend_from_slice(&(data.len() as u32).to_be_bytes());
-    chunk.extend_from_slice(b"tEXt");
+    chunk.extend_from_slice(b"iTXt");
     chunk.extend_from_slice(&data);
     chunk.extend_from_slice(&checksum.to_be_bytes());
 
@@ -90,22 +94,22 @@ mod tests {
     }
 
     #[test]
-    fn embed_inserts_text_chunk_before_iend() {
+    fn embed_inserts_itxt_chunk_before_iend() {
         let png = minimal_png();
-        let result = embed_png_text(&png, "hello", "world");
+        let result = embed_png_itxt(&png, "hello", "world");
         assert!(result.len() > png.len());
-        let text_pos = result.windows(4).position(|w| w == b"tEXt");
+        let text_pos = result.windows(4).position(|w| w == b"iTXt");
         let iend_pos = result.windows(4).position(|w| w == b"IEND");
         assert!(text_pos.is_some() && iend_pos.is_some());
         assert!(text_pos.unwrap() < iend_pos.unwrap());
     }
 
     #[test]
-    fn embed_preserves_multiple_text_chunks() {
+    fn embed_preserves_multiple_itxt_chunks() {
         let png = minimal_png();
-        let with_prompt = embed_png_text(&png, "prompt", "rendered prompt");
-        let result = embed_png_text(&with_prompt, "sozocraft", r#"{"schemaVersion":1}"#);
-        let chunks = text_chunks(&result);
+        let with_prompt = embed_png_itxt(&png, "prompt", "rendered prompt");
+        let result = embed_png_itxt(&with_prompt, "sozocraft", r#"{"schemaVersion":1}"#);
+        let chunks = itxt_chunks(&result);
 
         assert!(chunks.contains(&("prompt".to_string(), "rendered prompt".to_string())));
         assert!(chunks.contains(&(
@@ -115,9 +119,18 @@ mod tests {
     }
 
     #[test]
+    fn embed_itxt_preserves_utf8_text() {
+        let png = minimal_png();
+        let result = embed_png_itxt(&png, "prompt", "中文 prompt");
+        let chunks = itxt_chunks(&result);
+
+        assert!(chunks.contains(&("prompt".to_string(), "中文 prompt".to_string())));
+    }
+
+    #[test]
     fn non_png_returned_unchanged() {
         let jpeg = b"\xff\xd8\xff\xe0hello world";
-        let result = embed_png_text(jpeg, "key", "value");
+        let result = embed_png_itxt(jpeg, "key", "value");
         assert_eq!(result, jpeg.to_vec());
     }
 
@@ -146,7 +159,7 @@ mod tests {
         buf
     }
 
-    fn text_chunks(bytes: &[u8]) -> Vec<(String, String)> {
+    fn itxt_chunks(bytes: &[u8]) -> Vec<(String, String)> {
         let mut chunks = Vec::new();
         let mut pos = 8;
         while pos + 12 <= bytes.len() {
@@ -157,13 +170,16 @@ mod tests {
             if data_end > bytes.len() {
                 break;
             }
-            if chunk_type == b"tEXt" {
-                if let Some(split) = bytes[data_start..data_end]
-                    .iter()
-                    .position(|byte| *byte == 0)
-                {
-                    let key = String::from_utf8_lossy(&bytes[data_start..data_start + split]);
-                    let value = String::from_utf8_lossy(&bytes[data_start + split + 1..data_end]);
+            if chunk_type == b"iTXt" {
+                let data = &bytes[data_start..data_end];
+                if let Some(split) = data.iter().position(|byte| *byte == 0) {
+                    let text_start = split + 5;
+                    if text_start > data.len() {
+                        pos += 12 + len;
+                        continue;
+                    }
+                    let key = String::from_utf8_lossy(&data[..split]);
+                    let value = String::from_utf8_lossy(&data[text_start..]);
                     chunks.push((key.to_string(), value.to_string()));
                 }
             }
