@@ -82,15 +82,21 @@ export function ImageTile({
 }
 
 export function ModeSwitch({
+  disabled,
   mode,
   setMode,
 }: {
+  disabled?: boolean;
   mode: GenerationMode;
   setMode: (mode: GenerationMode) => void;
 }) {
   return (
     <div className="mode-switch">
-      <button className={mode === "image" ? "active" : ""} onClick={() => setMode("image")}>
+      <button
+        className={mode === "image" ? "active" : ""}
+        disabled={disabled}
+        onClick={() => setMode("image")}
+      >
         <ImageIcon size={14} />
         Image
       </button>
@@ -131,6 +137,26 @@ export function StatusPill({ label, status }: { label: string; status: AppStatus
 
 export function StatusText({ status }: { status: string }) {
   return <span className={`status-text ${status}`}>{status}</span>;
+}
+
+export function ToggleSwitch({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="toggle-switch">
+      <span>{label}</span>
+      <input checked={checked} type="checkbox" onChange={(event) => onChange(event.target.checked)} />
+      <span aria-hidden="true" className="toggle-track">
+        <span className="toggle-thumb" />
+      </span>
+    </label>
+  );
 }
 
 export function TreeGroup({

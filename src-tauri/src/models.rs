@@ -40,6 +40,16 @@ pub struct AppSettings {
     #[serde(default = "default_prompt_dsl_enabled")]
     pub prompt_dsl_enabled: bool,
     #[serde(default)]
+    pub prompt_editor_only: bool,
+    #[serde(default = "default_prompt_preview_placement")]
+    pub prompt_preview_placement: String,
+    #[serde(default = "default_proxy_enabled")]
+    pub gemini_proxy_enabled: bool,
+    #[serde(default = "default_proxy_enabled")]
+    pub openai_proxy_enabled: bool,
+    #[serde(default = "default_proxy_enabled")]
+    pub xai_proxy_enabled: bool,
+    #[serde(default)]
     pub optional_base_url: Option<String>,
     #[serde(default)]
     pub openai_base_url: Option<String>,
@@ -49,6 +59,12 @@ pub struct AppSettings {
     pub proxy_url: Option<String>,
     #[serde(default = "default_timeout_seconds")]
     pub timeout_seconds: u64,
+    #[serde(default = "default_timeout_seconds")]
+    pub gemini_timeout_seconds: u64,
+    #[serde(default = "default_timeout_seconds")]
+    pub openai_timeout_seconds: u64,
+    #[serde(default = "default_timeout_seconds")]
+    pub xai_timeout_seconds: u64,
 }
 
 fn default_provider() -> String {
@@ -88,6 +104,14 @@ fn default_prompt_dsl_enabled() -> bool {
     true
 }
 
+fn default_prompt_preview_placement() -> String {
+    "bottom".to_string()
+}
+
+fn default_proxy_enabled() -> bool {
+    true
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -98,11 +122,19 @@ impl Default for AppSettings {
                 .to_string(),
             prompt_directory: default_prompt_directory(),
             prompt_dsl_enabled: true,
+            prompt_editor_only: false,
+            prompt_preview_placement: default_prompt_preview_placement(),
+            gemini_proxy_enabled: true,
+            openai_proxy_enabled: true,
+            xai_proxy_enabled: true,
             optional_base_url: None,
             openai_base_url: None,
             xai_base_url: None,
             proxy_url: None,
             timeout_seconds: 180,
+            gemini_timeout_seconds: 180,
+            openai_timeout_seconds: 180,
+            xai_timeout_seconds: 180,
         }
     }
 }
@@ -110,6 +142,8 @@ impl Default for AppSettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerationRequest {
+    #[serde(default)]
+    pub task_id: Option<String>,
     pub provider: String,
     pub model: String,
     pub prompt: String,
@@ -271,4 +305,5 @@ pub enum GenerationStatus {
     Running,
     Completed,
     Failed,
+    Cancelled,
 }

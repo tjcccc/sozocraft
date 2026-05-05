@@ -1,9 +1,21 @@
-import { ArrowDownAZ, ChevronDown, ChevronRight, Clock3, FilePlus2, ScrollText, Search, Trash2 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import type { PromptListItem } from "../types";
+import {
+  ArrowDownAZ,
+  ChevronDown,
+  ChevronRight,
+  Clock3,
+  Download,
+  Eye,
+  EyeOff,
+  FilePlus2,
+  ScrollText,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
+import type { PromptListItem, PromptPreviewPlacement } from "../types";
 import { clamp } from "../utils/math";
-import { PanelHeader } from "./common";
+import { PanelHeader, ToggleSwitch } from "./common";
 import type { PromptSaveState, PromptSortMode } from "../hooks/usePromptLibrary";
 
 type TagNode = {
@@ -22,7 +34,9 @@ export function PromptColumn({
   tagsText,
   title,
   dslEnabled,
+  previewPlacement,
   setDslEnabled,
+  setPreviewPlacement,
   setQuery,
   setSortMode,
   setTagsText,
@@ -30,6 +44,8 @@ export function PromptColumn({
   onCommitMetadata,
   onCreatePrompt,
   onDeletePrompt,
+  defaultExportPath,
+  onExportRenderedPrompt,
   onPromptChange,
   onSelectPrompt,
 }: {
@@ -43,7 +59,9 @@ export function PromptColumn({
   tagsText: string;
   title: string;
   dslEnabled: boolean;
+  previewPlacement: PromptPreviewPlacement;
   setDslEnabled: (enabled: boolean) => void;
+  setPreviewPlacement: (placement: PromptPreviewPlacement) => void;
   setQuery: (value: string) => void;
   setSortMode: (value: PromptSortMode) => void;
   setTagsText: (value: string) => void;
@@ -51,17 +69,26 @@ export function PromptColumn({
   onCommitMetadata: () => void;
   onCreatePrompt: () => void;
   onDeletePrompt: (id?: string) => void;
+  defaultExportPath: string;
+  onExportRenderedPrompt: (outputPath: string) => void;
   onPromptChange: (value: string) => void;
   onSelectPrompt: (id: string) => void;
 }) {
   const editorWrapRef = useRef<HTMLDivElement>(null);
+  const highlightRef = useRef<HTMLPreElement>(null);
   const promptBodyRef = useRef<HTMLDivElement>(null);
   const [previewHeight, setPreviewHeight] = useState(260);
+  const [previewWidth, setPreviewWidth] = useState(340);
   const [libraryWidth, setLibraryWidth] = useState(230);
   const [isPreviewResizing, setIsPreviewResizing] = useState(false);
+  const [isRightPreviewResizing, setIsRightPreviewResizing] = useState(false);
   const [isLibraryResizing, setIsLibraryResizing] = useState(false);
+  const [previewMenuOpen, setPreviewMenuOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exportPath, setExportPath] = useState(defaultExportPath);
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const tree = useMemo(() => buildTagTree(items), [items]);
+  const effectivePreviewPlacement: PromptPreviewPlacement = dslEnabled ? previewPlacement : "hidden";
 
   const startPreviewResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const bounds = editorWrapRef.current?.getBoundingClientRect();
@@ -114,6 +141,32 @@ export function PromptColumn({
     window.addEventListener("pointerup", onUp, { once: true });
   }, []);
 
+  const startRightPreviewResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const bounds = editorWrapRef.current?.getBoundingClientRect();
+    if (!bounds) {
+      return;
+    }
+
+    event.preventDefault();
+    setIsRightPreviewResizing(true);
+    document.body.classList.add("is-column-resizing");
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const nextWidth = bounds.right - moveEvent.clientX;
+      setPreviewWidth(clamp(nextWidth, 180, Math.max(180, Math.floor(bounds.width * 0.48))));
+    };
+
+    const onUp = () => {
+      setIsRightPreviewResizing(false);
+      document.body.classList.remove("is-column-resizing");
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp, { once: true });
+  }, []);
+
   const toggleTag = useCallback((path: string) => {
     setCollapsedTags((current) => {
       const next = new Set(current);
@@ -132,14 +185,38 @@ export function PromptColumn({
         icon={<ScrollText size={16} />}
         title="Prompt Editor"
         actions={
-          <label className="dsl-toggle">
-            <span>DSL</span>
-            <input
-              checked={dslEnabled}
-              type="checkbox"
-              onChange={(event) => setDslEnabled(event.target.checked)}
-            />
-          </label>
+          <div className="prompt-header-actions">
+            <ToggleSwitch checked={dslEnabled} label="DSL" onChange={setDslEnabled} />
+            {dslEnabled ? (
+              <div className="preview-menu">
+                <button
+                  className="icon-button"
+                  title="Preview placement"
+                  onClick={() => setPreviewMenuOpen((value) => !value)}
+                  type="button"
+                >
+                  {previewPlacement === "hidden" ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+                {previewMenuOpen ? (
+                  <div className="preview-menu-popover">
+                    {(["bottom", "right", "hidden"] as PromptPreviewPlacement[]).map((placement) => (
+                      <button
+                        className={previewPlacement === placement ? "active" : ""}
+                        key={placement}
+                        onClick={() => {
+                          setPreviewPlacement(placement);
+                          setPreviewMenuOpen(false);
+                        }}
+                        type="button"
+                      >
+                        {placement[0].toUpperCase() + placement.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         }
       />
       <div
@@ -200,7 +277,10 @@ export function PromptColumn({
           role="separator"
           tabIndex={0}
         />
-        <div className="editor-wrap" ref={editorWrapRef}>
+        <div
+          className={`editor-wrap preview-${effectivePreviewPlacement}`}
+          ref={editorWrapRef}
+        >
           <div className="editor-topline">
             <input
               className="prompt-title-input"
@@ -210,38 +290,183 @@ export function PromptColumn({
             />
             <span className="prompt-save-state">{saveStateLabel(saveState)}</span>
           </div>
-          <textarea
-            className="prompt-textarea"
-            value={prompt}
-            onChange={(event) => onPromptChange(event.target.value)}
-            spellCheck={false}
-          />
-          <input
-            className="prompt-tags-input"
-            placeholder="#"
-            value={tagsText}
-            onChange={(event) => setTagsText(event.target.value)}
-            onBlur={onCommitMetadata}
-          />
-          <div
-            aria-label="Resize prompt editor and preview"
-            aria-orientation="horizontal"
-            className={`preview-resizer ${isPreviewResizing ? "active" : ""}`}
-            onPointerDown={startPreviewResize}
-            role="separator"
-            tabIndex={0}
-          />
-          <div className="preview-box" style={{ flexBasis: previewHeight }}>
-            <div className="preview-heading">
-              <strong>Preview</strong>
-              <span>Rendered prompt</span>
+          <div className="prompt-editor-main">
+            <div className="prompt-editor-area">
+              <PromptEditor
+                dslEnabled={dslEnabled}
+                highlightRef={highlightRef}
+                onPromptChange={onPromptChange}
+                prompt={prompt}
+              />
+              <input
+                className="prompt-tags-input"
+                placeholder="#"
+                value={tagsText}
+                onChange={(event) => setTagsText(event.target.value)}
+                onBlur={onCommitMetadata}
+              />
             </div>
-            <p>{renderedPrompt.trim()}</p>
+            {effectivePreviewPlacement === "bottom" ? (
+              <div
+                aria-label="Resize prompt editor and preview"
+                aria-orientation="horizontal"
+                className={`preview-resizer ${isPreviewResizing ? "active" : ""}`}
+                onPointerDown={startPreviewResize}
+                role="separator"
+                tabIndex={0}
+              />
+            ) : null}
+            {effectivePreviewPlacement !== "hidden" ? (
+              <>
+                {effectivePreviewPlacement === "right" ? (
+                  <div
+                    aria-label="Resize prompt editor and preview"
+                    aria-orientation="vertical"
+                    className={`preview-resizer-vertical ${isRightPreviewResizing ? "active" : ""}`}
+                    onPointerDown={startRightPreviewResize}
+                    role="separator"
+                    tabIndex={0}
+                  />
+                ) : null}
+              <div
+                className="preview-box"
+                style={
+                  effectivePreviewPlacement === "bottom"
+                    ? { flexBasis: previewHeight }
+                    : { flexBasis: previewWidth }
+                }
+              >
+                <div className="preview-heading">
+                  <strong>Preview</strong>
+                  <div className="export-menu">
+                    <button
+                      className="icon-button"
+                      title="Export rendered prompt"
+                      onClick={() => {
+                        setExportPath(defaultExportPath);
+                        setExportMenuOpen((value) => !value);
+                      }}
+                      type="button"
+                    >
+                      <Download size={15} />
+                    </button>
+                    {exportMenuOpen ? (
+                      <div className="export-menu-popover">
+                        <input
+                          value={exportPath}
+                          onChange={(event) => setExportPath(event.target.value)}
+                        />
+                        <button
+                          className="primary-button"
+                          onClick={() => {
+                            onExportRenderedPrompt(exportPath);
+                            setExportMenuOpen(false);
+                          }}
+                          type="button"
+                        >
+                          Export
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                <p>{renderedPrompt.trim()}</p>
+              </div>
+              </>
+            ) : null}
           </div>
         </div>
       </div>
     </section>
   );
+}
+
+function PromptEditor({
+  dslEnabled,
+  highlightRef,
+  onPromptChange,
+  prompt,
+}: {
+  dslEnabled: boolean;
+  highlightRef: RefObject<HTMLPreElement | null>;
+  onPromptChange: (value: string) => void;
+  prompt: string;
+}) {
+  const deferredPrompt = useDeferredValue(prompt);
+  const highlightedPrompt = useMemo(
+    () => (dslEnabled ? highlightPromptDsl(deferredPrompt) : null),
+    [deferredPrompt, dslEnabled],
+  );
+
+  return (
+    <div className={`prompt-editor-stack ${dslEnabled ? "dsl-highlight-enabled" : ""}`}>
+      {dslEnabled ? (
+        <pre aria-hidden="true" className="prompt-highlight" ref={highlightRef}>
+          {highlightedPrompt}
+        </pre>
+      ) : null}
+      <textarea
+        className="prompt-textarea"
+        value={prompt}
+        onChange={(event) => onPromptChange(event.target.value)}
+        onScroll={(event) => {
+          if (highlightRef.current) {
+            highlightRef.current.scrollTop = event.currentTarget.scrollTop;
+            highlightRef.current.scrollLeft = event.currentTarget.scrollLeft;
+          }
+        }}
+        spellCheck={false}
+      />
+    </div>
+  );
+}
+
+function highlightPromptDsl(source: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const lines = source.split("\n");
+  lines.forEach((line, lineIndex) => {
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith("#") || trimmed.startsWith("//")) {
+      nodes.push(
+        <span className="dsl-comment" key={`comment:${lineIndex}`}>
+          {line}
+        </span>,
+      );
+    } else {
+      nodes.push(...highlightDslLine(line, lineIndex));
+    }
+    if (lineIndex < lines.length - 1) {
+      nodes.push("\n");
+    }
+  });
+  return nodes;
+}
+
+function highlightDslLine(line: string, lineIndex: number): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const pattern =
+    /(\{#[^}]*\})|(\{[A-Za-z_][\w.-]*\})|(\bprompt\b|\binclude\b|\btrue\b|\bfalse\b|\bnull\b)|(^\s*[A-Za-z_][\w.-]*(?=\s*=))/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(line))) {
+    if (match.index > cursor) {
+      nodes.push(line.slice(cursor, match.index));
+    }
+    const value = match[0];
+    const className = match[1] || match[2] ? "dsl-variable" : "dsl-keyword";
+    nodes.push(
+      <span className={className} key={`${lineIndex}:${match.index}`}>
+        {value}
+      </span>,
+    );
+    cursor = match.index + value.length;
+  }
+
+  if (cursor < line.length) {
+    nodes.push(line.slice(cursor));
+  }
+  return nodes;
 }
 
 function buildTagTree(items: PromptListItem[]) {

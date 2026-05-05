@@ -488,6 +488,7 @@ mod tests {
 
     fn request_for_model(model: &str) -> GenerationRequest {
         GenerationRequest {
+            task_id: None,
             provider: "nano-banana".to_string(),
             model: model.to_string(),
             prompt: "Render a test image".to_string(),

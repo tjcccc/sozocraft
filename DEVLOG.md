@@ -1,5 +1,14 @@
 # DEVLOG
 
+## 2026-05-05
+
+- Bumped app/package/crate version metadata to `0.13.0` for the prompt editor workflow and generation queue checkpoint.
+- Added queued generation submissions, active-task cancellation, Stop/queue toolbar hints, and cancelled task status handling.
+- Reworked Settings into autosaved General, Prompts, and Providers sections with provider-specific proxy toggles, provider timeouts, top config status, and output filename template placement under General.
+- Added Prompt Editor-only mode, DSL syntax highlighting, rendered prompt export by chosen path, preview placement controls, and right/hidden/bottom preview layout fixes for the prompt tags row.
+- Changed history row clicks to expand inline history thumbnails without replacing the active output preview.
+- Added explicit prompt include cycle detection in addition to the existing include depth cap.
+
 ## 2026-05-02
 
 - Bumped app/package/crate version metadata to `0.12.1` for the UTF-8 PNG metadata checkpoint.

@@ -26,9 +26,16 @@ use prompt_library::{
     UpdatePromptMetadataRequest,
 };
 use serde::Serialize;
-use std::{fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf, sync::Mutex};
+use tauri::State as TauriState;
+use tokio::sync::watch;
 use uuid::Uuid;
 use xai_image::XaiImageClient;
+
+#[derive(Default)]
+struct GenerationRuntime {
+    cancellations: Mutex<HashMap<String, watch::Sender<bool>>>,
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,6 +61,24 @@ fn get_config_status() -> ConfigStatus {
 #[tauri::command]
 fn save_output_template(template: String) -> Result<(), String> {
     local_config::save_output_template(&template).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn cancel_generation_task(
+    runtime: TauriState<'_, GenerationRuntime>,
+    task_id: String,
+) -> Result<bool, String> {
+    let cancellations = runtime
+        .cancellations
+        .lock()
+        .map_err(|_| "Generation cancellation state is unavailable.".to_string())?;
+    let Some(sender) = cancellations.get(&task_id) else {
+        return Ok(false);
+    };
+    sender
+        .send(true)
+        .map_err(|_| "Generation task is no longer active.".to_string())?;
+    Ok(true)
 }
 
 #[tauri::command]
@@ -205,7 +230,51 @@ fn read_image_data_url(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn generate_images(mut request: GenerationRequest) -> Result<GenerationBatch, String> {
+fn export_rendered_prompt(output_path: String, rendered_prompt: String) -> Result<String, String> {
+    let path = PathBuf::from(output_path.trim());
+    if path.as_os_str().is_empty() {
+        return Err("Choose an export path before exporting.".to_string());
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("Failed to create prompt export directory: {err}"))?;
+    }
+
+    fs::write(&path, rendered_prompt)
+        .map_err(|err| format!("Failed to export rendered prompt: {err}"))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn generate_images(
+    runtime: TauriState<'_, GenerationRuntime>,
+    mut request: GenerationRequest,
+) -> Result<GenerationBatch, String> {
+    let task_id = request
+        .task_id
+        .clone()
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    request.task_id = Some(task_id.clone());
+    let (sender, receiver) = watch::channel(false);
+    {
+        let mut cancellations = runtime
+            .cancellations
+            .lock()
+            .map_err(|_| "Generation cancellation state is unavailable.".to_string())?;
+        cancellations.insert(task_id.clone(), sender);
+    }
+
+    let result = generate_images_inner(request, receiver).await;
+    if let Ok(mut cancellations) = runtime.cancellations.lock() {
+        cancellations.remove(&task_id);
+    }
+    result
+}
+
+async fn generate_images_inner(
+    mut request: GenerationRequest,
+    mut cancellation: watch::Receiver<bool>,
+) -> Result<GenerationBatch, String> {
     request.validate()?;
     reference_image_cache::optimize_request_reference_images(&mut request)?;
 
@@ -239,11 +308,31 @@ async fn generate_images(mut request: GenerationRequest) -> Result<GenerationBat
     } else {
         request.batch_count
     };
+    let mut cancelled = false;
     for index in 0..attempts {
+        if *cancellation.borrow() {
+            cancelled = true;
+            break;
+        }
         let item_request = request.clone();
 
-        match generate_with_provider(&item_request, &settings).await {
+        let provider_result = tokio::select! {
+            result = generate_with_provider(&item_request, &settings) => result,
+            changed = cancellation.changed() => {
+                if changed.is_ok() && *cancellation.borrow() {
+                    cancelled = true;
+                    break;
+                }
+                continue;
+            }
+        };
+
+        match provider_result {
             Ok(response) => {
+                if *cancellation.borrow() {
+                    cancelled = true;
+                    break;
+                }
                 if response.images.is_empty() {
                     let message = no_image_data_error(&request.provider, &response.metadata);
                     error_log::log_generation_error(&GenerationErrorLog {
@@ -258,8 +347,8 @@ async fn generate_images(mut request: GenerationRequest) -> Result<GenerationBat
                             .base_url
                             .as_deref()
                             .or(effective_base_url(&request.provider, &settings)),
-                        proxy_url: settings.proxy_url.as_deref(),
-                        timeout_seconds: settings.timeout_seconds,
+                        proxy_url: provider_proxy_ref(&request.provider, &settings),
+                        timeout_seconds: provider_timeout(&request.provider, &settings),
                         reference_image_count: error_log::reference_image_count(&item_request),
                         response_metadata: Some(error_log::no_image_metadata(&response.metadata)),
                     });
@@ -268,6 +357,10 @@ async fn generate_images(mut request: GenerationRequest) -> Result<GenerationBat
                 }
 
                 for image in response.images {
+                    if *cancellation.borrow() {
+                        cancelled = true;
+                        break;
+                    }
                     let image_id = Uuid::new_v4().to_string();
                     let file_id = format!("{:03}", batch.images.len() + 1);
 
@@ -350,15 +443,16 @@ async fn generate_images(mut request: GenerationRequest) -> Result<GenerationBat
                         metadata: Some(response.metadata.clone()),
                     });
                 }
+                if cancelled {
+                    break;
+                }
             }
             Err(err) => {
-                let proxy_note = settings
-                    .proxy_url
-                    .as_ref()
+                let proxy_note = provider_proxy_ref(&request.provider, &settings)
                     .filter(|value| !value.trim().is_empty())
                     .map(|value| format!("Proxy configured: {value}"))
                     .unwrap_or_else(|| {
-                        "No proxy configured. Save Proxy URL in settings or set the provider proxy in ~/.sozocraft/config.toml.".to_string()
+                        "No proxy active for this provider. Save Proxy URL in settings and enable provider proxy if needed.".to_string()
                     });
                 let detailed_error = err.clone();
                 let message = format!("{detailed_error}. {proxy_note}");
@@ -374,8 +468,8 @@ async fn generate_images(mut request: GenerationRequest) -> Result<GenerationBat
                         .base_url
                         .as_deref()
                         .or(effective_base_url(&request.provider, &settings)),
-                    proxy_url: settings.proxy_url.as_deref(),
-                    timeout_seconds: settings.timeout_seconds,
+                    proxy_url: provider_proxy_ref(&request.provider, &settings),
+                    timeout_seconds: provider_timeout(&request.provider, &settings),
                     reference_image_count: error_log::reference_image_count(&item_request),
                     response_metadata: None,
                 });
@@ -384,7 +478,11 @@ async fn generate_images(mut request: GenerationRequest) -> Result<GenerationBat
         }
     }
 
-    if batch.images.is_empty() {
+    if cancelled {
+        batch.status = GenerationStatus::Cancelled;
+        batch.error = Some("Generation cancelled.".to_string());
+        batch.completed_at = Some(Utc::now());
+    } else if batch.images.is_empty() {
         batch.status = GenerationStatus::Failed;
         batch.error = Some(last_error.unwrap_or_else(|| "Generation failed.".to_string()));
     } else {
@@ -401,7 +499,7 @@ async fn generate_images(mut request: GenerationRequest) -> Result<GenerationBat
         Err(batch
             .error
             .clone()
-            .unwrap_or_else(|| "Generation failed.".to_string()))
+            .unwrap_or_else(|| "Generation did not complete.".to_string()))
     } else {
         Ok(batch)
     }
@@ -435,6 +533,32 @@ fn effective_base_url<'a>(provider: &str, settings: &'a AppSettings) -> Option<&
     }
 }
 
+fn provider_timeout(provider: &str, settings: &AppSettings) -> u64 {
+    match provider {
+        "gpt-image" => settings.openai_timeout_seconds,
+        "grok-imagine" => settings.xai_timeout_seconds,
+        _ => settings.gemini_timeout_seconds,
+    }
+}
+
+fn provider_proxy(provider: &str, settings: &AppSettings) -> Option<String> {
+    let enabled = match provider {
+        "gpt-image" => settings.openai_proxy_enabled,
+        "grok-imagine" => settings.xai_proxy_enabled,
+        _ => settings.gemini_proxy_enabled,
+    };
+    enabled.then(|| settings.proxy_url.clone()).flatten()
+}
+
+fn provider_proxy_ref<'a>(provider: &str, settings: &'a AppSettings) -> Option<&'a str> {
+    let enabled = match provider {
+        "gpt-image" => settings.openai_proxy_enabled,
+        "grok-imagine" => settings.xai_proxy_enabled,
+        _ => settings.gemini_proxy_enabled,
+    };
+    enabled.then_some(settings.proxy_url.as_deref()).flatten()
+}
+
 #[derive(Debug, Clone)]
 struct ProviderGeneratedImage {
     bytes: Vec<u8>,
@@ -458,8 +582,8 @@ async fn generate_with_provider(
                     .base_url
                     .clone()
                     .or_else(|| settings.optional_base_url.clone()),
-                settings.proxy_url.clone(),
-                settings.timeout_seconds,
+                provider_proxy("nano-banana", settings),
+                provider_timeout("nano-banana", settings),
             )
             .map_err(|err| err.to_string())?;
             let response = client
@@ -482,8 +606,8 @@ async fn generate_with_provider(
                     .base_url
                     .clone()
                     .or_else(|| settings.openai_base_url.clone()),
-                settings.proxy_url.clone(),
-                settings.timeout_seconds,
+                provider_proxy("gpt-image", settings),
+                provider_timeout("gpt-image", settings),
             )
             .map_err(|err| err.to_string())?;
             let response = client
@@ -506,8 +630,8 @@ async fn generate_with_provider(
                     .base_url
                     .clone()
                     .or_else(|| settings.xai_base_url.clone()),
-                settings.proxy_url.clone(),
-                settings.timeout_seconds,
+                provider_proxy("grok-imagine", settings),
+                provider_timeout("grok-imagine", settings),
             )
             .map_err(|err| err.to_string())?;
             let response = client
@@ -542,6 +666,7 @@ fn short_id(id: &str) -> String {
 
 pub fn run() {
     tauri::Builder::default()
+        .manage(GenerationRuntime::default())
         .invoke_handler(tauri::generate_handler![
             load_app_state,
             save_app_settings,
@@ -555,6 +680,7 @@ pub fn run() {
             update_prompt_metadata,
             delete_prompt,
             render_prompt_source,
+            export_rendered_prompt,
             save_output_template,
             set_gemini_api_key,
             set_openai_api_key,
@@ -563,6 +689,7 @@ pub fn run() {
             has_openai_api_key,
             has_xai_api_key,
             read_image_data_url,
+            cancel_generation_task,
             generate_images,
             get_config_status
         ])

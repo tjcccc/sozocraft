@@ -1,4 +1,5 @@
-export type GenerationStatus = "queued" | "running" | "completed" | "failed";
+export type GenerationStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+export type PromptPreviewPlacement = "bottom" | "right" | "hidden";
 
 export type ConfigStatus = {
   configPath: string;
@@ -15,11 +16,19 @@ export type AppSettings = {
   outputTemplate: string;
   promptDirectory: string;
   promptDslEnabled: boolean;
+  promptEditorOnly: boolean;
+  promptPreviewPlacement: PromptPreviewPlacement;
+  geminiProxyEnabled: boolean;
+  openaiProxyEnabled: boolean;
+  xaiProxyEnabled: boolean;
   optionalBaseUrl?: string | null;
   openaiBaseUrl?: string | null;
   xaiBaseUrl?: string | null;
   proxyUrl?: string | null;
   timeoutSeconds: number;
+  geminiTimeoutSeconds: number;
+  openaiTimeoutSeconds: number;
+  xaiTimeoutSeconds: number;
 };
 
 export type AppState = {
@@ -39,6 +48,7 @@ export type GenerationOptions = {
 };
 
 export type GenerationRequest = {
+  taskId?: string | null;
   provider: "nano-banana" | "gpt-image" | "grok-imagine";
   model: string;
   prompt: string;

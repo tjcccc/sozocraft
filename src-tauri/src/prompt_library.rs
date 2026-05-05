@@ -2,7 +2,7 @@ use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{hash_map::DefaultHasher, BTreeSet},
+    collections::{hash_map::DefaultHasher, BTreeSet, HashSet},
     fs,
     hash::{Hash, Hasher},
     io,
@@ -298,6 +298,9 @@ pub fn render_prompt_source_with_library(
     current_prompt_id: Option<&str>,
 ) -> RenderPromptResult {
     let root = prompt_root(prompt_directory);
+    let mut visited = current_prompt_id
+        .map(|id| HashSet::from([id.to_string()]))
+        .unwrap_or_default();
     let rendered = match open_db().and_then(|conn| {
         init_db(&conn)?;
         resolve_prompt_includes(
@@ -305,6 +308,7 @@ pub fn render_prompt_source_with_library(
             &root,
             &render_source_body(source),
             current_prompt_id,
+            &mut visited,
             0,
         )
     }) {
@@ -508,6 +512,7 @@ fn resolve_prompt_includes(
     root: &Path,
     source: &str,
     current_prompt_id: Option<&str>,
+    visited: &mut HashSet<String>,
     depth: usize,
 ) -> Result<String, String> {
     if depth >= 8 {
@@ -536,10 +541,18 @@ fn resolve_prompt_includes(
             index = absolute_end + 1;
             continue;
         };
+        if visited.contains(&item.id) {
+            output.push_str(&source[absolute_start..=absolute_end]);
+            index = absolute_end + 1;
+            continue;
+        }
+        visited.insert(item.id.clone());
         let included_source = fs::read_to_string(&item.path)
             .map_err(|err| format!("Failed to read included prompt: {err}"))?;
         let rendered = render_source_body(prompt_body(&included_source));
-        let resolved = resolve_prompt_includes(conn, root, &rendered, Some(&item.id), depth + 1)?;
+        let resolved =
+            resolve_prompt_includes(conn, root, &rendered, Some(&item.id), visited, depth + 1)?;
+        visited.remove(&item.id);
         output.push_str(&resolved);
         index = absolute_end + 1;
     }

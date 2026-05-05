@@ -1,6 +1,6 @@
 import { Loader2, Play, Settings, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { saveOutputTemplate } from "./api";
+import { exportRenderedPrompt } from "./api";
 import { GenerationPanel } from "./components/GenerationPanel";
 import { ImageLightbox, type LightboxImage, type LightboxState } from "./components/ImageLightbox";
 import { OutputColumn } from "./components/OutputColumn";
@@ -20,6 +20,7 @@ import { useModelOptions } from "./hooks/useModelOptions";
 import { usePromptLibrary } from "./hooks/usePromptLibrary";
 import { getProviderConfig, getProviderModelDisplayName } from "./models/imageProviders";
 import { clamp } from "./utils/math";
+import type { AppSettings } from "./types";
 
 const MIN_COLUMN_WIDTHS = [24, 24, 28];
 
@@ -29,6 +30,7 @@ export function App() {
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
   const [previewBatchId, setPreviewBatchId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [toolbarHint, setToolbarHint] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const [columnWidths, setColumnWidths] = useState([35.5, 27.2, 37.3]);
   const [resizingDivider, setResizingDivider] = useState<number | null>(null);
@@ -187,6 +189,58 @@ export function App() {
     [setPrompt],
   );
 
+  const defaultExportPath = useMemo(() => {
+    if (!settings) {
+      return "";
+    }
+    return `${settings.promptDirectory}/exports/${sanitizeExportName(
+      promptLibrary.title || "rendered-prompt",
+    )}.md`;
+  }, [promptLibrary.title, settings]);
+
+  const exportPrompt = useCallback((outputPath: string) => {
+    void exportRenderedPrompt(outputPath, promptLibrary.renderedPrompt)
+      .then((path) => {
+        setStatus("ready");
+        setMessage(`Exported ${path}`);
+      })
+      .catch((error) => {
+        setStatus("error");
+        setMessage(String(error));
+      });
+  }, [promptLibrary.renderedPrompt, setMessage, setStatus]);
+
+  const handleRun = useCallback(() => {
+    const wasRunning = Boolean(generation.runningTask);
+    void generation.runGeneration();
+    if (wasRunning) {
+      setToolbarHint("Task added to queue");
+      window.setTimeout(() => setToolbarHint(null), 1800);
+    }
+  }, [generation]);
+
+  const handleStop = useCallback(() => {
+    if (!generation.runningTask) {
+      return;
+    }
+    const totalActiveTasks = 1 + generation.queuedCount;
+    setToolbarHint(`Cancelled task 1/${totalActiveTasks}`);
+    window.setTimeout(() => setToolbarHint(null), 1800);
+    void generation.stopGeneration();
+  }, [generation]);
+
+  const saveSettings = useCallback(
+    (nextSettings: AppSettings) => {
+      void updateSettings(nextSettings);
+    },
+    [updateSettings],
+  );
+
+  const showEditorOnly = !!settings?.promptEditorOnly && !showSettings;
+  const completedTasks = batches.filter((batch) => batch.status === "completed").length;
+  const failedTasks = batches.filter((batch) => batch.status === "failed").length;
+  const cancelledTasks = batches.filter((batch) => batch.status === "cancelled").length;
+
   if (!settings) {
     return (
       <main className="loading">
@@ -206,22 +260,31 @@ export function App() {
           </div>
         </div>
         <div className="toolbar-center">
-          <button
-            className="primary-button"
-            disabled={status === "running"}
-            onClick={generation.runGeneration}
-          >
-            {status === "running" ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
-            Run
-          </button>
-          <button className="secondary-button" disabled>
-            <Square size={14} />
-            Stop
-          </button>
+          {!settings.promptEditorOnly ? (
+            <>
+              <button className="primary-button" disabled={showSettings} onClick={handleRun}>
+                {status === "running" ? <Loader2 className="spin" size={17} /> : <Play size={17} />}
+                Run
+              </button>
+              <button
+                className="secondary-button"
+                disabled={showSettings || !generation.runningTask}
+                onClick={handleStop}
+              >
+                <Square size={14} />
+                Stop
+              </button>
+              {toolbarHint ? <div className="toolbar-hint">{toolbarHint}</div> : null}
+            </>
+          ) : null}
         </div>
         <div className="toolbar-right">
-          <ModeSwitch mode={mode} setMode={setMode} />
-          <div className="divider" />
+          {!settings.promptEditorOnly ? (
+            <>
+              <ModeSwitch disabled={showSettings} mode={mode} setMode={setMode} />
+              <div className="divider" />
+            </>
+          ) : null}
           <button
             className="icon-button"
             title="Settings"
@@ -248,9 +311,46 @@ export function App() {
           setXaiApiKey={setXaiApiKey}
           onSaveKey={() => void saveKey()}
           onSaveOpenaiKey={() => void saveOpenaiKey()}
-          onSaveSettings={() => void updateSettings(settings)}
+          onSaveSettings={saveSettings}
           onSaveXaiKey={() => void saveXaiKey()}
         />
+      ) : showEditorOnly ? (
+        <section className="workspace editor-only-workspace" ref={workspaceRef}>
+          <PromptColumn
+            items={promptLibrary.filteredItems}
+            prompt={prompt}
+            query={promptLibrary.query}
+            renderedPrompt={promptLibrary.renderedPrompt}
+            saveState={promptLibrary.saveState}
+            selectedPromptId={promptLibrary.selectedPromptId}
+            sortMode={promptLibrary.sortMode}
+            tagsText={promptLibrary.tagsText}
+            title={promptLibrary.title}
+            dslEnabled={settings.promptDslEnabled}
+            previewPlacement={settings.promptPreviewPlacement}
+            setDslEnabled={(enabled) => {
+              const nextSettings = { ...settings, promptDslEnabled: enabled };
+              setSettings(nextSettings);
+              void updateSettings(nextSettings);
+            }}
+            setPreviewPlacement={(placement) => {
+              const nextSettings = { ...settings, promptPreviewPlacement: placement };
+              setSettings(nextSettings);
+              void updateSettings(nextSettings);
+            }}
+            setQuery={promptLibrary.setQuery}
+            setSortMode={promptLibrary.setSortMode}
+            setTagsText={promptLibrary.setTagsText}
+            setTitle={promptLibrary.setTitle}
+            onCommitMetadata={() => void promptLibrary.commitMetadata()}
+            onCreatePrompt={() => void promptLibrary.createNewPrompt()}
+            onDeletePrompt={(id) => void promptLibrary.deletePromptById(id)}
+            defaultExportPath={defaultExportPath}
+            onExportRenderedPrompt={exportPrompt}
+            onPromptChange={updatePrompt}
+            onSelectPrompt={(id) => void promptLibrary.selectPrompt(id)}
+          />
+        </section>
       ) : (
         <section
           className="workspace"
@@ -270,8 +370,14 @@ export function App() {
             tagsText={promptLibrary.tagsText}
             title={promptLibrary.title}
             dslEnabled={settings.promptDslEnabled}
+            previewPlacement={settings.promptPreviewPlacement}
             setDslEnabled={(enabled) => {
               const nextSettings = { ...settings, promptDslEnabled: enabled };
+              setSettings(nextSettings);
+              void updateSettings(nextSettings);
+            }}
+            setPreviewPlacement={(placement) => {
+              const nextSettings = { ...settings, promptPreviewPlacement: placement };
               setSettings(nextSettings);
               void updateSettings(nextSettings);
             }}
@@ -282,6 +388,8 @@ export function App() {
             onCommitMetadata={() => void promptLibrary.commitMetadata()}
             onCreatePrompt={() => void promptLibrary.createNewPrompt()}
             onDeletePrompt={(id) => void promptLibrary.deletePromptById(id)}
+            defaultExportPath={defaultExportPath}
+            onExportRenderedPrompt={exportPrompt}
             onPromptChange={updatePrompt}
             onSelectPrompt={(id) => void promptLibrary.selectPrompt(id)}
           />
@@ -309,15 +417,9 @@ export function App() {
             historyDate={historyDate}
             imageDataUrls={imageDataUrls}
             previewBatch={previewBatch}
-            settings={settings}
             setExpandedBatchId={setExpandedBatchId}
             setHistoryDate={setHistoryDate}
-            setPreviewBatchId={setPreviewBatchId}
-            setSettings={setSettings}
             onPreviewImages={openLightbox}
-            onSaveTemplate={(template) => {
-              void saveOutputTemplate(template).catch(() => undefined);
-            }}
           />
         </section>
       )}
@@ -332,17 +434,37 @@ export function App() {
 
       <footer className="statusbar">
         <StatusPill status={status} label={status === "error" ? "Error" : message} />
-        <div className="status-info">
-          <span>{getProviderConfig(settings.defaultProvider).providerName}</span>
-          <span>/</span>
-          <span>{getProviderModelDisplayName(settings.defaultProvider, settings.defaultModel)}</span>
-        </div>
-        <div className="status-counts">
-          <span>Queue: 0</span>
-          <span>Running: {status === "running" ? 1 : 0}</span>
-          <span>Completed: {batches.reduce((count, batch) => count + batch.images.length, 0)}</span>
-        </div>
+        {!settings.promptEditorOnly || showSettings ? (
+          <>
+            <div className="status-info">
+              <span>{getProviderConfig(settings.defaultProvider).providerName}</span>
+              <span>/</span>
+              <span>{getProviderModelDisplayName(settings.defaultProvider, settings.defaultModel)}</span>
+            </div>
+            <div className="status-counts">
+              <span>Queue: {generation.queuedCount}</span>
+              <span>Running: {generation.runningTask ? 1 : 0}</span>
+              <span>Completed: {completedTasks}</span>
+              <span>Failed: {failedTasks}</span>
+              <span>Cancelled: {cancelledTasks}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div />
+            <div />
+          </>
+        )}
       </footer>
     </main>
   );
+}
+
+function sanitizeExportName(value: string) {
+  const safe = value
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return safe || "rendered-prompt";
 }

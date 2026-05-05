@@ -57,8 +57,16 @@ export function generateImages(request: GenerationRequest) {
   return invoke<GenerationBatch>("generate_images", { request });
 }
 
+export function cancelGenerationTask(taskId: string) {
+  return invoke<boolean>("cancel_generation_task", { taskId });
+}
+
 export function readImageDataUrl(path: string) {
   return invoke<string>("read_image_data_url", { path });
+}
+
+export function exportRenderedPrompt(outputPath: string, renderedPrompt: string) {
+  return invoke<string>("export_rendered_prompt", { outputPath, renderedPrompt });
 }
 
 export function saveOutputTemplate(template: string) {

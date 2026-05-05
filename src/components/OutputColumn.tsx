@@ -3,16 +3,14 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  Copy,
   Image as ImageIcon,
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { AppSettings, GenerationBatch } from "../types";
+import type { GenerationBatch } from "../types";
 import { localDateString } from "../utils/dates";
 import { batchTitle } from "../utils/history";
 import { clamp } from "../utils/math";
-import { validateOutputTemplate } from "../utils/outputTemplate";
-import { Field, ImageTile, PanelHeader, StatusText } from "./common";
+import { ImageTile, PanelHeader, StatusText } from "./common";
 import type { LightboxImage } from "./ImageLightbox";
 
 export function OutputColumn({
@@ -23,13 +21,9 @@ export function OutputColumn({
   historyDate,
   imageDataUrls,
   previewBatch,
-  settings,
   setExpandedBatchId,
   setHistoryDate,
-  setPreviewBatchId,
-  setSettings,
   onPreviewImages,
-  onSaveTemplate,
 }: {
   batches: GenerationBatch[];
   errorMessage: string | null;
@@ -38,20 +32,15 @@ export function OutputColumn({
   historyDate: string;
   imageDataUrls: Record<string, string>;
   previewBatch?: GenerationBatch;
-  settings: AppSettings;
   setExpandedBatchId: (id: string | null) => void;
   setHistoryDate: (date: string) => void;
-  setPreviewBatchId: (id: string | null) => void;
-  setSettings: (settings: AppSettings) => void;
   onPreviewImages: (images: LightboxImage[], index: number) => void;
-  onSaveTemplate: (template: string) => void;
 }) {
   const panelRef = useRef<HTMLElement>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyHeight, setHistoryHeight] = useState(280);
   const [isResizingHistory, setIsResizingHistory] = useState(false);
 
-  const templateIssues = validateOutputTemplate(settings.outputTemplate);
   const todayStr = localDateString(new Date().toISOString());
   const previewImages = useMemo(
     () => lightboxImagesForBatch(previewBatch, imageDataUrls, failedImagePaths),
@@ -95,28 +84,6 @@ export function OutputColumn({
   return (
     <section className="panel output-panel" ref={panelRef}>
       <PanelHeader icon={<ImageIcon size={16} />} title="Output Images" />
-      <Field label="Filename Template">
-        <div className="template-row">
-          <input
-            value={settings.outputTemplate}
-            onChange={(event) => setSettings({ ...settings, outputTemplate: event.target.value })}
-            onBlur={(event) => onSaveTemplate(event.target.value)}
-          />
-          <button className="icon-button" title="Copy template">
-            <Copy size={16} />
-          </button>
-        </div>
-        {templateIssues.length > 0 ? (
-          <div className="template-issues">
-            {templateIssues.map((issue, index) => (
-              <span className="template-issue" key={index}>
-                {issue}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </Field>
-
       <div className="active-batch">
         {errorMessage ? (
           <div className="preview-error">
@@ -186,7 +153,6 @@ export function OutputColumn({
                   <button
                     className="history-row"
                     onClick={() => {
-                      setPreviewBatchId(batch.id);
                       setExpandedBatchId(expandedBatchId === batch.id ? null : batch.id);
                     }}
                   >

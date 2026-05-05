@@ -189,6 +189,7 @@ mod tests {
 
     fn request_with_reference(mime_type: &str, data: &str) -> GenerationRequest {
         GenerationRequest {
+            task_id: None,
             provider: "nano-banana".to_string(),
             model: "gemini-3-pro-image-preview".to_string(),
             prompt: "Render a test image".to_string(),

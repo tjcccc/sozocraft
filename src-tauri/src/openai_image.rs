@@ -519,6 +519,7 @@ mod tests {
         reference_images: Option<Vec<ReferenceImageInput>>,
     ) -> GenerationRequest {
         GenerationRequest {
+            task_id: None,
             provider: "gpt-image".to_string(),
             model: "gpt-image-2".to_string(),
             prompt: "Render a test image".to_string(),

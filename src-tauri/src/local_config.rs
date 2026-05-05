@@ -38,6 +38,8 @@ struct GeminiConfig {
     #[serde(default)]
     proxy_url: Option<String>,
     #[serde(default)]
+    proxy_enabled: Option<bool>,
+    #[serde(default)]
     timeout_seconds: Option<u64>,
 }
 
@@ -49,6 +51,10 @@ struct OpenAiConfig {
     default_model: Option<String>,
     #[serde(default)]
     base_url: Option<String>,
+    #[serde(default)]
+    timeout_seconds: Option<u64>,
+    #[serde(default)]
+    proxy_enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -59,6 +65,10 @@ struct XaiConfig {
     default_model: Option<String>,
     #[serde(default)]
     base_url: Option<String>,
+    #[serde(default)]
+    timeout_seconds: Option<u64>,
+    #[serde(default)]
+    proxy_enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -75,6 +85,10 @@ struct PromptsConfig {
     directory: Option<String>,
     #[serde(default)]
     dsl_enabled: Option<bool>,
+    #[serde(default)]
+    editor_only: Option<bool>,
+    #[serde(default)]
+    preview_placement: Option<String>,
 }
 
 pub fn load_settings(defaults: AppSettings) -> AppSettings {
@@ -127,6 +141,26 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .prompts
             .dsl_enabled
             .unwrap_or(defaults.prompt_dsl_enabled),
+        prompt_editor_only: config
+            .prompts
+            .editor_only
+            .unwrap_or(defaults.prompt_editor_only),
+        prompt_preview_placement: normalize_preview_placement(
+            config.prompts.preview_placement,
+            defaults.prompt_preview_placement,
+        ),
+        gemini_proxy_enabled: config
+            .gemini
+            .proxy_enabled
+            .unwrap_or(defaults.gemini_proxy_enabled),
+        openai_proxy_enabled: config
+            .openai
+            .proxy_enabled
+            .unwrap_or(defaults.openai_proxy_enabled),
+        xai_proxy_enabled: config
+            .xai
+            .proxy_enabled
+            .unwrap_or(defaults.xai_proxy_enabled),
         optional_base_url: config
             .gemini
             .base_url
@@ -151,6 +185,18 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .gemini
             .timeout_seconds
             .unwrap_or(defaults.timeout_seconds),
+        gemini_timeout_seconds: config
+            .gemini
+            .timeout_seconds
+            .unwrap_or(defaults.gemini_timeout_seconds),
+        openai_timeout_seconds: config
+            .openai
+            .timeout_seconds
+            .unwrap_or(defaults.openai_timeout_seconds),
+        xai_timeout_seconds: config
+            .xai
+            .timeout_seconds
+            .unwrap_or(defaults.xai_timeout_seconds),
     }
 }
 
@@ -166,11 +212,21 @@ pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
     config.openai.base_url = normalize_optional(settings.openai_base_url.clone());
     config.xai.base_url = normalize_optional(settings.xai_base_url.clone());
     config.gemini.proxy_url = normalize_optional(settings.proxy_url.clone());
-    config.gemini.timeout_seconds = Some(settings.timeout_seconds);
+    config.gemini.proxy_enabled = Some(settings.gemini_proxy_enabled);
+    config.openai.proxy_enabled = Some(settings.openai_proxy_enabled);
+    config.xai.proxy_enabled = Some(settings.xai_proxy_enabled);
+    config.gemini.timeout_seconds = Some(settings.gemini_timeout_seconds);
+    config.openai.timeout_seconds = Some(settings.openai_timeout_seconds);
+    config.xai.timeout_seconds = Some(settings.xai_timeout_seconds);
     config.output.directory = Some(settings.output_directory.clone());
     config.output.template = Some(settings.output_template.clone());
     config.prompts.directory = Some(settings.prompt_directory.clone());
     config.prompts.dsl_enabled = Some(settings.prompt_dsl_enabled);
+    config.prompts.editor_only = Some(settings.prompt_editor_only);
+    config.prompts.preview_placement = Some(normalize_preview_placement(
+        Some(settings.prompt_preview_placement.clone()),
+        "bottom".to_string(),
+    ));
     save_config(&config)
 }
 
@@ -293,4 +349,11 @@ fn normalize_optional(value: Option<String>) -> Option<String> {
     value
         .map(|item| item.trim().to_string())
         .filter(|item| !item.is_empty())
+}
+
+fn normalize_preview_placement(value: Option<String>, fallback: String) -> String {
+    match value.as_deref().map(str::trim) {
+        Some("bottom" | "right" | "hidden") => value.unwrap().trim().to_string(),
+        _ => fallback,
+    }
 }

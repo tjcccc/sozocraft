@@ -206,6 +206,7 @@ mod tests {
 
     fn request(reference_images: Option<Vec<ReferenceImageInput>>) -> GenerationRequest {
         GenerationRequest {
+            task_id: None,
             provider: "grok-imagine".to_string(),
             model: "grok-imagine-image".to_string(),
             prompt: "Render a test image".to_string(),

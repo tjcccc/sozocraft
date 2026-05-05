@@ -74,14 +74,16 @@ Open the settings button in the top toolbar to switch to the full-page settings 
 - Gemini API key
 - OpenAI API key
 - xAI API key
-- default Gemini image model
+- default image model per provider
 - output directory
 - optional Gemini-compatible base URL
 - optional OpenAI-compatible base URL
 - optional xAI-compatible base URL
 - optional proxy URL, for example `http://127.0.0.1:7890`
-- timeout
+- provider proxy toggles
+- provider timeouts
 - prompt library directory
+- prompt editor-only mode and prompt preview placement
 
 SozoCraft stores local configuration in:
 
@@ -107,17 +109,22 @@ api_key = "your_gemini_api_key_here"
 default_model = "gemini-3-pro-image-preview"
 base_url = "https://generativelanguage.googleapis.com/v1beta/models"
 proxy_url = "http://127.0.0.1:7890"
+proxy_enabled = true
 timeout_seconds = 180
 
 [openai]
 api_key = "your_openai_api_key_here"
 default_model = "gpt-image-2"
 base_url = "https://api.openai.com/v1"
+proxy_enabled = true
+timeout_seconds = 180
 
 [xai]
 api_key = "your_xai_api_key_here"
 default_model = "grok-imagine-image"
 base_url = "https://api.x.ai/v1"
+proxy_enabled = true
+timeout_seconds = 180
 
 [output]
 directory = "/Users/you/Pictures/SozoCraft"
@@ -126,6 +133,8 @@ template = "{yyMMdd}/{provider}_{model}_{datetime:yyyyMMdd_HHmmss}_{id}.{extensi
 [prompts]
 directory = "/Users/you/.sozocraft/prompts"
 dsl_enabled = true
+editor_only = false
+preview_placement = "bottom"
 ```
 
 The config file is local-only and must not be committed. API keys are never stored in project files.
