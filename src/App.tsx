@@ -20,6 +20,7 @@ import { useModelOptions } from "./hooks/useModelOptions";
 import { usePromptLibrary } from "./hooks/usePromptLibrary";
 import { getProviderConfig, getProviderModelDisplayName } from "./models/imageProviders";
 import { clamp } from "./utils/math";
+import sozocraftIcon from "./assets/sozocraft-icon.png";
 import type { AppSettings } from "./types";
 
 const MIN_COLUMN_WIDTHS = [24, 24, 28];
@@ -255,7 +256,7 @@ export function App() {
       <header className="toolbar">
         <div className="toolbar-left">
           <div className="brand">
-            <div className="brand-mark">S</div>
+            <img className="brand-mark" src={sozocraftIcon} alt="" aria-hidden="true" />
             <strong>SōzōCraft</strong>
           </div>
         </div>

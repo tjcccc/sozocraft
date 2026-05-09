@@ -93,15 +93,10 @@ button {
 }
 
 .brand-mark {
-    display: grid;
-    width: 25px;
-    height: 25px;
-    place-items: center;
-    border-radius: 6px;
-    color: white;
-    background: linear-gradient(135deg, #18223f, #2864da);
-    font-size: 13px;
-    font-weight: 800;
+    display: block;
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
 }
 
 .divider {

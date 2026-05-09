@@ -2,6 +2,9 @@
 
 ## 2026-05-09
 
+- Bumped app/package/crate version metadata to `0.14.1` for the app icon checkpoint.
+- Added cross-platform Tauri bundle icons from the prepared SozoCraft assets, with macOS/Windows icon formats and resized transparent padding for Dock fit.
+- Replaced the toolbar letter badge with the SozoCraft app icon asset.
 - Bumped app/package/crate version metadata to `0.14.0` for the prompt tag rename and scoped include checkpoint.
 - Added prompt tag-folder renaming from the library sidebar, including descendant tag paths and legacy frontmatter tag updates.
 - Changed scoped prompt includes to the canonical `{# tag/path:title}` form with quoted tag/title support, while keeping deprecated `{# tag/path/title}` resolution as a fallback.
