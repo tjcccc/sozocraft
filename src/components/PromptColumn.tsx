@@ -7,11 +7,12 @@ import {
   Eye,
   EyeOff,
   FilePlus2,
+  PenLine,
   ScrollText,
   Search,
   Trash2,
 } from "lucide-react";
-import { useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import type { PromptListItem, PromptPreviewPlacement } from "../types";
 import { clamp } from "../utils/math";
@@ -44,6 +45,7 @@ export function PromptColumn({
   onCommitMetadata,
   onCreatePrompt,
   onDeletePrompt,
+  onRenameTag,
   defaultExportPath,
   onExportRenderedPrompt,
   onPromptChange,
@@ -69,6 +71,7 @@ export function PromptColumn({
   onCommitMetadata: () => void;
   onCreatePrompt: () => void;
   onDeletePrompt: (id?: string) => void;
+  onRenameTag: (oldTagPath: string, newTagPath: string) => void;
   defaultExportPath: string;
   onExportRenderedPrompt: (outputPath: string) => void;
   onPromptChange: (value: string) => void;
@@ -87,6 +90,8 @@ export function PromptColumn({
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [exportPath, setExportPath] = useState(defaultExportPath);
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
+  const [renamingTagPath, setRenamingTagPath] = useState<string | null>(null);
+  const [renamingTagName, setRenamingTagName] = useState("");
   const tree = useMemo(() => buildTagTree(items), [items]);
   const effectivePreviewPlacement: PromptPreviewPlacement = dslEnabled ? previewPlacement : "hidden";
 
@@ -179,6 +184,41 @@ export function PromptColumn({
     });
   }, []);
 
+  const startRenameTag = useCallback((path: string, name: string) => {
+    setRenamingTagPath(path);
+    setRenamingTagName(name);
+  }, []);
+
+  const cancelRenameTag = useCallback(() => {
+    setRenamingTagPath(null);
+    setRenamingTagName("");
+  }, []);
+
+  const commitRenameTag = useCallback(
+    (path: string) => {
+      const nextName = renamingTagName.trim();
+      const parts = path.split("/");
+      const currentName = parts[parts.length - 1] ?? "";
+      setRenamingTagPath(null);
+      if (!nextName || nextName === currentName || nextName.includes("/")) {
+        setRenamingTagName("");
+        return;
+      }
+      const parentPath = parts.slice(0, -1).join("/");
+      const nextPath = parentPath ? `${parentPath}/${nextName}` : nextName;
+      setCollapsedTags((current) => {
+        const next = new Set(current);
+        if (next.delete(path)) {
+          next.add(nextPath);
+        }
+        return next;
+      });
+      setRenamingTagName("");
+      onRenameTag(path, nextPath);
+    },
+    [onRenameTag, renamingTagName],
+  );
+
   return (
     <section className="panel prompt-panel">
       <PanelHeader
@@ -262,8 +302,14 @@ export function PromptColumn({
                 collapsedTags,
                 node: tree,
                 onDeletePrompt,
+                onRenameTag: startRenameTag,
                 onSelectPrompt,
+                renamingTagName,
+                renamingTagPath,
                 selectedPromptId,
+                setRenamingTagName,
+                cancelRenameTag,
+                commitRenameTag,
                 toggleTag,
               })
             )}
@@ -392,10 +438,9 @@ function PromptEditor({
   onPromptChange: (value: string) => void;
   prompt: string;
 }) {
-  const deferredPrompt = useDeferredValue(prompt);
   const highlightedPrompt = useMemo(
-    () => (dslEnabled ? highlightPromptDsl(deferredPrompt) : null),
-    [deferredPrompt, dslEnabled],
+    () => (dslEnabled ? highlightPromptDsl(prompt) : null),
+    [prompt, dslEnabled],
   );
 
   return (
@@ -445,7 +490,7 @@ function highlightPromptDsl(source: string): ReactNode[] {
 function highlightDslLine(line: string, lineIndex: number): ReactNode[] {
   const nodes: ReactNode[] = [];
   const pattern =
-    /(\{#[^}]*\})|(\{[A-Za-z_][\w.-]*\})|(\bprompt\b|\binclude\b|\btrue\b|\bfalse\b|\bnull\b)|(^\s*[A-Za-z_][\w.-]*(?=\s*=))/g;
+    /(\{#[^}]*\})|(\{[A-Za-z_][\w.-]*\})|(\bprompt\b)|(^\s*[A-Za-z_][\w.-]*(?=\s*=))/g;
   let cursor = 0;
   let match: RegExpExecArray | null;
 
@@ -454,7 +499,13 @@ function highlightDslLine(line: string, lineIndex: number): ReactNode[] {
       nodes.push(line.slice(cursor, match.index));
     }
     const value = match[0];
-    const className = match[1] || match[2] ? "dsl-variable" : "dsl-keyword";
+    const className = match[1]
+      ? "dsl-include"
+      : match[2]
+        ? "dsl-variable"
+        : match[3]
+          ? "dsl-keyword"
+          : "dsl-assignment";
     nodes.push(
       <span className={className} key={`${lineIndex}:${match.index}`}>
         {value}
@@ -496,8 +547,14 @@ function renderTagNode({
   node,
   onSelectPrompt,
   onDeletePrompt,
+  onRenameTag,
   path = "",
+  renamingTagName,
+  renamingTagPath,
   selectedPromptId,
+  setRenamingTagName,
+  cancelRenameTag,
+  commitRenameTag,
   toggleTag,
 }: {
   collapsedTags: Set<string>;
@@ -505,8 +562,14 @@ function renderTagNode({
   node: TagNode;
   onSelectPrompt: (id: string) => void;
   onDeletePrompt: (id?: string) => void;
+  onRenameTag: (path: string, name: string) => void;
   path?: string;
+  renamingTagName: string;
+  renamingTagPath: string | null;
   selectedPromptId: string | null;
+  setRenamingTagName: (value: string) => void;
+  cancelRenameTag: () => void;
+  commitRenameTag: (path: string) => void;
   toggleTag: (path: string) => void;
 }) {
   const rows: ReactNode[] = [];
@@ -515,16 +578,59 @@ function renderTagNode({
   )) {
     const childPath = path ? `${path}/${name}` : name;
     const collapsed = collapsedTags.has(childPath);
+    const isRenaming = renamingTagPath === childPath;
     rows.push(
-      <button
+      <div
         className="prompt-tag-row"
         key={`tag:${childPath}`}
+        role="button"
         style={{ paddingLeft: 8 + depth * 14 }}
         onClick={() => toggleTag(childPath)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            toggleTag(childPath);
+          }
+        }}
+        tabIndex={0}
       >
         {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-        <span>{name}</span>
-      </button>,
+        {isRenaming ? (
+          <input
+            autoFocus
+            className="prompt-tag-rename-input"
+            value={renamingTagName}
+            onBlur={() => commitRenameTag(childPath)}
+            onChange={(event) => setRenamingTagName(event.target.value)}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitRenameTag(childPath);
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                cancelRenameTag();
+              }
+            }}
+          />
+        ) : (
+          <span className="prompt-tag-name">{name}</span>
+        )}
+        <button
+          className="prompt-tag-rename"
+          title="Rename tag folder"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRenameTag(childPath, name);
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <PenLine size={12} />
+        </button>
+      </div>,
     );
     if (!collapsed) {
       rows.push(
@@ -533,9 +639,15 @@ function renderTagNode({
           depth: depth + 1,
           node: child,
           onDeletePrompt,
+          onRenameTag,
           onSelectPrompt,
           path: childPath,
+          renamingTagName,
+          renamingTagPath,
           selectedPromptId,
+          setRenamingTagName,
+          cancelRenameTag,
+          commitRenameTag,
           toggleTag,
         }),
       );

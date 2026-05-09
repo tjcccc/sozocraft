@@ -125,6 +125,11 @@ export type UpdatePromptMetadataRequest = {
   tags: string[];
 };
 
+export type RenamePromptTagRequest = {
+  oldTagPath: string;
+  newTagPath: string;
+};
+
 export type RenderPromptResult = {
   renderedPrompt: string;
 };

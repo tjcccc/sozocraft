@@ -3,6 +3,7 @@ import {
   createPrompt,
   deletePrompt,
   readPrompt,
+  renamePromptTag,
   renderPromptSource,
   rescanPromptLibrary,
   saveCurrentPromptId,
@@ -309,6 +310,40 @@ export function usePromptLibrary({
     settings,
   ]);
 
+  const renameTagPath = useCallback(async (oldTagPath: string, newTagPath: string) => {
+    if (!settings) {
+      return;
+    }
+    try {
+      await flushCurrentPrompt();
+      const nextItems = await renamePromptTag(settings.promptDirectory, {
+        oldTagPath,
+        newTagPath,
+      });
+      setItems(nextItems);
+      const selectedItem = selectedPromptId
+        ? nextItems.find((item) => item.id === selectedPromptId)
+        : null;
+      if (selectedItem) {
+        lastSavedTagsRef.current = tagsToText(selectedItem.tags);
+        setTagsText(tagsToText(selectedItem.tags));
+        upsertItem(selectedItem);
+      }
+      setStatus("ready");
+      setMessage("Tag renamed");
+    } catch (error) {
+      setStatus("error");
+      setMessage(String(error));
+    }
+  }, [
+    flushCurrentPrompt,
+    selectedPromptId,
+    setMessage,
+    setStatus,
+    settings,
+    upsertItem,
+  ]);
+
   const refreshPrompts = useCallback(async () => {
     if (!settings) {
       return;
@@ -342,6 +377,7 @@ export function usePromptLibrary({
     query,
     refreshPrompts,
     renderedPrompt,
+    renameTagPath,
     saveState,
     selectedPromptId,
     selectPrompt,

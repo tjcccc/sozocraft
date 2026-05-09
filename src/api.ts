@@ -8,6 +8,7 @@ import type {
   GenerationRequest,
   PromptDocument,
   PromptListItem,
+  RenamePromptTagRequest,
   RenderPromptResult,
   SavePromptRequest,
   UpdatePromptMetadataRequest,
@@ -102,6 +103,10 @@ export function savePrompt(promptDirectory: string, request: SavePromptRequest) 
 
 export function updatePromptMetadata(promptDirectory: string, request: UpdatePromptMetadataRequest) {
   return invoke<PromptListItem>("update_prompt_metadata", { promptDirectory, request });
+}
+
+export function renamePromptTag(promptDirectory: string, request: RenamePromptTagRequest) {
+  return invoke<PromptListItem[]>("rename_prompt_tag", { promptDirectory, request });
 }
 
 export function deletePrompt(promptDirectory: string, id: string) {

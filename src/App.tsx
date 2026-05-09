@@ -345,6 +345,7 @@ export function App() {
             onCommitMetadata={() => void promptLibrary.commitMetadata()}
             onCreatePrompt={() => void promptLibrary.createNewPrompt()}
             onDeletePrompt={(id) => void promptLibrary.deletePromptById(id)}
+            onRenameTag={(oldTagPath, newTagPath) => void promptLibrary.renameTagPath(oldTagPath, newTagPath)}
             defaultExportPath={defaultExportPath}
             onExportRenderedPrompt={exportPrompt}
             onPromptChange={updatePrompt}
@@ -388,6 +389,7 @@ export function App() {
             onCommitMetadata={() => void promptLibrary.commitMetadata()}
             onCreatePrompt={() => void promptLibrary.createNewPrompt()}
             onDeletePrompt={(id) => void promptLibrary.deletePromptById(id)}
+            onRenameTag={(oldTagPath, newTagPath) => void promptLibrary.renameTagPath(oldTagPath, newTagPath)}
             defaultExportPath={defaultExportPath}
             onExportRenderedPrompt={exportPrompt}
             onPromptChange={updatePrompt}

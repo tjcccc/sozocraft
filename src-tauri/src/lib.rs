@@ -22,8 +22,8 @@ use models::{
 };
 use openai_image::OpenAiImageClient;
 use prompt_library::{
-    CreatePromptRequest, PromptDocument, PromptListItem, RenderPromptResult, SavePromptRequest,
-    UpdatePromptMetadataRequest,
+    CreatePromptRequest, PromptDocument, PromptListItem, RenamePromptTagRequest,
+    RenderPromptResult, SavePromptRequest, UpdatePromptMetadataRequest,
 };
 use serde::Serialize;
 use std::{collections::HashMap, fs, path::PathBuf, sync::Mutex};
@@ -153,6 +153,14 @@ fn update_prompt_metadata(
     request: UpdatePromptMetadataRequest,
 ) -> Result<PromptListItem, String> {
     prompt_library::update_prompt_metadata(&prompt_directory, request)
+}
+
+#[tauri::command]
+fn rename_prompt_tag(
+    prompt_directory: String,
+    request: RenamePromptTagRequest,
+) -> Result<Vec<PromptListItem>, String> {
+    prompt_library::rename_prompt_tag(&prompt_directory, request)
 }
 
 #[tauri::command]
@@ -678,6 +686,7 @@ pub fn run() {
             read_prompt,
             save_prompt,
             update_prompt_metadata,
+            rename_prompt_tag,
             delete_prompt,
             render_prompt_source,
             export_rendered_prompt,

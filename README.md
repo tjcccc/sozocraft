@@ -180,16 +180,24 @@ The preview and generation path render the first `prompt = { ... }` or
 is used as plain prompt text. Generated PNG metadata stores the rendered model
 prompt in `prompt` and the markdown source in `sozocraft.promptSnapshot`.
 
-DSL mode also supports prompt includes by title:
+DSL mode also supports prompt includes with `{# ... }` references:
 
 ```text
 {#identify_ref}
 {# title with spaces}
+{# nano-banana/identity:identify_ref}
+{# "nano banana"/sub1/sub2:"ai girl"}
 ```
 
-The text after `#` is trimmed and matched against prompt titles in the current
-library. If multiple prompts have the same title, the most recently updated one
-is used. If no prompt title matches, the include marker is left unchanged.
+The text after `#` is trimmed. Slash-separated references such as
+`{# nano-banana/identity}` match an exact prompt tag path. Scoped references use
+a colon between the tag path and prompt title, such as
+`{# nano-banana/identity:identify_ref}`. Use single or double quotes around tag
+segments or titles that contain spaces. Plain references first match prompt
+titles, then tag leaf names, then the first library search result. If multiple
+prompts match, the most recently updated one is used. If no prompt matches, the
+include marker is left unchanged. The older `{# tag/path/title}` scoped form is
+still accepted as a deprecated fallback.
 
 Prompt tags support slash-separated nesting such as
 `#nano-banana/aigirl/outdoor-photo`, which the library displays as expandable

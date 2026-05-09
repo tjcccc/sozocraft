@@ -325,6 +325,7 @@ button {
 .prompt-library {
     display: flex;
     min-width: 0;
+    min-height: 0;
     flex-direction: column;
     gap: 10px;
     flex: 1;
@@ -390,6 +391,7 @@ button {
 .prompt-list {
     display: flex;
     min-height: 0;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 5px;
     overflow: auto;
@@ -402,15 +404,70 @@ button {
 }
 
 .prompt-tag-row {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 4px;
+    width: 100%;
     min-height: 28px;
     border: 0;
     border-radius: 6px;
     color: #303849;
     text-align: left;
     background: transparent;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.prompt-tag-row:hover,
+.prompt-tag-row:focus-within {
+    background: rgba(124, 136, 158, 0.08);
+}
+
+.prompt-tag-name {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.prompt-tag-rename {
+    display: none;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    border: 0;
+    border-radius: 6px;
+    color: #7a8496;
+    background: transparent;
+}
+
+.prompt-tag-row:hover .prompt-tag-rename,
+.prompt-tag-row:focus-within .prompt-tag-rename {
+    display: flex;
+}
+
+.prompt-tag-rename:hover {
+    color: #1265f4;
+    background: rgba(18, 101, 244, 0.1);
+}
+
+.prompt-tag-rename-input {
+    min-width: 0;
+    height: 23px;
+    flex: 1;
+    padding: 0 6px;
+    border: 1px solid rgba(18, 101, 244, 0.34);
+    border-radius: 6px;
+    outline: 0;
+    color: #293241;
+    background: #fff;
+    cursor: text;
     font-size: 12px;
     font-weight: 700;
 }
@@ -583,6 +640,8 @@ button {
     padding: 18px;
     font-family: "SF Mono", "Roboto Mono", ui-monospace, monospace;
     font-size: 13px;
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0;
     line-height: 1.7;
     white-space: pre-wrap;
     word-break: break-word;
@@ -619,9 +678,10 @@ button {
 
 .dsl-keyword {
     color: #1265f4;
-    font-weight: 700;
 }
 
+.dsl-assignment,
+.dsl-include,
 .dsl-variable {
     color: #15803d;
 }

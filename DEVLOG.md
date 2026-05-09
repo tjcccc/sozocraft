@@ -1,5 +1,13 @@
 # DEVLOG
 
+## 2026-05-09
+
+- Bumped app/package/crate version metadata to `0.14.0` for the prompt tag rename and scoped include checkpoint.
+- Added prompt tag-folder renaming from the library sidebar, including descendant tag paths and legacy frontmatter tag updates.
+- Changed scoped prompt includes to the canonical `{# tag/path:title}` form with quoted tag/title support, while keeping deprecated `{# tag/path/title}` resolution as a fallback.
+- Removed `include`, `true`, `false`, and `null` from DSL syntax highlighting; includes are represented by `{# ... }` markers and the DSL is not JSON/code.
+- Removed bold DSL highlight styling so the overlay text metrics match the textarea caret more closely.
+
 ## 2026-05-05
 
 - Bumped app/package/crate version metadata to `0.13.0` for the prompt editor workflow and generation queue checkpoint.

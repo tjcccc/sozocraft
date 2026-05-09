@@ -50,6 +50,13 @@ pub struct UpdatePromptMetadataRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RenamePromptTagRequest {
+    pub old_tag_path: String,
+    pub new_tag_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreatePromptRequest {
     pub name: String,
     #[serde(default)]
@@ -273,6 +280,62 @@ pub fn update_prompt_metadata(
     )
     .map_err(|err| err.to_string())?;
     get_item(&conn, &root, &request.id)
+}
+
+pub fn rename_prompt_tag(
+    prompt_directory: &str,
+    request: RenamePromptTagRequest,
+) -> Result<Vec<PromptListItem>, String> {
+    let root = prompt_root(prompt_directory);
+    let old_tag_path = normalize_tag_path(&request.old_tag_path);
+    let new_tag_path = normalize_tag_path(&request.new_tag_path);
+    if old_tag_path.is_empty() || new_tag_path.is_empty() {
+        return Err("Tag name cannot be empty.".to_string());
+    }
+    if old_tag_path == new_tag_path {
+        return list_prompts(prompt_directory, None);
+    }
+
+    let conn = open_db()?;
+    init_db(&conn)?;
+    let now = Utc::now().to_rfc3339();
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, path, name, tags, description, created_at, updated_at
+             FROM prompts
+             WHERE root = ?1 AND missing = 0",
+        )
+        .map_err(|err| err.to_string())?;
+    let items = stmt
+        .query_map(params![root.to_string_lossy().to_string()], row_to_item)
+        .map_err(|err| err.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| err.to_string())?;
+    drop(stmt);
+
+    for item in items {
+        let next_tags = rename_tags(item.tags.clone(), &old_tag_path, &new_tag_path);
+        if next_tags == item.tags {
+            continue;
+        }
+        let tags_json = serde_json::to_string(&next_tags).unwrap_or_else(|_| "[]".to_string());
+        conn.execute(
+            "UPDATE prompts
+             SET tags = ?1, updated_at = ?2, last_indexed_at = ?3
+             WHERE id = ?4 AND root = ?5 AND missing = 0",
+            params![
+                tags_json,
+                now.clone(),
+                now,
+                item.id,
+                root.to_string_lossy().to_string(),
+            ],
+        )
+        .map_err(|err| err.to_string())?;
+        update_legacy_frontmatter_tags(Path::new(&item.path), &next_tags)?;
+    }
+
+    list_prompts(prompt_directory, None)
 }
 
 pub fn delete_prompt(prompt_directory: &str, id: &str) -> Result<(), String> {
@@ -507,6 +570,165 @@ fn find_prompt_by_title(
         .find(|item| current_prompt_id.map(|id| id != item.id).unwrap_or(true)))
 }
 
+fn find_prompt_by_reference(
+    conn: &Connection,
+    root: &Path,
+    reference: &str,
+    current_prompt_id: Option<&str>,
+) -> Result<Option<PromptListItem>, String> {
+    let reference = reference.trim();
+    if reference.is_empty() {
+        return Ok(None);
+    }
+    let plain_reference = normalize_include_part(reference);
+
+    if let Some((tag_scope, title)) = parse_scoped_include_reference(reference) {
+        return find_prompt_by_scoped_reference(conn, root, &tag_scope, &title, current_prompt_id);
+    }
+
+    if reference.contains('/') {
+        if let Some(item) = find_prompt_by_exact_tag(conn, root, reference, current_prompt_id)? {
+            return Ok(Some(item));
+        }
+        if let Some(item) = find_prompt_by_deprecated_slash_scoped_reference(
+            conn,
+            root,
+            reference,
+            current_prompt_id,
+        )? {
+            return Ok(Some(item));
+        }
+        return find_prompt_by_search(conn, root, &plain_reference, current_prompt_id);
+    }
+
+    if let Some(item) = find_prompt_by_title(conn, root, &plain_reference, current_prompt_id)? {
+        return Ok(Some(item));
+    }
+    if let Some(item) = find_prompt_by_tag_leaf(conn, root, &plain_reference, current_prompt_id)? {
+        return Ok(Some(item));
+    }
+    find_prompt_by_search(conn, root, &plain_reference, current_prompt_id)
+}
+
+fn find_prompt_by_exact_tag(
+    conn: &Connection,
+    root: &Path,
+    tag: &str,
+    current_prompt_id: Option<&str>,
+) -> Result<Option<PromptListItem>, String> {
+    let tag = parse_tag_path_reference(tag).unwrap_or_else(|| normalize_tag_path(tag));
+    find_prompt_by_tags(conn, root, current_prompt_id, |item_tag| {
+        item_tag.eq_ignore_ascii_case(&tag)
+    })
+}
+
+fn find_prompt_by_tag_leaf(
+    conn: &Connection,
+    root: &Path,
+    leaf: &str,
+    current_prompt_id: Option<&str>,
+) -> Result<Option<PromptListItem>, String> {
+    find_prompt_by_tags(conn, root, current_prompt_id, |item_tag| {
+        item_tag
+            .rsplit('/')
+            .next()
+            .map(|value| value.eq_ignore_ascii_case(leaf))
+            .unwrap_or(false)
+    })
+}
+
+fn find_prompt_by_scoped_reference(
+    conn: &Connection,
+    root: &Path,
+    tag_scope: &str,
+    title: &str,
+    current_prompt_id: Option<&str>,
+) -> Result<Option<PromptListItem>, String> {
+    let tag_scope = normalize_tag_path(tag_scope);
+    let title = normalize_include_part(title);
+    if tag_scope.is_empty() || title.is_empty() {
+        return Ok(None);
+    }
+
+    let items = all_items_for_root(conn, root)?;
+    Ok(items.into_iter().find(|item| {
+        current_prompt_id.map(|id| id != item.id).unwrap_or(true)
+            && item.name.eq_ignore_ascii_case(&title)
+            && item.tags.iter().any(|tag| {
+                let tag_lower = tag.to_ascii_lowercase();
+                let scope_lower = tag_scope.to_ascii_lowercase();
+                tag_lower == scope_lower || tag_lower.starts_with(&format!("{scope_lower}/"))
+            })
+    }))
+}
+
+fn find_prompt_by_deprecated_slash_scoped_reference(
+    conn: &Connection,
+    root: &Path,
+    reference: &str,
+    current_prompt_id: Option<&str>,
+) -> Result<Option<PromptListItem>, String> {
+    let Some((tag_scope, title)) = reference.rsplit_once('/') else {
+        return Ok(None);
+    };
+    let tag_scope =
+        parse_tag_path_reference(tag_scope).unwrap_or_else(|| normalize_tag_path(tag_scope));
+    let title = normalize_include_part(title);
+    find_prompt_by_scoped_reference(conn, root, &tag_scope, &title, current_prompt_id)
+}
+
+fn find_prompt_by_tags<F>(
+    conn: &Connection,
+    root: &Path,
+    current_prompt_id: Option<&str>,
+    matches: F,
+) -> Result<Option<PromptListItem>, String>
+where
+    F: Fn(&str) -> bool,
+{
+    let items = all_items_for_root(conn, root)?;
+    Ok(items.into_iter().find(|item| {
+        current_prompt_id.map(|id| id != item.id).unwrap_or(true)
+            && item.tags.iter().any(|tag| matches(tag))
+    }))
+}
+
+fn find_prompt_by_search(
+    conn: &Connection,
+    root: &Path,
+    reference: &str,
+    current_prompt_id: Option<&str>,
+) -> Result<Option<PromptListItem>, String> {
+    let needle = reference.to_ascii_lowercase();
+    let items = all_items_for_root(conn, root)?;
+    Ok(items.into_iter().find(|item| {
+        current_prompt_id.map(|id| id != item.id).unwrap_or(true)
+            && (item.name.to_ascii_lowercase().contains(&needle)
+                || item.description.to_ascii_lowercase().contains(&needle)
+                || item
+                    .tags
+                    .iter()
+                    .any(|tag| tag.to_ascii_lowercase().contains(&needle)))
+    }))
+}
+
+fn all_items_for_root(conn: &Connection, root: &Path) -> Result<Vec<PromptListItem>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, path, name, tags, description, created_at, updated_at
+             FROM prompts
+             WHERE root = ?1 AND missing = 0
+             ORDER BY updated_at DESC, name ASC",
+        )
+        .map_err(|err| err.to_string())?;
+    let items = stmt
+        .query_map(params![root.to_string_lossy().to_string()], row_to_item)
+        .map_err(|err| err.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| err.to_string())?;
+    Ok(items)
+}
+
 fn resolve_prompt_includes(
     conn: &Connection,
     root: &Path,
@@ -529,14 +751,14 @@ fn resolve_prompt_includes(
             return Ok(output);
         };
         let absolute_end = absolute_start + 2 + end;
-        let title = source[absolute_start + 2..absolute_end].trim();
-        if title.is_empty() {
+        let reference = source[absolute_start + 2..absolute_end].trim();
+        if reference.is_empty() {
             output.push_str(&source[absolute_start..=absolute_end]);
             index = absolute_end + 1;
             continue;
         }
 
-        let Some(item) = find_prompt_by_title(conn, root, title, current_prompt_id)? else {
+        let Some(item) = find_prompt_by_reference(conn, root, reference, current_prompt_id)? else {
             output.push_str(&source[absolute_start..=absolute_end]);
             index = absolute_end + 1;
             continue;
@@ -853,15 +1075,218 @@ fn normalize_prompt_name(name: &str) -> String {
     }
 }
 
+fn parse_scoped_include_reference(reference: &str) -> Option<(String, String)> {
+    let (tag_scope, title) = split_once_unquoted(reference, ':')?;
+    let tag_scope = parse_tag_path_reference(tag_scope)?;
+    let title = normalize_include_part(title);
+    if tag_scope.is_empty() || title.is_empty() {
+        None
+    } else {
+        Some((tag_scope, title))
+    }
+}
+
+fn parse_tag_path_reference(value: &str) -> Option<String> {
+    let parts = split_unquoted(value, '/')
+        .into_iter()
+        .map(|part| normalize_include_part(part))
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>();
+    if parts.is_empty() {
+        None
+    } else {
+        Some(normalize_tag_path(&parts.join("/")))
+    }
+}
+
+fn split_once_unquoted(value: &str, delimiter: char) -> Option<(&str, &str)> {
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+    for (index, character) in value.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if quote.is_some() && character == '\\' {
+            escaped = true;
+            continue;
+        }
+        if character == '\'' || character == '"' {
+            if quote == Some(character) {
+                quote = None;
+            } else if quote.is_none() {
+                quote = Some(character);
+            }
+            continue;
+        }
+        if quote.is_none() && character == delimiter {
+            let next = index + character.len_utf8();
+            return Some((&value[..index], &value[next..]));
+        }
+    }
+    None
+}
+
+fn split_unquoted(value: &str, delimiter: char) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut start = 0;
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+    for (index, character) in value.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if quote.is_some() && character == '\\' {
+            escaped = true;
+            continue;
+        }
+        if character == '\'' || character == '"' {
+            if quote == Some(character) {
+                quote = None;
+            } else if quote.is_none() {
+                quote = Some(character);
+            }
+            continue;
+        }
+        if quote.is_none() && character == delimiter {
+            parts.push(&value[start..index]);
+            start = index + character.len_utf8();
+        }
+    }
+    parts.push(&value[start..]);
+    parts
+}
+
+fn normalize_include_part(value: &str) -> String {
+    let trimmed = value.trim();
+    if trimmed.len() < 2 {
+        return trimmed.to_string();
+    }
+
+    let mut chars = trimmed.chars();
+    let Some(first) = chars.next() else {
+        return String::new();
+    };
+    if first != '\'' && first != '"' {
+        return trimmed.to_string();
+    }
+    if !trimmed.ends_with(first) {
+        return trimmed.to_string();
+    }
+
+    let inner = &trimmed[first.len_utf8()..trimmed.len() - first.len_utf8()];
+    let mut result = String::new();
+    let mut escaped = false;
+    for character in inner.chars() {
+        if escaped {
+            result.push(character);
+            escaped = false;
+        } else if character == '\\' {
+            escaped = true;
+        } else {
+            result.push(character);
+        }
+    }
+    if escaped {
+        result.push('\\');
+    }
+    result
+}
+
 fn normalize_tags(tags: Vec<String>) -> Vec<String> {
     let mut normalized = Vec::new();
     for tag in tags {
-        let value = tag.trim().trim_start_matches('#').to_string();
+        let value = normalize_tag_path(&tag);
         if !value.is_empty() && !normalized.contains(&value) {
             normalized.push(value);
         }
     }
     normalized
+}
+
+fn normalize_tag_path(tag: &str) -> String {
+    tag.trim()
+        .trim_start_matches('#')
+        .split('/')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn rename_tags(tags: Vec<String>, old_tag_path: &str, new_tag_path: &str) -> Vec<String> {
+    normalize_tags(
+        tags.into_iter()
+            .map(|tag| {
+                if tag == old_tag_path {
+                    new_tag_path.to_string()
+                } else if let Some(suffix) = tag.strip_prefix(&format!("{old_tag_path}/")) {
+                    format!("{new_tag_path}/{suffix}")
+                } else {
+                    tag
+                }
+            })
+            .collect(),
+    )
+}
+
+fn update_legacy_frontmatter_tags(path: &Path, tags: &[String]) -> Result<(), String> {
+    let raw_source =
+        fs::read_to_string(path).map_err(|err| format!("Failed to read prompt file: {err}"))?;
+    let Some(mut rest) = raw_source.strip_prefix("---") else {
+        return Ok(());
+    };
+    let mut rest_start = 3;
+    if let Some(stripped) = rest.strip_prefix('\n') {
+        rest = stripped;
+        rest_start += 1;
+    }
+    let mut offset = 0;
+    for line in rest.split_inclusive('\n') {
+        if line.trim() == "---" {
+            let frontmatter = &rest[..offset];
+            if !frontmatter
+                .lines()
+                .any(|item| item.trim_start().starts_with("tags:"))
+            {
+                return Ok(());
+            }
+            let replacement_tags = format!(
+                "tags: [{}]",
+                tags.iter()
+                    .map(|tag| format!("\"{tag}\""))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            let mut replaced = false;
+            let next_frontmatter = frontmatter
+                .lines()
+                .map(|item| {
+                    if item.trim_start().starts_with("tags:") {
+                        replaced = true;
+                        replacement_tags.clone()
+                    } else {
+                        item.to_string()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            if !replaced {
+                return Ok(());
+            }
+            let body_start = rest_start + offset + line.len();
+            let next_source = format!(
+                "---\n{next_frontmatter}\n---\n{}",
+                &raw_source[body_start..]
+            );
+            fs::write(path, next_source)
+                .map_err(|err| format!("Failed to update prompt frontmatter: {err}"))?;
+            return Ok(());
+        }
+        offset += line.len();
+    }
+    Ok(())
 }
 
 fn normalize_optional_text(value: &str) -> Option<String> {
@@ -988,5 +1413,189 @@ prompt = {
         assert_eq!(item.description, "portable metadata");
 
         fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[test]
+    fn resolves_include_by_tag_leaf_and_exact_tag_path() {
+        let temp_root =
+            std::env::temp_dir().join(format!("sozocraft-prompt-include-{}", Uuid::new_v4()));
+        let root = temp_root.join("prompts");
+        fs::create_dir_all(&root).unwrap();
+
+        let first_id = Uuid::new_v4().to_string();
+        let second_id = Uuid::new_v4().to_string();
+        let first_path = root.join(format!("{first_id}.md"));
+        let second_path = root.join(format!("{second_id}.md"));
+        fs::write(&first_path, "Prompt A").unwrap();
+        fs::write(&second_path, "Prompt B").unwrap();
+
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        insert_prompt_for_test(
+            &conn,
+            &root,
+            &first_id,
+            &first_path,
+            "my_prompt",
+            r#"["gpt-image/abc"]"#,
+            "2026-01-01T00:00:00Z",
+        );
+        insert_prompt_for_test(
+            &conn,
+            &root,
+            &second_id,
+            &second_path,
+            "my_prompt",
+            r#"["nanobanana/abc"]"#,
+            "2026-01-02T00:00:00Z",
+        );
+
+        let mut visited = HashSet::new();
+        let exact =
+            resolve_prompt_includes(&conn, &root, "{# gpt-image/abc}", None, &mut visited, 0)
+                .unwrap();
+        assert_eq!(exact, "Prompt A");
+
+        let mut visited = HashSet::new();
+        let leaf = resolve_prompt_includes(&conn, &root, "{# abc}", None, &mut visited, 0).unwrap();
+        assert_eq!(leaf, "Prompt B");
+
+        fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[test]
+    fn resolves_include_by_colon_tag_scope_and_title() {
+        let temp_root =
+            std::env::temp_dir().join(format!("sozocraft-prompt-scoped-{}", Uuid::new_v4()));
+        let root = temp_root.join("prompts");
+        fs::create_dir_all(&root).unwrap();
+
+        let id = Uuid::new_v4().to_string();
+        let path = root.join(format!("{id}.md"));
+        fs::write(&path, "Scoped prompt").unwrap();
+
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        insert_prompt_for_test(
+            &conn,
+            &root,
+            &id,
+            &path,
+            "identify_ref",
+            r#"["gpt-image-2"]"#,
+            "2026-01-01T00:00:00Z",
+        );
+
+        let mut visited = HashSet::new();
+        let resolved = resolve_prompt_includes(
+            &conn,
+            &root,
+            "{# gpt-image-2:identify_ref}",
+            None,
+            &mut visited,
+            0,
+        )
+        .unwrap();
+        assert_eq!(resolved, "Scoped prompt");
+
+        let mut visited = HashSet::new();
+        let deprecated = resolve_prompt_includes(
+            &conn,
+            &root,
+            "{# gpt-image-2/identify_ref}",
+            None,
+            &mut visited,
+            0,
+        )
+        .unwrap();
+        assert_eq!(deprecated, "Scoped prompt");
+
+        fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[test]
+    fn resolves_include_by_quoted_tag_scope_and_title() {
+        let temp_root =
+            std::env::temp_dir().join(format!("sozocraft-prompt-quoted-{}", Uuid::new_v4()));
+        let root = temp_root.join("prompts");
+        fs::create_dir_all(&root).unwrap();
+
+        let id = Uuid::new_v4().to_string();
+        let path = root.join(format!("{id}.md"));
+        fs::write(&path, "Quoted prompt").unwrap();
+
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        insert_prompt_for_test(
+            &conn,
+            &root,
+            &id,
+            &path,
+            "ai girl",
+            r#"["nano banana/sub1/sub2"]"#,
+            "2026-01-01T00:00:00Z",
+        );
+
+        let mut visited = HashSet::new();
+        let resolved = resolve_prompt_includes(
+            &conn,
+            &root,
+            r#"{# "nano banana"/sub1/sub2:"ai girl"}"#,
+            None,
+            &mut visited,
+            0,
+        )
+        .unwrap();
+        assert_eq!(resolved, "Quoted prompt");
+
+        fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[test]
+    fn renames_tag_paths_with_descendants() {
+        assert_eq!(
+            rename_tags(
+                vec![
+                    "gpt-image/abc".to_string(),
+                    "gpt-image/abc/detail".to_string(),
+                    "nanobanana/abc".to_string(),
+                ],
+                "gpt-image/abc",
+                "gpt-image/def",
+            ),
+            vec![
+                "gpt-image/def".to_string(),
+                "gpt-image/def/detail".to_string(),
+                "nanobanana/abc".to_string(),
+            ]
+        );
+    }
+
+    fn insert_prompt_for_test(
+        conn: &Connection,
+        root: &Path,
+        id: &str,
+        path: &Path,
+        name: &str,
+        tags: &str,
+        updated_at: &str,
+    ) {
+        conn.execute(
+            "INSERT INTO prompts (
+                id, root, path, name, tags, description, created_at, updated_at,
+                content_hash, file_mtime, schema_version, last_indexed_at, missing
+            ) VALUES (?1, ?2, ?3, ?4, ?5, '', ?6, ?7, 'hash', 0, ?8, ?7, 0)",
+            params![
+                id,
+                root.to_string_lossy().to_string(),
+                path.to_string_lossy().to_string(),
+                name,
+                tags,
+                "2026-01-01T00:00:00Z",
+                updated_at,
+                SCHEMA_VERSION,
+            ],
+        )
+        .unwrap();
     }
 }
