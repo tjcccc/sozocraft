@@ -121,7 +121,7 @@ timeout_seconds = 180
 
 [xai]
 api_key = "your_xai_api_key_here"
-default_model = "grok-imagine-image"
+default_model = "grok-imagine-image-quality"
 base_url = "https://api.x.ai/v1"
 proxy_enabled = true
 timeout_seconds = 180
@@ -199,6 +199,9 @@ prompts match, the most recently updated one is used. If no prompt matches, the
 include marker is left unchanged. The older `{# tag/path/title}` scoped form is
 still accepted as a deprecated fallback.
 
+DSL mode omits `//` line comments from rendered prompts, so
+`// {# identify_ref}` comments out the include directive.
+
 Prompt tags support slash-separated nesting such as
 `#nano-banana/aigirl/outdoor-photo`, which the library displays as expandable
 folders.
@@ -257,15 +260,21 @@ generation:
 - `gpt-image-2`
 
 The current implementation enables `gpt-image-2` only, requests PNG output, and
-uses OpenAI's documented generation `size` values: `auto`, `1024x1024`,
-`1536x1024`, and `1024x1536`. It accepts OpenAI Image API `data[].b64_json`
+offers OpenAI's documented popular generation `size` values: `auto`,
+`1024x1024`, `1536x1024`, `1024x1536`, `2048x2048`, `2048x1152`,
+`3840x2160`, and `2160x3840`. The backend accepts any `gpt-image-2`
+resolution that fits OpenAI's documented constraints: maximum edge up to
+3840px, edges divisible by 16, long-to-short edge ratio no greater than 3:1,
+and total pixels between 655,360 and 8,294,400. The UI labels fixed sizes with
+their aspect ratios, such as `2:3 (1024x1536)`. It accepts OpenAI Image API `data[].b64_json`
 responses, OpenAI Responses API `image_generation_call.result` image payloads,
 and OpenRouter chat image outputs under `choices[].message.images[]`. When an
 OpenRouter model API page URL such as
 `https://openrouter.ai/openai/gpt-5.4-image-2/api` is configured as the OpenAI
 base URL, SozoCraft routes the request through OpenRouter's
-`/api/v1/chat/completions` endpoint with image modalities and uses the model
-slug from that page URL.
+`/api/v1/chat/completions` endpoint with image modalities, maps selected OpenAI
+sizes to OpenRouter `image_config` aspect-ratio and 1K/2K/4K size buckets, and
+uses the model slug from that page URL.
 
 GPT-Image reference-image runs support up to 16 PNG, JPEG, or WebP inputs. For
 OpenAI-compatible Image API endpoints, SozoCraft sends reference-image runs to
@@ -277,6 +286,7 @@ sends reference images as chat message `image_url` data URLs.
 The Grok Imagine tab enables xAI text-to-image generation through
 `/v1/images/generations`:
 
+- `grok-imagine-image-quality`
 - `grok-imagine-image`
 
 The current implementation requests `b64_json` responses so generated images

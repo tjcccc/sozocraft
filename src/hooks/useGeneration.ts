@@ -8,11 +8,60 @@ import {
 } from "../api";
 import type { AppSettings, GenerationBatch, GenerationRequest, ReferenceImageInput } from "../types";
 import type { AppStatus } from "../components/common";
+import type { ImageProviderId } from "../models/imageProviders";
 
 type QueuedGenerationTask = {
   id: string;
   request: GenerationRequest;
   settings: AppSettings;
+};
+
+type ReferenceImagesByProvider = Record<ImageProviderId, ReferenceImageInput[]>;
+type GenerationOptionsByProvider = Record<ImageProviderId, GenerationOptionState>;
+type GenerationOptionState = {
+  batchCount: number;
+  aspectRatio: string;
+  imageSize: string;
+  temperature: number;
+  topP: number;
+  quality: string;
+  thinkingLevel: string;
+};
+
+const EMPTY_REFERENCE_IMAGES: ReferenceImagesByProvider = {
+  "nano-banana": [],
+  "gpt-image": [],
+  "grok-imagine": [],
+};
+
+const DEFAULT_GENERATION_OPTIONS: GenerationOptionsByProvider = {
+  "nano-banana": {
+    batchCount: 1,
+    aspectRatio: "1:1",
+    imageSize: "2K",
+    temperature: -1,
+    topP: 0.95,
+    quality: "",
+    thinkingLevel: "",
+  },
+  "gpt-image": {
+    batchCount: 1,
+    aspectRatio: "auto",
+    imageSize: "auto",
+    temperature: -1,
+    topP: 0.95,
+    quality: "auto",
+    thinkingLevel: "",
+  },
+  "grok-imagine": {
+    batchCount: 1,
+    aspectRatio: "auto",
+    imageSize: "1k",
+    temperature: -1,
+    topP: 0.95,
+    quality: "medium",
+    thinkingLevel: "",
+  },
 };
 
 export function useGeneration({
@@ -34,18 +83,50 @@ export function useGeneration({
   setStatus: (status: AppStatus) => void;
   settings: AppSettings | null;
 }) {
-  const [batchCount, setBatchCount] = useState(1);
-  const [aspectRatio, setAspectRatio] = useState("3:4");
-  const [imageSize, setImageSize] = useState("2K");
-  const [temperature, setTemperature] = useState(-1);
-  const [topP, setTopP] = useState(0.95);
-  const [quality, setQuality] = useState("auto");
-  const [thinkingLevel, setThinkingLevel] = useState("minimal");
-  const [referenceImages, setReferenceImages] = useState<ReferenceImageInput[]>([]);
+  const [optionsByProvider, setOptionsByProvider] =
+    useState<GenerationOptionsByProvider>(DEFAULT_GENERATION_OPTIONS);
+  const [referenceImagesByProvider, setReferenceImagesByProvider] =
+    useState<ReferenceImagesByProvider>(EMPTY_REFERENCE_IMAGES);
   const [queuedTasks, setQueuedTasks] = useState<QueuedGenerationTask[]>([]);
   const [runningTask, setRunningTask] = useState<QueuedGenerationTask | null>(null);
   const queueRef = useRef<QueuedGenerationTask[]>([]);
   const processingRef = useRef(false);
+  const activeProvider = settings?.defaultProvider ?? "nano-banana";
+  const activeOptions = optionsByProvider[activeProvider];
+  const referenceImages = referenceImagesByProvider[activeProvider];
+
+  const setActiveOption = useCallback(
+    <K extends keyof GenerationOptionState>(key: K, value: GenerationOptionState[K]) => {
+      setOptionsByProvider((current) => ({
+        ...current,
+        [activeProvider]: {
+          ...current[activeProvider],
+          [key]: value,
+        },
+      }));
+    },
+    [activeProvider],
+  );
+
+  const setBatchCount = useCallback((value: number) => setActiveOption("batchCount", value), [setActiveOption]);
+  const setAspectRatio = useCallback((value: string) => setActiveOption("aspectRatio", value), [setActiveOption]);
+  const setImageSize = useCallback((value: string) => setActiveOption("imageSize", value), [setActiveOption]);
+  const setTemperature = useCallback((value: number) => setActiveOption("temperature", value), [setActiveOption]);
+  const setTopP = useCallback((value: number) => setActiveOption("topP", value), [setActiveOption]);
+  const setQuality = useCallback((value: string) => setActiveOption("quality", value), [setActiveOption]);
+  const setThinkingLevel = useCallback((value: string) => setActiveOption("thinkingLevel", value), [setActiveOption]);
+
+  const setReferenceImages: React.Dispatch<React.SetStateAction<ReferenceImageInput[]>> =
+    useCallback(
+      (update) => {
+        setReferenceImagesByProvider((current) => {
+          const currentImages = current[activeProvider];
+          const nextImages = typeof update === "function" ? update(currentImages) : update;
+          return { ...current, [activeProvider]: nextImages };
+        });
+      },
+      [activeProvider],
+    );
 
   useEffect(() => {
     queueRef.current = queuedTasks;
@@ -64,7 +145,7 @@ export function useGeneration({
       model: settings.defaultModel,
       prompt: currentPrompt,
       promptSnapshot,
-      batchCount,
+      batchCount: activeOptions.batchCount,
       referenceImages,
       outputTemplate: settings.outputTemplate,
       baseUrl:
@@ -74,12 +155,12 @@ export function useGeneration({
             ? settings.xaiBaseUrl
             : settings.optionalBaseUrl,
       options: {
-        aspectRatio,
-        imageSize,
-        temperature,
-        topP,
-        thinkingLevel,
-        quality,
+        aspectRatio: activeOptions.aspectRatio,
+        imageSize: activeOptions.imageSize,
+        temperature: activeOptions.temperature,
+        topP: activeOptions.topP,
+        thinkingLevel: activeOptions.thinkingLevel,
+        quality: activeOptions.quality,
       },
     };
 
@@ -88,20 +169,14 @@ export function useGeneration({
     setStatus("running");
     setMessage(runningTask ? "Task queued" : "Generating images");
   }, [
-    aspectRatio,
-    batchCount,
+    activeOptions,
     getPrompt,
     getPromptSnapshot,
-    imageSize,
-    quality,
     referenceImages,
     runningTask,
     setMessage,
     setStatus,
     settings,
-    temperature,
-    thinkingLevel,
-    topP,
   ]);
 
   const stopGeneration = useCallback(async () => {
@@ -166,15 +241,15 @@ export function useGeneration({
   }, [executeTask, queuedTasks, runningTask]);
 
   return {
-    aspectRatio,
-    batchCount,
-    imageSize,
-    quality,
+    aspectRatio: activeOptions.aspectRatio,
+    batchCount: activeOptions.batchCount,
+    imageSize: activeOptions.imageSize,
+    quality: activeOptions.quality,
     queuedCount: queuedTasks.length,
     runningTask,
-    temperature,
-    thinkingLevel,
-    topP,
+    temperature: activeOptions.temperature,
+    thinkingLevel: activeOptions.thinkingLevel,
+    topP: activeOptions.topP,
     runGeneration,
     stopGeneration,
     referenceImages,

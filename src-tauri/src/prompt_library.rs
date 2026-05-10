@@ -389,7 +389,7 @@ fn render_source_body(source: &str) -> String {
     let variables = get_variables(&cleaned);
     match find_raw_prompt(&cleaned) {
         Some(raw_prompt) => replace_placeholders(&raw_prompt, &variables),
-        None => body.trim().to_string(),
+        None => cleaned.trim().to_string(),
     }
 }
 
@@ -1509,6 +1509,46 @@ prompt = {
         )
         .unwrap();
         assert_eq!(deprecated, "Scoped prompt");
+
+        fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[test]
+    fn omits_commented_include_from_plain_body_render() {
+        let temp_root = std::env::temp_dir().join(format!(
+            "sozocraft-prompt-comment-include-{}",
+            Uuid::new_v4()
+        ));
+        let root = temp_root.join("prompts");
+        fs::create_dir_all(&root).unwrap();
+
+        let id = Uuid::new_v4().to_string();
+        let path = root.join(format!("{id}.md"));
+        fs::write(&path, "Identity reference").unwrap();
+
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        insert_prompt_for_test(
+            &conn,
+            &root,
+            &id,
+            &path,
+            "identify_ref",
+            r#"["gpt-image-2"]"#,
+            "2026-01-01T00:00:00Z",
+        );
+
+        let mut visited = HashSet::new();
+        let resolved = resolve_prompt_includes(
+            &conn,
+            &root,
+            &render_source_body("// {# gpt-image-2:identify_ref}\nMain prompt"),
+            None,
+            &mut visited,
+            0,
+        )
+        .unwrap();
+        assert_eq!(resolved, "Main prompt");
 
         fs::remove_dir_all(temp_root).unwrap();
     }

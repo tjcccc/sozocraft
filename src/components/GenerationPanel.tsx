@@ -8,6 +8,7 @@ import type { LightboxImage } from "./ImageLightbox";
 import { getGeminiImageModelConfig } from "../models/geminiImageModels";
 import {
   IMAGE_PROVIDER_IDS,
+  getImageSizeDisplayName,
   getProviderConfig,
   normalizeProviderOptions,
 } from "../models/imageProviders";
@@ -48,8 +49,20 @@ export function GenerationPanel(props: {
     providerModelConfig?.maxReferenceImages ??
     providerConfig.maxReferenceImages;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [modelByProvider, setModelByProvider] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      IMAGE_PROVIDER_IDS.map((provider) => [provider, getProviderConfig(provider).defaults.model]),
+    ),
+  );
   const [isReferenceDropActive, setIsReferenceDropActive] = useState(false);
   const canAddReferenceImages = props.referenceImages.length < maxReferenceImages;
+
+  useEffect(() => {
+    setModelByProvider((current) => ({
+      ...current,
+      [props.settings.defaultProvider]: props.settings.defaultModel,
+    }));
+  }, [props.settings.defaultModel, props.settings.defaultProvider]);
 
   async function addReferenceFiles(files: FileList | null) {
     if (!files || files.length === 0) {
@@ -120,7 +133,7 @@ export function GenerationPanel(props: {
             key={provider}
             onClick={() => {
               const config = getProviderConfig(provider);
-              const next = normalizeProviderOptions(provider, config.defaults.model, {
+              const next = normalizeProviderOptions(provider, modelByProvider[provider] ?? config.defaults.model, {
                 aspectRatio: props.aspectRatio,
                 imageSize: props.imageSize,
                 quality: props.quality,
@@ -131,11 +144,6 @@ export function GenerationPanel(props: {
                 defaultProvider: provider,
                 defaultModel: next.model,
               });
-              props.setAspectRatio(next.aspectRatio);
-              props.setImageSize(next.imageSize);
-              props.setQuality(next.quality);
-              props.setThinkingLevel(next.thinkingLevel);
-              props.setReferenceImages((current) => current.slice(0, next.maxReferenceImages));
             }}
             type="button"
           >
@@ -155,6 +163,10 @@ export function GenerationPanel(props: {
                 quality: props.quality,
                 thinkingLevel: props.thinkingLevel,
               });
+              setModelByProvider((current) => ({
+                ...current,
+                [props.settings.defaultProvider]: next.model,
+              }));
               props.setSettings({ ...props.settings, defaultModel: nextModel });
               props.setAspectRatio(next.aspectRatio);
               props.setImageSize(next.imageSize);
@@ -186,7 +198,7 @@ export function GenerationPanel(props: {
             <select value={props.imageSize} onChange={(event) => props.setImageSize(event.target.value)}>
               {imageSizes.map((size) => (
                 <option key={size} value={size}>
-                  {size}
+                  {getImageSizeDisplayName(props.settings.defaultProvider, size)}
                 </option>
               ))}
             </select>

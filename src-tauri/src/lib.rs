@@ -528,6 +528,7 @@ fn filename_model(model: &str) -> &str {
         "gemini-3.1-flash-image-preview" => "nano-banana-2",
         "gemini-2.5-flash-image" => "nano-banana",
         "gpt-image-2" => "gpt-image-2",
+        "grok-imagine-image-quality" => "grok-imagine-quality",
         "grok-imagine-image" => "grok-imagine",
         value => value,
     }

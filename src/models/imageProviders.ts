@@ -63,7 +63,16 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ProviderConfig> = {
       { id: "gpt-image-2", label: "GPT Image 2", productName: "GPT Image 2", maxReferenceImages: 16 },
     ],
     aspectRatios: [],
-    imageSizes: ["auto", "1024x1024", "1536x1024", "1024x1536"],
+    imageSizes: [
+      "auto",
+      "1024x1024",
+      "1536x1024",
+      "1024x1536",
+      "2048x2048",
+      "2048x1152",
+      "3840x2160",
+      "2160x3840",
+    ],
     qualityLevels: ["auto", "low", "medium", "high"],
     thinkingLevels: null,
     maxReferenceImages: 16,
@@ -80,7 +89,12 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ProviderConfig> = {
     label: "Grok Imagine",
     providerName: "xAI",
     models: [
-      { id: "grok-imagine-image", label: "Grok Imagine Image", productName: "Grok Imagine" },
+      {
+        id: "grok-imagine-image-quality",
+        label: "Grok Imagine Quality",
+        productName: "Grok Imagine Quality",
+      },
+      { id: "grok-imagine-image", label: "Grok Imagine", productName: "Grok Imagine Standard" },
     ],
     aspectRatios: [
       "auto",
@@ -103,7 +117,7 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ProviderConfig> = {
     thinkingLevels: null,
     maxReferenceImages: 5,
     defaults: {
-      model: "grok-imagine-image",
+      model: "grok-imagine-image-quality",
       aspectRatio: "auto",
       imageSize: "1k",
       quality: "medium",
@@ -121,6 +135,24 @@ export function getProviderConfig(provider: string): ProviderConfig {
 export function getProviderModelDisplayName(provider: string, model: string): string {
   return getProviderConfig(provider).models.find((item) => item.id === model)?.productName ?? model;
 }
+
+export function getImageSizeDisplayName(provider: string, imageSize: string): string {
+  if (provider !== "gpt-image") {
+    return imageSize;
+  }
+  return GPT_IMAGE_SIZE_LABELS[imageSize] ?? imageSize;
+}
+
+const GPT_IMAGE_SIZE_LABELS: Record<string, string> = {
+  auto: "auto",
+  "1024x1024": "1:1 (1024x1024)",
+  "1536x1024": "3:2 (1536x1024)",
+  "1024x1536": "2:3 (1024x1536)",
+  "2048x2048": "1:1 (2048x2048)",
+  "2048x1152": "16:9 (2048x1152)",
+  "3840x2160": "16:9 (3840x2160)",
+  "2160x3840": "9:16 (2160x3840)",
+};
 
 export function normalizeProviderOptions(
   provider: string,

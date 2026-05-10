@@ -171,7 +171,7 @@ mod tests {
     fn generation_payload_uses_xai_options() {
         let body = build_request_body(&request(None));
 
-        assert_eq!(body["model"], "grok-imagine-image");
+        assert_eq!(body["model"], "grok-imagine-image-quality");
         assert_eq!(body["n"], 4);
         assert_eq!(body["response_format"], "b64_json");
         assert_eq!(body["aspect_ratio"], "9:19.5");
@@ -208,7 +208,7 @@ mod tests {
         GenerationRequest {
             task_id: None,
             provider: "grok-imagine".to_string(),
-            model: "grok-imagine-image".to_string(),
+            model: "grok-imagine-image-quality".to_string(),
             prompt: "Render a test image".to_string(),
             prompt_snapshot: None,
             batch_count: 4,

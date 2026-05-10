@@ -227,7 +227,7 @@ pub const SUPPORTED_MODELS: [&str; 3] = [
 
 pub const OPENAI_IMAGE_MODELS: [&str; 1] = ["gpt-image-2"];
 
-pub const XAI_IMAGE_MODELS: [&str; 1] = ["grok-imagine-image"];
+pub const XAI_IMAGE_MODELS: [&str; 2] = ["grok-imagine-image-quality", "grok-imagine-image"];
 
 fn supported_models(provider: &str) -> &'static [&'static str] {
     match provider {

@@ -2,6 +2,7 @@ use crate::models::{GenerationRequest, ReferenceImageInput};
 use base64::{engine::general_purpose, Engine as _};
 use reqwest::{multipart, Client, Proxy, RequestBuilder, StatusCode};
 use serde_json::{json, Value};
+use std::error::Error;
 use std::time::Duration;
 
 const DEFAULT_ENDPOINT: &str = "https://api.openai.com/v1";
@@ -12,11 +13,17 @@ pub enum OpenAiImageError {
     #[error("OpenAI API key is missing.")]
     MissingApiKey,
     #[error("OpenAI image request failed: {0}")]
-    Request(#[from] reqwest::Error),
+    Request(String),
     #[error("OpenAI returned an error ({status}): {body}")]
     Api { status: StatusCode, body: String },
     #[error("OpenAI returned image data that could not be decoded.")]
     InvalidImageData,
+}
+
+impl From<reqwest::Error> for OpenAiImageError {
+    fn from(err: reqwest::Error) -> Self {
+        Self::Request(describe_reqwest_error(&err))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -173,10 +180,13 @@ fn build_image_api_request_body(request: &GenerationRequest) -> Value {
         "output_format": "png"
     });
 
-    if let Some(size) = request.options.image_size.as_deref() {
-        if ["auto", "1024x1024", "1536x1024", "1024x1536"].contains(&size) {
-            body["size"] = json!(size);
-        }
+    if let Some(size) = request
+        .options
+        .image_size
+        .as_deref()
+        .and_then(normalize_openai_image_size)
+    {
+        body["size"] = json!(size);
     }
     if let Some(quality) = request.options.quality.as_deref() {
         if ["auto", "low", "medium", "high"].contains(&quality) {
@@ -189,7 +199,7 @@ fn build_image_api_request_body(request: &GenerationRequest) -> Value {
 
 fn build_openrouter_chat_request_body(request: &GenerationRequest, model: &str) -> Value {
     let content = build_openrouter_message_content(request);
-    json!({
+    let mut body = json!({
         "model": model,
         "messages": [
             {
@@ -199,7 +209,11 @@ fn build_openrouter_chat_request_body(request: &GenerationRequest, model: &str) 
         ],
         "modalities": ["image", "text"],
         "stream": false
-    })
+    });
+    if let Some(image_config) = build_openrouter_image_config(request) {
+        body["image_config"] = image_config;
+    }
+    body
 }
 
 fn build_openrouter_message_content(request: &GenerationRequest) -> Value {
@@ -234,10 +248,13 @@ fn apply_multipart_form(
         .text("n", request.batch_count.to_string())
         .text("output_format", "png");
 
-    if let Some(size) = request.options.image_size.as_deref() {
-        if ["auto", "1024x1024", "1536x1024", "1024x1536"].contains(&size) {
-            form = form.text("size", size.to_string());
-        }
+    if let Some(size) = request
+        .options
+        .image_size
+        .as_deref()
+        .and_then(normalize_openai_image_size)
+    {
+        form = form.text("size", size.to_string());
     }
     if let Some(quality) = request.options.quality.as_deref() {
         if ["auto", "low", "medium", "high"].contains(&quality) {
@@ -263,6 +280,105 @@ fn reference_images(request: &GenerationRequest) -> &[ReferenceImageInput] {
 
 fn has_reference_images(request: &GenerationRequest) -> bool {
     !reference_images(request).is_empty()
+}
+
+fn build_openrouter_image_config(request: &GenerationRequest) -> Option<Value> {
+    let size = request
+        .options
+        .image_size
+        .as_deref()
+        .and_then(parse_openrouter_image_config)?;
+    Some(json!({
+        "aspect_ratio": size.aspect_ratio,
+        "image_size": size.image_size,
+    }))
+}
+
+struct OpenRouterImageConfig<'a> {
+    aspect_ratio: &'a str,
+    image_size: &'a str,
+}
+
+fn parse_openrouter_image_config(size: &str) -> Option<OpenRouterImageConfig<'static>> {
+    let size = size.trim();
+    if size == "auto" {
+        return None;
+    }
+    let (width, height) = parse_image_size(size)?;
+    let aspect_ratio = openrouter_aspect_ratio(width, height)?;
+    let image_size = match width.max(height) {
+        0..=1536 => "1K",
+        1537..=2560 => "2K",
+        _ => "4K",
+    };
+    Some(OpenRouterImageConfig {
+        aspect_ratio,
+        image_size,
+    })
+}
+
+fn openrouter_aspect_ratio(width: u64, height: u64) -> Option<&'static str> {
+    let gcd = gcd(width, height);
+    let ratio = (width / gcd, height / gcd);
+    match ratio {
+        (1, 1) => Some("1:1"),
+        (2, 3) => Some("2:3"),
+        (3, 2) => Some("3:2"),
+        (3, 4) => Some("3:4"),
+        (4, 3) => Some("4:3"),
+        (4, 5) => Some("4:5"),
+        (5, 4) => Some("5:4"),
+        (9, 16) => Some("9:16"),
+        (16, 9) => Some("16:9"),
+        (21, 9) | (7, 3) => Some("21:9"),
+        _ => None,
+    }
+}
+
+fn gcd(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        let next = a % b;
+        a = b;
+        b = next;
+    }
+    a
+}
+
+fn normalize_openai_image_size(size: &str) -> Option<&str> {
+    let size = size.trim();
+    if size == "auto" {
+        return Some(size);
+    }
+    let (width, height) = parse_image_size(size)?;
+    if is_valid_gpt_image_2_size(width, height) {
+        Some(size)
+    } else {
+        None
+    }
+}
+
+fn parse_image_size(size: &str) -> Option<(u64, u64)> {
+    let (width, height) = size.split_once('x')?;
+    Some((width.parse().ok()?, height.parse().ok()?))
+}
+
+fn is_valid_gpt_image_2_size(width: u64, height: u64) -> bool {
+    if width == 0 || height == 0 {
+        return false;
+    }
+    if width > 3840 || height > 3840 {
+        return false;
+    }
+    if width % 16 != 0 || height % 16 != 0 {
+        return false;
+    }
+    let long_edge = width.max(height);
+    let short_edge = width.min(height);
+    if long_edge > short_edge * 3 {
+        return false;
+    }
+    let pixels = width * height;
+    (655_360..=8_294_400).contains(&pixels)
 }
 
 fn normalize_mime_type(mime_type: &str) -> &str {
@@ -369,11 +485,33 @@ fn decode_image_payload(data: &str) -> Result<Vec<u8>, OpenAiImageError> {
         .map_err(|_| OpenAiImageError::InvalidImageData)
 }
 
+fn describe_reqwest_error(err: &reqwest::Error) -> String {
+    let mut message = err.to_string();
+    let mut source = err.source();
+
+    while let Some(cause) = source {
+        let detail = cause.to_string();
+        if !detail.is_empty() && !message.contains(&detail) {
+            message.push_str(": ");
+            message.push_str(&detail);
+        }
+        source = cause.source();
+    }
+
+    if err.is_timeout() && !message.contains("Increase the OpenAI timeout") {
+        message.push_str(
+            ". Increase the OpenAI timeout in Settings if the provider is still generating.",
+        );
+    }
+
+    message
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         build_image_api_request_body, build_openrouter_chat_request_body, decode_image_payload,
-        parse_response, resolve_endpoint, OpenAiEndpoint,
+        is_valid_gpt_image_2_size, parse_response, resolve_endpoint, OpenAiEndpoint,
     };
     use crate::models::{GenerationOptions, GenerationRequest, ReferenceImageInput};
     use base64::{engine::general_purpose, Engine as _};
@@ -386,8 +524,23 @@ mod tests {
         assert_eq!(body["model"], "gpt-image-2");
         assert_eq!(body["n"], 3);
         assert_eq!(body["output_format"], "png");
-        assert_eq!(body["size"], "1536x1024");
+        assert_eq!(body["size"], "3840x2160");
         assert_eq!(body["quality"], "high");
+    }
+
+    #[test]
+    fn gpt_image_2_size_validation_uses_documented_constraints() {
+        assert!(is_valid_gpt_image_2_size(1024, 1024));
+        assert!(is_valid_gpt_image_2_size(2048, 2048));
+        assert!(is_valid_gpt_image_2_size(3840, 2160));
+        assert!(is_valid_gpt_image_2_size(2160, 3840));
+        assert!(is_valid_gpt_image_2_size(3840, 1280));
+
+        assert!(!is_valid_gpt_image_2_size(3841, 2160));
+        assert!(!is_valid_gpt_image_2_size(1025, 1024));
+        assert!(!is_valid_gpt_image_2_size(3840, 1264));
+        assert!(!is_valid_gpt_image_2_size(3840, 3840));
+        assert!(!is_valid_gpt_image_2_size(512, 512));
     }
 
     #[test]
@@ -397,7 +550,20 @@ mod tests {
         assert_eq!(body["model"], "openai/gpt-5.4-image-2");
         assert_eq!(body["messages"][0]["content"], "Render a test image");
         assert_eq!(body["modalities"], json!(["image", "text"]));
+        assert_eq!(body["image_config"]["aspect_ratio"], "16:9");
+        assert_eq!(body["image_config"]["image_size"], "4K");
         assert_eq!(body["stream"], false);
+    }
+
+    #[test]
+    fn openrouter_payload_maps_openai_size_to_image_config() {
+        let body = build_openrouter_chat_request_body(
+            &request_with_size("1024x1536"),
+            "openai/gpt-5.4-image-2",
+        );
+
+        assert_eq!(body["image_config"]["aspect_ratio"], "2:3");
+        assert_eq!(body["image_config"]["image_size"], "1K");
     }
 
     #[test]
@@ -518,6 +684,17 @@ mod tests {
     fn request_with_references(
         reference_images: Option<Vec<ReferenceImageInput>>,
     ) -> GenerationRequest {
+        request_with_references_and_size(reference_images, "3840x2160")
+    }
+
+    fn request_with_size(image_size: &str) -> GenerationRequest {
+        request_with_references_and_size(None, image_size)
+    }
+
+    fn request_with_references_and_size(
+        reference_images: Option<Vec<ReferenceImageInput>>,
+        image_size: &str,
+    ) -> GenerationRequest {
         GenerationRequest {
             task_id: None,
             provider: "gpt-image".to_string(),
@@ -529,7 +706,7 @@ mod tests {
             output_template: "{id}.{extension}".to_string(),
             options: GenerationOptions {
                 aspect_ratio: Some("3:2".to_string()),
-                image_size: Some("1536x1024".to_string()),
+                image_size: Some(image_size.to_string()),
                 temperature: None,
                 top_p: None,
                 thinking_level: None,

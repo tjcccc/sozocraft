@@ -1,7 +1,19 @@
 # DEVLOG
 
+## 2026-05-10
+
+- Bumped app/package/crate version metadata to `0.15.0` for the provider-option, GPT-Image sizing, and prompt-rendering checkpoint.
+- Updated GPT-Image size handling for OpenAI's current `gpt-image-2` guidance: the UI now lists the documented popular 1K/2K/4K sizes, and the backend accepts any size matching the documented constraints.
+- Added aspect-ratio labels to GPT-Image size options, such as `2:3 (1024x1536)`, while preserving exact size values for direct OpenAI requests.
+- Added OpenRouter `image_config` mapping for GPT-Image requests so selected OpenAI sizes are forwarded as OpenRouter aspect-ratio and 1K/2K/4K size buckets instead of being dropped.
+- Preserved generation model/options per provider tab so switching away from GPT-Image, Nano Banana, or Grok Imagine and back restores the provider's previous controls.
+- Separated reference-image selections per image provider so Nano Banana, GPT-Image, and Grok Imagine keep independent upload lists when switching tabs.
+- Tightened prompt-list row spacing while preserving the existing compact desktop tool styling.
+- Fixed DSL plain-body rendering so `// {# ... }` comments out include directives instead of appearing in Preview.
+
 ## 2026-05-09
 
+- Updated the Grok Imagine default model to `grok-imagine-image-quality` per xAI's May 2026 image-generation guidance, while keeping `grok-imagine-image` selectable as the standard model.
 - Bumped app/package/crate version metadata to `0.14.1` for the app icon checkpoint.
 - Added cross-platform Tauri bundle icons from the prepared SozoCraft assets, with macOS/Windows icon formats and resized transparent padding for Dock fit.
 - Replaced the toolbar letter badge with the SozoCraft app icon asset.
