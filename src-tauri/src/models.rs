@@ -45,6 +45,8 @@ pub struct AppSettings {
     pub prompt_preview_placement: String,
     #[serde(default = "default_proxy_enabled")]
     pub gemini_proxy_enabled: bool,
+    #[serde(default = "default_openai_api_platform")]
+    pub openai_api_platform: String,
     #[serde(default = "default_proxy_enabled")]
     pub openai_proxy_enabled: bool,
     #[serde(default = "default_proxy_enabled")]
@@ -53,6 +55,8 @@ pub struct AppSettings {
     pub optional_base_url: Option<String>,
     #[serde(default)]
     pub openai_base_url: Option<String>,
+    #[serde(default)]
+    pub openrouter_base_url: Option<String>,
     #[serde(default)]
     pub xai_base_url: Option<String>,
     #[serde(default)]
@@ -112,6 +116,10 @@ fn default_proxy_enabled() -> bool {
     true
 }
 
+fn default_openai_api_platform() -> String {
+    "openai".to_string()
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -125,10 +133,12 @@ impl Default for AppSettings {
             prompt_editor_only: false,
             prompt_preview_placement: default_prompt_preview_placement(),
             gemini_proxy_enabled: true,
+            openai_api_platform: default_openai_api_platform(),
             openai_proxy_enabled: true,
             xai_proxy_enabled: true,
             optional_base_url: None,
             openai_base_url: None,
+            openrouter_base_url: None,
             xai_base_url: None,
             proxy_url: None,
             timeout_seconds: 180,
@@ -225,7 +235,7 @@ pub const SUPPORTED_MODELS: [&str; 3] = [
     "gemini-2.5-flash-image",
 ];
 
-pub const OPENAI_IMAGE_MODELS: [&str; 1] = ["gpt-image-2"];
+pub const OPENAI_IMAGE_MODELS: [&str; 2] = ["gpt-image-2", "openai/gpt-5.4-image-2"];
 
 pub const XAI_IMAGE_MODELS: [&str; 2] = ["grok-imagine-image-quality", "grok-imagine-image"];
 

@@ -114,10 +114,15 @@ timeout_seconds = 180
 
 [openai]
 api_key = "your_openai_api_key_here"
+api_platform = "openai"
 default_model = "gpt-image-2"
 base_url = "https://api.openai.com/v1"
 proxy_enabled = true
 timeout_seconds = 180
+
+[openrouter]
+api_key = "your_openrouter_api_key_here"
+base_url = "https://openrouter.ai/api/v1"
 
 [xai]
 api_key = "your_xai_api_key_here"

@@ -29,6 +29,7 @@ impl From<reqwest::Error> for OpenAiImageError {
 #[derive(Debug, Clone)]
 pub struct OpenAiImageClient {
     api_key: String,
+    platform: OpenAiApiPlatform,
     base_url: String,
     client: Client,
 }
@@ -47,6 +48,7 @@ pub struct OpenAiImageResponse {
 impl OpenAiImageClient {
     pub fn new(
         api_key: String,
+        platform: String,
         base_url: Option<String>,
         proxy_url: Option<String>,
         timeout_seconds: u64,
@@ -55,14 +57,18 @@ impl OpenAiImageClient {
             return Err(OpenAiImageError::MissingApiKey);
         }
 
+        let platform = OpenAiApiPlatform::from_config(&platform);
         let base_url = base_url
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| DEFAULT_ENDPOINT.to_string())
+            .unwrap_or_else(|| platform.default_endpoint().to_string())
             .trim_end_matches('/')
             .to_string();
 
         let mut client_builder =
             Client::builder().timeout(Duration::from_secs(timeout_seconds.max(10)));
+        if platform == OpenAiApiPlatform::OpenRouter {
+            client_builder = client_builder.http1_only().pool_max_idle_per_host(0);
+        }
 
         if let Some(proxy_url) = proxy_url.filter(|value| !value.trim().is_empty()) {
             client_builder = client_builder.proxy(Proxy::all(proxy_url.trim())?);
@@ -70,6 +76,7 @@ impl OpenAiImageClient {
 
         Ok(Self {
             api_key,
+            platform,
             base_url,
             client: client_builder.build()?,
         })
@@ -80,6 +87,7 @@ impl OpenAiImageClient {
         request: &GenerationRequest,
     ) -> Result<OpenAiImageResponse, OpenAiImageError> {
         let endpoint = resolve_endpoint(
+            self.platform,
             &self.base_url,
             &request.model,
             has_reference_images(request),
@@ -122,7 +130,45 @@ enum OpenAiEndpoint {
     OpenRouterChat { url: String, model: String },
 }
 
-fn resolve_endpoint(base_url: &str, request_model: &str, has_references: bool) -> OpenAiEndpoint {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OpenAiApiPlatform {
+    OpenAi,
+    OpenRouter,
+}
+
+impl OpenAiApiPlatform {
+    fn from_config(value: &str) -> Self {
+        match value.trim() {
+            "openrouter" => Self::OpenRouter,
+            _ => Self::OpenAi,
+        }
+    }
+
+    fn default_endpoint(self) -> &'static str {
+        match self {
+            Self::OpenAi => DEFAULT_ENDPOINT,
+            Self::OpenRouter => OPENROUTER_ENDPOINT,
+        }
+    }
+}
+
+fn resolve_endpoint(
+    platform: OpenAiApiPlatform,
+    base_url: &str,
+    request_model: &str,
+    has_references: bool,
+) -> OpenAiEndpoint {
+    if platform == OpenAiApiPlatform::OpenRouter {
+        let api_base = base_url
+            .trim_end_matches("/chat/completions")
+            .trim_end_matches("/api/v1")
+            .trim_end_matches('/');
+        return OpenAiEndpoint::OpenRouterChat {
+            url: format!("{api_base}/api/v1/chat/completions"),
+            model: request_model.to_string(),
+        };
+    }
+
     if let Some(model) = openrouter_model_from_page_url(base_url) {
         return OpenAiEndpoint::OpenRouterChat {
             url: format!("{OPENROUTER_ENDPOINT}/chat/completions"),
@@ -511,7 +557,8 @@ fn describe_reqwest_error(err: &reqwest::Error) -> String {
 mod tests {
     use super::{
         build_image_api_request_body, build_openrouter_chat_request_body, decode_image_payload,
-        is_valid_gpt_image_2_size, parse_response, resolve_endpoint, OpenAiEndpoint,
+        is_valid_gpt_image_2_size, parse_response, resolve_endpoint, OpenAiApiPlatform,
+        OpenAiEndpoint,
     };
     use crate::models::{GenerationOptions, GenerationRequest, ReferenceImageInput};
     use base64::{engine::general_purpose, Engine as _};
@@ -569,6 +616,7 @@ mod tests {
     #[test]
     fn openrouter_model_page_url_routes_to_chat_completions() {
         let endpoint = resolve_endpoint(
+            OpenAiApiPlatform::OpenAi,
             "https://openrouter.ai/openai/gpt-5.4-image-2/api",
             "gpt-image-2",
             false,
@@ -584,8 +632,31 @@ mod tests {
     }
 
     #[test]
+    fn openrouter_platform_routes_api_base_to_chat_completions() {
+        let endpoint = resolve_endpoint(
+            OpenAiApiPlatform::OpenRouter,
+            "https://openrouter.ai/api/v1",
+            "openai/gpt-5.4-image-2",
+            false,
+        );
+
+        assert_eq!(
+            endpoint,
+            OpenAiEndpoint::OpenRouterChat {
+                url: "https://openrouter.ai/api/v1/chat/completions".to_string(),
+                model: "openai/gpt-5.4-image-2".to_string(),
+            }
+        );
+    }
+
+    #[test]
     fn openai_references_route_to_image_edits() {
-        let endpoint = resolve_endpoint("https://api.openai.com/v1", "gpt-image-2", true);
+        let endpoint = resolve_endpoint(
+            OpenAiApiPlatform::OpenAi,
+            "https://api.openai.com/v1",
+            "gpt-image-2",
+            true,
+        );
 
         assert_eq!(
             endpoint,

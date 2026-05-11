@@ -14,6 +14,8 @@ struct LocalConfig {
     #[serde(default)]
     openai: OpenAiConfig,
     #[serde(default)]
+    openrouter: OpenRouterConfig,
+    #[serde(default)]
     xai: XaiConfig,
     #[serde(default)]
     output: OutputConfig,
@@ -48,6 +50,8 @@ struct OpenAiConfig {
     #[serde(default)]
     api_key: String,
     #[serde(default)]
+    api_platform: Option<String>,
+    #[serde(default)]
     default_model: Option<String>,
     #[serde(default)]
     base_url: Option<String>,
@@ -55,6 +59,14 @@ struct OpenAiConfig {
     timeout_seconds: Option<u64>,
     #[serde(default)]
     proxy_enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct OpenRouterConfig {
+    #[serde(default)]
+    api_key: String,
+    #[serde(default)]
+    base_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -101,12 +113,17 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
         .default_provider
         .filter(|value| !value.trim().is_empty())
         .unwrap_or(defaults.default_provider);
+    let openai_api_platform = normalize_openai_api_platform(
+        config.openai.api_platform.clone(),
+        defaults.openai_api_platform.clone(),
+    );
     let default_model = match default_provider.as_str() {
         "gpt-image" => config
             .openai
             .default_model
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or(defaults.default_model),
+            .map(|value| normalize_gpt_image_model(&openai_api_platform, value))
+            .unwrap_or_else(|| default_gpt_image_model(&openai_api_platform)),
         "grok-imagine" => config
             .xai
             .default_model
@@ -153,6 +170,7 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .gemini
             .proxy_enabled
             .unwrap_or(defaults.gemini_proxy_enabled),
+        openai_api_platform,
         openai_proxy_enabled: config
             .openai
             .proxy_enabled
@@ -171,6 +189,11 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .base_url
             .filter(|value| !value.trim().is_empty())
             .or(defaults.openai_base_url),
+        openrouter_base_url: config
+            .openrouter
+            .base_url
+            .filter(|value| !value.trim().is_empty())
+            .or(defaults.openrouter_base_url),
         xai_base_url: config
             .xai
             .base_url
@@ -209,7 +232,12 @@ pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
         _ => config.gemini.default_model = Some(settings.default_model.clone()),
     }
     config.gemini.base_url = normalize_optional(settings.optional_base_url.clone());
+    config.openai.api_platform = Some(normalize_openai_api_platform(
+        Some(settings.openai_api_platform.clone()),
+        "openai".to_string(),
+    ));
     config.openai.base_url = normalize_optional(settings.openai_base_url.clone());
+    config.openrouter.base_url = normalize_optional(settings.openrouter_base_url.clone());
     config.xai.base_url = normalize_optional(settings.xai_base_url.clone());
     config.gemini.proxy_url = normalize_optional(settings.proxy_url.clone());
     config.gemini.proxy_enabled = Some(settings.gemini_proxy_enabled);
@@ -248,6 +276,12 @@ pub fn set_openai_api_key(api_key: &str) -> io::Result<()> {
     save_config(&config)
 }
 
+pub fn set_openrouter_api_key(api_key: &str) -> io::Result<()> {
+    let mut config = load_config().unwrap_or_default();
+    config.openrouter.api_key = api_key.trim().to_string();
+    save_config(&config)
+}
+
 pub fn set_xai_api_key(api_key: &str) -> io::Result<()> {
     let mut config = load_config().unwrap_or_default();
     config.xai.api_key = api_key.trim().to_string();
@@ -278,6 +312,18 @@ pub fn get_openai_api_key() -> io::Result<String> {
     Ok(key)
 }
 
+pub fn get_openrouter_api_key() -> io::Result<String> {
+    let config = load_config()?;
+    let key = config.openrouter.api_key.trim().to_string();
+    if key.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "OpenRouter API key is missing in ~/.sozocraft/config.toml",
+        ));
+    }
+    Ok(key)
+}
+
 pub fn get_xai_api_key() -> io::Result<String> {
     let config = load_config()?;
     let key = config.xai.api_key.trim().to_string();
@@ -298,6 +344,12 @@ pub fn has_gemini_api_key() -> bool {
 
 pub fn has_openai_api_key() -> bool {
     get_openai_api_key()
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+}
+
+pub fn has_openrouter_api_key() -> bool {
+    get_openrouter_api_key()
         .map(|value| !value.trim().is_empty())
         .unwrap_or(false)
 }
@@ -355,5 +407,28 @@ fn normalize_preview_placement(value: Option<String>, fallback: String) -> Strin
     match value.as_deref().map(str::trim) {
         Some("bottom" | "right" | "hidden") => value.unwrap().trim().to_string(),
         _ => fallback,
+    }
+}
+
+fn normalize_openai_api_platform(value: Option<String>, fallback: String) -> String {
+    match value.as_deref().map(str::trim) {
+        Some("openrouter") => "openrouter".to_string(),
+        Some("openai") => "openai".to_string(),
+        _ => fallback,
+    }
+}
+
+fn default_gpt_image_model(platform: &str) -> String {
+    match platform {
+        "openrouter" => "openai/gpt-5.4-image-2".to_string(),
+        _ => "gpt-image-2".to_string(),
+    }
+}
+
+fn normalize_gpt_image_model(platform: &str, model: String) -> String {
+    match (platform, model.as_str()) {
+        ("openrouter", "openai/gpt-5.4-image-2") => model,
+        ("openai", "gpt-image-2") => model,
+        _ => default_gpt_image_model(platform),
     }
 }

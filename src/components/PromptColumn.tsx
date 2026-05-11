@@ -12,7 +12,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import type { PromptListItem, PromptPreviewPlacement } from "../types";
 import { clamp } from "../utils/math";
@@ -90,10 +90,19 @@ export function PromptColumn({
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [exportPath, setExportPath] = useState(defaultExportPath);
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
+  const initializedCollapsedTagsRef = useRef(false);
   const [renamingTagPath, setRenamingTagPath] = useState<string | null>(null);
   const [renamingTagName, setRenamingTagName] = useState("");
   const tree = useMemo(() => buildTagTree(items), [items]);
   const effectivePreviewPlacement: PromptPreviewPlacement = dslEnabled ? previewPlacement : "hidden";
+
+  useEffect(() => {
+    if (initializedCollapsedTagsRef.current || items.length === 0 || !selectedPromptId) {
+      return;
+    }
+    initializedCollapsedTagsRef.current = true;
+    setCollapsedTags(getInitialCollapsedTags(items, selectedPromptId));
+  }, [items, selectedPromptId]);
 
   const startPreviewResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const bounds = editorWrapRef.current?.getBoundingClientRect();
@@ -490,7 +499,7 @@ function highlightPromptDsl(source: string): ReactNode[] {
 function highlightDslLine(line: string, lineIndex: number): ReactNode[] {
   const nodes: ReactNode[] = [];
   const pattern =
-    /(\{#[^}]*\})|(\{[A-Za-z_][\w.-]*\})|(\bprompt\b)|(^\s*[A-Za-z_][\w.-]*(?=\s*=))/g;
+    /(\{#[^}]*\})|(\{[A-Za-z_][\w.-]*\})|(^\s*prompt(?=\s*=\s*\{))|(^\s*[A-Za-z_][\w.-]*(?=\s*=))/g;
   let cursor = 0;
   let match: RegExpExecArray | null;
 
@@ -539,6 +548,36 @@ function buildTagTree(items: PromptListItem[]) {
     }
   }
   return root;
+}
+
+function getInitialCollapsedTags(items: PromptListItem[], selectedPromptId: string) {
+  const openPaths = new Set<string>();
+  const selectedItem = items.find((item) => item.id === selectedPromptId);
+  const selectedTag = selectedItem?.tags.find((tag) => tag.split("/").filter(Boolean).length > 0);
+
+  if (selectedTag) {
+    const parts = selectedTag.split("/").filter(Boolean);
+    parts.forEach((_, index) => openPaths.add(parts.slice(0, index + 1).join("/")));
+  }
+
+  const collapsed = new Set<string>();
+  for (const path of getTagFolderPaths(items)) {
+    if (!openPaths.has(path)) {
+      collapsed.add(path);
+    }
+  }
+  return collapsed;
+}
+
+function getTagFolderPaths(items: PromptListItem[]) {
+  const paths = new Set<string>();
+  for (const item of items) {
+    for (const tag of item.tags) {
+      const parts = tag.split("/").filter(Boolean);
+      parts.forEach((_, index) => paths.add(parts.slice(0, index + 1).join("/")));
+    }
+  }
+  return paths;
 }
 
 function renderTagNode({

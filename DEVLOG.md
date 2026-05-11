@@ -1,5 +1,14 @@
 # DEVLOG
 
+## 2026-05-11
+
+- Bumped app/package/crate version metadata to `0.16.0` for the GPT-Image platform routing checkpoint.
+- Added a GPT-Image API Platform setting with separate OpenAI and OpenRouter credentials/base URLs; OpenRouter routes through chat completions with image modalities and keeps provider proxy behavior independent.
+- Stopped autosaving API keys during general settings autosave so provider keys persist only through their Save Key buttons.
+- Fixed DSL highlighting so JSON `"prompt"` keys are not highlighted; only `prompt = { ... }` block declarations are treated as DSL keywords.
+- Changed prompt-library startup expansion so only the restored prompt's tag folder path opens while unrelated tag folders start collapsed.
+- Added an OpenRouter HTTP/1.1 transport compatibility path for local proxies that close TLS streams without `close_notify`.
+
 ## 2026-05-10
 
 - Bumped app/package/crate version metadata to `0.15.0` for the provider-option, GPT-Image sizing, and prompt-rendering checkpoint.

@@ -1,10 +1,12 @@
 export type GenerationStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 export type PromptPreviewPlacement = "bottom" | "right" | "hidden";
+export type OpenAiApiPlatform = "openai" | "openrouter";
 
 export type ConfigStatus = {
   configPath: string;
   hasApiKey: boolean;
   hasOpenaiApiKey: boolean;
+  hasOpenrouterApiKey: boolean;
   hasXaiApiKey: boolean;
   hasProxy: boolean;
 };
@@ -19,10 +21,12 @@ export type AppSettings = {
   promptEditorOnly: boolean;
   promptPreviewPlacement: PromptPreviewPlacement;
   geminiProxyEnabled: boolean;
+  openaiApiPlatform: OpenAiApiPlatform;
   openaiProxyEnabled: boolean;
   xaiProxyEnabled: boolean;
   optionalBaseUrl?: string | null;
   openaiBaseUrl?: string | null;
+  openrouterBaseUrl?: string | null;
   xaiBaseUrl?: string | null;
   proxyUrl?: string | null;
   timeoutSeconds: number;

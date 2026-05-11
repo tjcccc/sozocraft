@@ -3,11 +3,14 @@ import { useEffect, useRef } from "react";
 import type {
   AppSettings,
   ConfigStatus,
+  OpenAiApiPlatform,
   PromptPreviewPlacement,
 } from "../types";
 import {
+  GPT_IMAGE_PLATFORM_MODELS,
   IMAGE_PROVIDER_IDS,
   getProviderConfig,
+  getProviderModels,
 } from "../models/imageProviders";
 import { validateOutputTemplate } from "../utils/outputTemplate";
 import { Field, ToggleSwitch } from "./common";
@@ -17,16 +20,20 @@ export function SettingsPanel({
   apiKeySaved,
   openaiApiKey,
   openaiApiKeySaved,
+  openrouterApiKey,
+  openrouterApiKeySaved,
   xaiApiKey,
   xaiApiKeySaved,
   configStatus,
   settings,
   setApiKey,
   setOpenaiApiKey,
+  setOpenrouterApiKey,
   setSettings,
   setXaiApiKey,
   onSaveKey,
   onSaveOpenaiKey,
+  onSaveOpenrouterKey,
   onSaveSettings,
   onSaveXaiKey,
 }: {
@@ -34,16 +41,20 @@ export function SettingsPanel({
   apiKeySaved: boolean;
   openaiApiKey: string;
   openaiApiKeySaved: boolean;
+  openrouterApiKey: string;
+  openrouterApiKeySaved: boolean;
   xaiApiKey: string;
   xaiApiKeySaved: boolean;
   configStatus: ConfigStatus | null;
   settings: AppSettings;
   setApiKey: (value: string) => void;
   setOpenaiApiKey: (value: string) => void;
+  setOpenrouterApiKey: (value: string) => void;
   setSettings: (settings: AppSettings) => void;
   setXaiApiKey: (value: string) => void;
   onSaveKey: () => void;
   onSaveOpenaiKey: () => void;
+  onSaveOpenrouterKey: () => void;
   onSaveSettings: (settings: AppSettings) => void;
   onSaveXaiKey: () => void;
 }) {
@@ -80,6 +91,10 @@ export function SettingsPanel({
             <ConfigBadge
               label="OpenAI API key"
               ok={configStatus.hasOpenaiApiKey}
+            />
+            <ConfigBadge
+              label="OpenRouter API key"
+              ok={configStatus.hasOpenrouterApiKey}
             />
             <ConfigBadge label="xAI API key" ok={configStatus.hasXaiApiKey} />
             <ConfigBadge
@@ -219,22 +234,61 @@ export function SettingsPanel({
             timeoutSeconds={settings.geminiTimeoutSeconds}
           />
           <ProviderSettings
-            apiKey={openaiApiKey}
-            apiKeySaved={openaiApiKeySaved}
-            baseUrl={settings.openaiBaseUrl}
+            apiKey={
+              settings.openaiApiPlatform === "openrouter"
+                ? openrouterApiKey
+                : openaiApiKey
+            }
+            apiKeySaved={
+              settings.openaiApiPlatform === "openrouter"
+                ? openrouterApiKeySaved
+                : openaiApiKeySaved
+            }
+            apiPlatform={settings.openaiApiPlatform}
+            baseUrl={
+              settings.openaiApiPlatform === "openrouter"
+                ? settings.openrouterBaseUrl
+                : settings.openaiBaseUrl
+            }
             defaultModel={
               settings.defaultProvider === "gpt-image"
                 ? settings.defaultModel
                 : null
             }
-            keyPlaceholder="OpenAI API key"
-            onSaveKey={onSaveOpenaiKey}
+            keyPlaceholder={
+              settings.openaiApiPlatform === "openrouter"
+                ? "OpenRouter API key"
+                : "OpenAI API key"
+            }
+            onApiPlatformChange={(platform) =>
+              setSettings({
+                ...settings,
+                openaiApiPlatform: platform,
+                defaultModel:
+                  settings.defaultProvider === "gpt-image"
+                    ? GPT_IMAGE_PLATFORM_MODELS[platform]
+                    : settings.defaultModel,
+              })
+            }
+            onSaveKey={
+              settings.openaiApiPlatform === "openrouter"
+                ? onSaveOpenrouterKey
+                : onSaveOpenaiKey
+            }
             providerId="gpt-image"
             proxyEnabled={settings.openaiProxyEnabled}
-            setApiKey={setOpenaiApiKey}
-            setBaseUrl={(value) =>
-              setSettings({ ...settings, openaiBaseUrl: value })
+            setApiKey={
+              settings.openaiApiPlatform === "openrouter"
+                ? setOpenrouterApiKey
+                : setOpenaiApiKey
             }
+            setBaseUrl={(value) => {
+              if (settings.openaiApiPlatform === "openrouter") {
+                setSettings({ ...settings, openrouterBaseUrl: value });
+                return;
+              }
+              setSettings({ ...settings, openaiBaseUrl: value });
+            }}
             setDefaultModel={(model) =>
               setSettings({
                 ...settings,
@@ -291,10 +345,12 @@ export function SettingsPanel({
 function ProviderSettings({
   apiKey,
   apiKeySaved,
+  apiPlatform,
   baseUrl,
   defaultModel,
   keyPlaceholder,
   onSaveKey,
+  onApiPlatformChange,
   providerId,
   proxyEnabled,
   setApiKey,
@@ -306,10 +362,12 @@ function ProviderSettings({
 }: {
   apiKey: string;
   apiKeySaved: boolean;
+  apiPlatform?: OpenAiApiPlatform;
   baseUrl?: string | null;
   defaultModel: string | null;
   keyPlaceholder: string;
   onSaveKey: () => void;
+  onApiPlatformChange?: (platform: OpenAiApiPlatform) => void;
   providerId: (typeof IMAGE_PROVIDER_IDS)[number];
   proxyEnabled: boolean;
   setApiKey: (value: string) => void;
@@ -320,11 +378,25 @@ function ProviderSettings({
   timeoutSeconds: number;
 }) {
   const provider = getProviderConfig(providerId);
-  const activeModel = defaultModel ?? provider.defaults.model;
+  const models = getProviderModels(providerId, apiPlatform ?? "openai");
+  const activeModel = defaultModel ?? models[0]?.id ?? provider.defaults.model;
 
   return (
     <fieldset className="provider-settings">
-      <legend>{provider.providerName}</legend>
+      <legend>{provider.label}</legend>
+      {providerId === "gpt-image" && apiPlatform && onApiPlatformChange ? (
+        <Field label="API Platform">
+          <select
+            value={apiPlatform}
+            onChange={(event) =>
+              onApiPlatformChange(event.target.value as OpenAiApiPlatform)
+            }
+          >
+            <option value="openai">OpenAI</option>
+            <option value="openrouter">OpenRouter</option>
+          </select>
+        </Field>
+      ) : null}
       <Field label="API Key">
         <div className="template-row">
           <input
@@ -353,7 +425,11 @@ function ProviderSettings({
             placeholder={
               providerId === "nano-banana"
                 ? "Default Google Generative Language API"
-                : undefined
+                : providerId === "gpt-image" && apiPlatform === "openrouter"
+                  ? "https://openrouter.ai/api/v1"
+                  : providerId === "gpt-image"
+                    ? "https://api.openai.com/v1"
+                    : undefined
             }
             value={baseUrl ?? ""}
             onChange={(event) => setBaseUrl(event.target.value || null)}
@@ -372,7 +448,7 @@ function ProviderSettings({
             value={activeModel}
             onChange={(event) => setDefaultModel(event.target.value)}
           >
-            {provider.models.map((model) => (
+            {models.map((model) => (
               <option key={model.id} value={model.id}>
                 {model.productName}
               </option>

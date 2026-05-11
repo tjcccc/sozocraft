@@ -46,12 +46,16 @@ export function App() {
     message,
     openaiApiKey,
     openaiApiKeySaved,
+    openrouterApiKey,
+    openrouterApiKeySaved,
     prompt,
     saveKey,
     saveOpenaiKey,
+    saveOpenrouterKey,
     saveXaiKey,
     setApiKey,
     setOpenaiApiKey,
+    setOpenrouterApiKey,
     setBatches,
     setCurrentPromptId,
     setMessage,
@@ -302,16 +306,20 @@ export function App() {
           apiKeySaved={apiKeySaved}
           openaiApiKey={openaiApiKey}
           openaiApiKeySaved={openaiApiKeySaved}
+          openrouterApiKey={openrouterApiKey}
+          openrouterApiKeySaved={openrouterApiKeySaved}
           xaiApiKey={xaiApiKey}
           xaiApiKeySaved={xaiApiKeySaved}
           configStatus={configStatus}
           settings={settings}
           setApiKey={setApiKey}
           setOpenaiApiKey={setOpenaiApiKey}
+          setOpenrouterApiKey={setOpenrouterApiKey}
           setSettings={setSettings}
           setXaiApiKey={setXaiApiKey}
           onSaveKey={() => void saveKey()}
           onSaveOpenaiKey={() => void saveOpenaiKey()}
+          onSaveOpenrouterKey={() => void saveOpenrouterKey()}
           onSaveSettings={saveSettings}
           onSaveXaiKey={() => void saveXaiKey()}
         />

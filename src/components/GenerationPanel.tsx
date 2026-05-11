@@ -7,9 +7,11 @@ import type { AppSettings, ReferenceImageInput } from "../types";
 import type { LightboxImage } from "./ImageLightbox";
 import { getGeminiImageModelConfig } from "../models/geminiImageModels";
 import {
+  GPT_IMAGE_PLATFORM_MODELS,
   IMAGE_PROVIDER_IDS,
   getImageSizeDisplayName,
   getProviderConfig,
+  getProviderModels,
   normalizeProviderOptions,
 } from "../models/imageProviders";
 import { Field, PanelHeader } from "./common";
@@ -43,7 +45,11 @@ export function GenerationPanel(props: {
   const aspectRatios = modelConfig?.aspectRatios ?? providerConfig.aspectRatios;
   const imageSizes = modelConfig?.imageSizes ?? providerConfig.imageSizes;
   const thinkingLevels = modelConfig?.thinkingLevels ?? providerConfig.thinkingLevels;
-  const providerModelConfig = providerConfig.models.find((model) => model.id === props.settings.defaultModel);
+  const providerModels = getProviderModels(
+    props.settings.defaultProvider,
+    props.settings.openaiApiPlatform,
+  );
+  const providerModelConfig = providerModels.find((model) => model.id === props.settings.defaultModel);
   const maxReferenceImages =
     modelConfig?.maxReferenceImages ??
     providerModelConfig?.maxReferenceImages ??
@@ -133,7 +139,11 @@ export function GenerationPanel(props: {
             key={provider}
             onClick={() => {
               const config = getProviderConfig(provider);
-              const next = normalizeProviderOptions(provider, modelByProvider[provider] ?? config.defaults.model, {
+              const fallbackModel =
+                provider === "gpt-image"
+                  ? GPT_IMAGE_PLATFORM_MODELS[props.settings.openaiApiPlatform]
+                  : config.defaults.model;
+              const next = normalizeProviderOptions(provider, modelByProvider[provider] ?? fallbackModel, {
                 aspectRatio: props.aspectRatio,
                 imageSize: props.imageSize,
                 quality: props.quality,
@@ -175,7 +185,7 @@ export function GenerationPanel(props: {
               props.setReferenceImages((current) => current.slice(0, next.maxReferenceImages));
             }}
           >
-            {providerConfig.models.map((model) => (
+            {providerModels.map((model) => (
               <option key={model.id} value={model.id}>
                 {model.productName}
               </option>

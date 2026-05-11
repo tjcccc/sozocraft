@@ -43,6 +43,7 @@ struct ConfigStatus {
     config_path: String,
     has_api_key: bool,
     has_openai_api_key: bool,
+    has_openrouter_api_key: bool,
     has_xai_api_key: bool,
     has_proxy: bool,
 }
@@ -53,6 +54,7 @@ fn get_config_status() -> ConfigStatus {
         config_path: local_config::config_path().to_string_lossy().to_string(),
         has_api_key: local_config::has_gemini_api_key(),
         has_openai_api_key: local_config::has_openai_api_key(),
+        has_openrouter_api_key: local_config::has_openrouter_api_key(),
         has_xai_api_key: local_config::has_xai_api_key(),
         has_proxy: local_config::has_proxy_configured(),
     }
@@ -197,6 +199,12 @@ fn set_openai_api_key(api_key: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+fn set_openrouter_api_key(api_key: String) -> Result<bool, String> {
+    local_config::set_openrouter_api_key(&api_key).map_err(|err| err.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
 fn set_xai_api_key(api_key: String) -> Result<bool, String> {
     local_config::set_xai_api_key(&api_key).map_err(|err| err.to_string())?;
     Ok(true)
@@ -210,6 +218,11 @@ fn has_gemini_api_key() -> bool {
 #[tauri::command]
 fn has_openai_api_key() -> bool {
     local_config::has_openai_api_key()
+}
+
+#[tauri::command]
+fn has_openrouter_api_key() -> bool {
+    local_config::has_openrouter_api_key()
 }
 
 #[tauri::command]
@@ -609,12 +622,26 @@ async fn generate_with_provider(
             })
         }
         "gpt-image" => {
-            let client = OpenAiImageClient::new(
-                local_config::get_openai_api_key().map_err(|err| err.to_string())?,
+            let base_url = if settings.openai_api_platform == "openrouter" {
                 request
                     .base_url
                     .clone()
-                    .or_else(|| settings.openai_base_url.clone()),
+                    .or_else(|| settings.openrouter_base_url.clone())
+            } else {
+                request
+                    .base_url
+                    .clone()
+                    .or_else(|| settings.openai_base_url.clone())
+            };
+            let api_key = if settings.openai_api_platform == "openrouter" {
+                local_config::get_openrouter_api_key().map_err(|err| err.to_string())?
+            } else {
+                local_config::get_openai_api_key().map_err(|err| err.to_string())?
+            };
+            let client = OpenAiImageClient::new(
+                api_key,
+                settings.openai_api_platform.clone(),
+                base_url,
                 provider_proxy("gpt-image", settings),
                 provider_timeout("gpt-image", settings),
             )
@@ -694,9 +721,11 @@ pub fn run() {
             save_output_template,
             set_gemini_api_key,
             set_openai_api_key,
+            set_openrouter_api_key,
             set_xai_api_key,
             has_gemini_api_key,
             has_openai_api_key,
+            has_openrouter_api_key,
             has_xai_api_key,
             read_image_data_url,
             cancel_generation_task,

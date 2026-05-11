@@ -38,6 +38,10 @@ export function setOpenaiApiKey(apiKey: string) {
   return invoke<boolean>("set_openai_api_key", { apiKey });
 }
 
+export function setOpenrouterApiKey(apiKey: string) {
+  return invoke<boolean>("set_openrouter_api_key", { apiKey });
+}
+
 export function setXaiApiKey(apiKey: string) {
   return invoke<boolean>("set_xai_api_key", { apiKey });
 }
@@ -48,6 +52,10 @@ export function hasGeminiApiKey() {
 
 export function hasOpenaiApiKey() {
   return invoke<boolean>("has_openai_api_key");
+}
+
+export function hasOpenrouterApiKey() {
+  return invoke<boolean>("has_openrouter_api_key");
 }
 
 export function hasXaiApiKey() {

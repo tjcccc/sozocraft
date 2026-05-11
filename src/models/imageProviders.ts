@@ -5,6 +5,7 @@ import {
 } from "./geminiImageModels";
 
 export type ImageProviderId = "nano-banana" | "gpt-image" | "grok-imagine";
+export type GptImageApiPlatform = "openai" | "openrouter";
 
 export type ProviderModelConfig = {
   id: string;
@@ -58,9 +59,15 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ProviderConfig> = {
   "gpt-image": {
     id: "gpt-image",
     label: "GPT-Image",
-    providerName: "OpenAI",
+    providerName: "GPT-Image",
     models: [
       { id: "gpt-image-2", label: "GPT Image 2", productName: "GPT Image 2", maxReferenceImages: 16 },
+      {
+        id: "openai/gpt-5.4-image-2",
+        label: "GPT-5.4 Image 2",
+        productName: "GPT-5.4 Image 2",
+        maxReferenceImages: 16,
+      },
     ],
     aspectRatios: [],
     imageSizes: [
@@ -126,10 +133,24 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ProviderConfig> = {
   },
 };
 
+export const GPT_IMAGE_PLATFORM_MODELS: Record<GptImageApiPlatform, string> = {
+  openai: "gpt-image-2",
+  openrouter: "openai/gpt-5.4-image-2",
+};
+
 export const IMAGE_PROVIDER_IDS = Object.keys(IMAGE_PROVIDERS) as ImageProviderId[];
 
 export function getProviderConfig(provider: string): ProviderConfig {
   return IMAGE_PROVIDERS[isImageProviderId(provider) ? provider : "nano-banana"];
+}
+
+export function getProviderModels(provider: string, platform: GptImageApiPlatform = "openai") {
+  const config = getProviderConfig(provider);
+  if (provider !== "gpt-image") {
+    return config.models;
+  }
+  const model = GPT_IMAGE_PLATFORM_MODELS[platform];
+  return config.models.filter((item) => item.id === model);
 }
 
 export function getProviderModelDisplayName(provider: string, model: string): string {

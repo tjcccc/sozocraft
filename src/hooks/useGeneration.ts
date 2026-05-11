@@ -150,7 +150,9 @@ export function useGeneration({
       outputTemplate: settings.outputTemplate,
       baseUrl:
         settings.defaultProvider === "gpt-image"
-          ? settings.openaiBaseUrl
+          ? settings.openaiApiPlatform === "openrouter"
+            ? settings.openrouterBaseUrl
+            : settings.openaiBaseUrl
           : settings.defaultProvider === "grok-imagine"
             ? settings.xaiBaseUrl
             : settings.optionalBaseUrl,

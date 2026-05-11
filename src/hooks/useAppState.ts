@@ -3,11 +3,13 @@ import {
   getConfigStatus,
   hasGeminiApiKey,
   hasOpenaiApiKey,
+  hasOpenrouterApiKey,
   hasXaiApiKey,
   loadAppState,
   saveAppSettings,
   setGeminiApiKey,
   setOpenaiApiKey as persistOpenaiApiKey,
+  setOpenrouterApiKey as persistOpenrouterApiKey,
   setXaiApiKey as persistXaiApiKey,
 } from "../api";
 import type { AppSettings, ConfigStatus, GenerationBatch } from "../types";
@@ -19,9 +21,11 @@ export function useAppState() {
   const [currentPromptId, setCurrentPromptId] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [openrouterApiKey, setOpenrouterApiKey] = useState("");
   const [xaiApiKey, setXaiApiKey] = useState("");
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [openaiApiKeySaved, setOpenaiApiKeySaved] = useState(false);
+  const [openrouterApiKeySaved, setOpenrouterApiKeySaved] = useState(false);
   const [xaiApiKeySaved, setXaiApiKeySaved] = useState(false);
   const [batches, setBatches] = useState<GenerationBatch[]>([]);
   const [status, setStatus] = useState<AppStatus>("ready");
@@ -48,6 +52,9 @@ export function useAppState() {
     void hasOpenaiApiKey()
       .then(setOpenaiApiKeySaved)
       .catch(() => setOpenaiApiKeySaved(false));
+    void hasOpenrouterApiKey()
+      .then(setOpenrouterApiKeySaved)
+      .catch(() => setOpenrouterApiKeySaved(false));
     void hasXaiApiKey()
       .then(setXaiApiKeySaved)
       .catch(() => setXaiApiKeySaved(false));
@@ -59,22 +66,6 @@ export function useAppState() {
 
   const updateSettings = useCallback(async (next: AppSettings) => {
     try {
-      if (apiKey.trim()) {
-        await setGeminiApiKey(apiKey);
-        setApiKey("");
-        setApiKeySaved(true);
-      }
-      if (openaiApiKey.trim()) {
-        await persistOpenaiApiKey(openaiApiKey);
-        setOpenaiApiKey("");
-        setOpenaiApiKeySaved(true);
-      }
-      if (xaiApiKey.trim()) {
-        await persistXaiApiKey(xaiApiKey);
-        setXaiApiKey("");
-        setXaiApiKeySaved(true);
-      }
-
       setSettings(next);
       const state = await saveAppSettings(next);
       setBatches(state.batches);
@@ -85,7 +76,7 @@ export function useAppState() {
       setStatus("error");
       setMessage(String(error));
     }
-  }, [apiKey, openaiApiKey, xaiApiKey]);
+  }, []);
 
   const saveKey = useCallback(async () => {
     try {
@@ -115,6 +106,20 @@ export function useAppState() {
     }
   }, [openaiApiKey]);
 
+  const saveOpenrouterKey = useCallback(async () => {
+    try {
+      await persistOpenrouterApiKey(openrouterApiKey);
+      setOpenrouterApiKey("");
+      setOpenrouterApiKeySaved(openrouterApiKey.trim().length > 0);
+      setStatus("ready");
+      setMessage(openrouterApiKey.trim().length > 0 ? "OpenRouter API key saved" : "OpenRouter API key cleared");
+      void getConfigStatus().then(setConfigStatus).catch(() => undefined);
+    } catch (error) {
+      setStatus("error");
+      setMessage(String(error));
+    }
+  }, [openrouterApiKey]);
+
   const saveXaiKey = useCallback(async () => {
     try {
       await persistXaiApiKey(xaiApiKey);
@@ -134,6 +139,8 @@ export function useAppState() {
     apiKeySaved,
     openaiApiKey,
     openaiApiKeySaved,
+    openrouterApiKey,
+    openrouterApiKeySaved,
     xaiApiKey,
     xaiApiKeySaved,
     batches,
@@ -145,9 +152,11 @@ export function useAppState() {
     status,
     saveKey,
     saveOpenaiKey,
+    saveOpenrouterKey,
     saveXaiKey,
     setApiKey,
     setOpenaiApiKey,
+    setOpenrouterApiKey,
     setXaiApiKey,
     setBatches,
     setMessage,
