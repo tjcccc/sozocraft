@@ -74,8 +74,7 @@ export function ImageTile({
         <div className="image-placeholder">Loading</div>
       )}
       <footer>
-        {index > 1 && <span># {index}</span>}
-        {/*<time>{formatTime(image.createdAt)}</time>*/}
+        <span># {index}</span>
       </footer>
     </article>
   );

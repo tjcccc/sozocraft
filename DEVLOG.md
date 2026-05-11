@@ -2,6 +2,8 @@
 
 ## 2026-05-11
 
+- Bumped app/package/crate version metadata to `0.16.1` for the output gallery layout checkpoint.
+- Fixed active batch gallery alignment so generated images use stable grid columns, keep their index labels below the image, and avoid stretching tall rows in large windows.
 - Bumped app/package/crate version metadata to `0.16.0` for the GPT-Image platform routing checkpoint.
 - Added a GPT-Image API Platform setting with separate OpenAI and OpenRouter credentials/base URLs; OpenRouter routes through chat completions with image modalities and keeps provider proxy behavior independent.
 - Stopped autosaving API keys during general settings autosave so provider keys persist only through their Save Key buttons.
