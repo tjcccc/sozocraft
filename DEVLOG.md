@@ -2,6 +2,8 @@
 
 ## 2026-05-12
 
+- Bumped app/package/crate version metadata to `0.16.4` for the refreshed SozoCraft icon checkpoint.
+- Replaced the Tauri bundle icons and in-app toolbar icon with the adjusted full-bleed creative icon asset.
 - Bumped app/package/crate version metadata to `0.16.3` for the prompt editor alignment and prompt index stability checkpoint.
 - Fixed DSL prompt editor overlay alignment by synchronizing textarea/highlight viewport metrics, scrollbar gutters, scroll position, and IME composition visibility.
 - Changed prompt-library indexing so unchanged prompt files do not rewrite `~/.sozocraft/prompts.sqlite` during startup scans or prompt reads.

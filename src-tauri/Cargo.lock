@@ -3450,7 +3450,7 @@ dependencies = [
 
 [[package]]
 name = "sozocraft"
-version = "0.16.3"
+version = "0.16.4"
 dependencies = [
  "base64 0.22.1",
  "chrono",
