@@ -51,6 +51,8 @@ export type GenerationOptions = {
   quality?: string | null;
 };
 
+export type ImageTextMetadata = Record<string, string>;
+
 export type GenerationRequest = {
   taskId?: string | null;
   provider: "nano-banana" | "gpt-image" | "grok-imagine";

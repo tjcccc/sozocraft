@@ -45,8 +45,12 @@ export function PromptColumn({
   onCommitMetadata,
   onCreatePrompt,
   onDeletePrompt,
+  onPromptIncludeDragEnd,
+  onPromptIncludeDragStart,
+  onPromptIncludeDropHandled,
   onRenameTag,
   defaultExportPath,
+  fileDropActive,
   onExportRenderedPrompt,
   onPromptChange,
   onSelectPrompt,
@@ -71,8 +75,12 @@ export function PromptColumn({
   onCommitMetadata: () => void;
   onCreatePrompt: () => void;
   onDeletePrompt: (id?: string) => void;
+  onPromptIncludeDragEnd?: () => void;
+  onPromptIncludeDragStart?: (token: string) => void;
+  onPromptIncludeDropHandled?: () => void;
   onRenameTag: (oldTagPath: string, newTagPath: string) => void;
   defaultExportPath: string;
+  fileDropActive?: boolean;
   onExportRenderedPrompt: (outputPath: string) => void;
   onPromptChange: (value: string) => void;
   onSelectPrompt: (id: string) => void;
@@ -93,6 +101,7 @@ export function PromptColumn({
   const initializedCollapsedTagsRef = useRef(false);
   const [renamingTagPath, setRenamingTagPath] = useState<string | null>(null);
   const [renamingTagName, setRenamingTagName] = useState("");
+  const draggedPromptIncludeRef = useRef<string | null>(null);
   const tree = useMemo(() => buildTagTree(items), [items]);
   const effectivePreviewPlacement: PromptPreviewPlacement = dslEnabled ? previewPlacement : "hidden";
 
@@ -312,6 +321,14 @@ export function PromptColumn({
                 node: tree,
                 onDeletePrompt,
                 onRenameTag: startRenameTag,
+                onPromptIncludeDragEnd: () => {
+                  draggedPromptIncludeRef.current = null;
+                  onPromptIncludeDragEnd?.();
+                },
+                onPromptIncludeDragStart: (token) => {
+                  draggedPromptIncludeRef.current = token;
+                  onPromptIncludeDragStart?.(token);
+                },
                 onSelectPrompt,
                 renamingTagName,
                 renamingTagPath,
@@ -346,10 +363,15 @@ export function PromptColumn({
             <span className="prompt-save-state">{saveStateLabel(saveState)}</span>
           </div>
           <div className="prompt-editor-main">
-            <div className="prompt-editor-area">
+            <div
+              className={`prompt-editor-area${fileDropActive ? " file-drop-active" : ""}`}
+              data-file-drop-zone="prompt-editor"
+            >
               <PromptEditor
                 dslEnabled={dslEnabled}
+                getDraggedPromptInclude={() => draggedPromptIncludeRef.current}
                 highlightRef={highlightRef}
+                onPromptIncludeDropHandled={onPromptIncludeDropHandled}
                 onPromptChange={onPromptChange}
                 prompt={prompt}
               />
@@ -438,12 +460,16 @@ export function PromptColumn({
 
 function PromptEditor({
   dslEnabled,
+  getDraggedPromptInclude,
   highlightRef,
+  onPromptIncludeDropHandled,
   onPromptChange,
   prompt,
 }: {
   dslEnabled: boolean;
+  getDraggedPromptInclude: () => string | null;
   highlightRef: RefObject<HTMLPreElement | null>;
+  onPromptIncludeDropHandled?: () => void;
   onPromptChange: (value: string) => void;
   prompt: string;
 }) {
@@ -532,6 +558,30 @@ function PromptEditor({
           requestAnimationFrame(syncHighlightViewport);
         }}
         onCompositionStart={() => setIsComposing(true)}
+        onDragOver={(event) => {
+          if (getDraggedPromptInclude() || hasPromptIncludeDragData(event.dataTransfer)) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+          }
+        }}
+        onDrop={(event) => {
+          const token = getDraggedPromptInclude() ?? promptIncludeTokenFromDrop(event.dataTransfer);
+          if (!token) {
+            return;
+          }
+          event.preventDefault();
+          const textarea = event.currentTarget;
+          const index = textareaIndexFromPoint(textarea, event.clientX, event.clientY);
+          const nextPrompt = `${prompt.slice(0, index)}${token}${prompt.slice(index)}`;
+          onPromptIncludeDropHandled?.();
+          onPromptChange(nextPrompt);
+          requestAnimationFrame(() => {
+            textarea.focus();
+            textarea.selectionStart = index + token.length;
+            textarea.selectionEnd = index + token.length;
+            syncHighlightViewport();
+          });
+        }}
         onScroll={(event) => {
           if (highlightRef.current) {
             highlightRef.current.scrollTop = event.currentTarget.scrollTop;
@@ -659,6 +709,8 @@ function renderTagNode({
   onSelectPrompt,
   onDeletePrompt,
   onRenameTag,
+  onPromptIncludeDragEnd,
+  onPromptIncludeDragStart,
   path = "",
   renamingTagName,
   renamingTagPath,
@@ -674,6 +726,8 @@ function renderTagNode({
   onSelectPrompt: (id: string) => void;
   onDeletePrompt: (id?: string) => void;
   onRenameTag: (path: string, name: string) => void;
+  onPromptIncludeDragEnd: () => void;
+  onPromptIncludeDragStart: (token: string) => void;
   path?: string;
   renamingTagName: string;
   renamingTagPath: string | null;
@@ -751,6 +805,8 @@ function renderTagNode({
           node: child,
           onDeletePrompt,
           onRenameTag,
+          onPromptIncludeDragEnd,
+          onPromptIncludeDragStart,
           onSelectPrompt,
           path: childPath,
           renamingTagName,
@@ -773,8 +829,25 @@ function renderTagNode({
     rows.push(
       <button
         className={`prompt-list-item ${item.id === selectedPromptId ? "active" : ""}`}
+        draggable
         key={`prompt:${path}:${item.id}`}
         style={{ paddingLeft: 14 + depth * 14 }}
+        onDragEnd={onPromptIncludeDragEnd}
+        onDragStart={(event) => {
+          const token = promptIncludeToken(item, path);
+          onPromptIncludeDragStart(token);
+          event.dataTransfer.effectAllowed = "copy";
+          event.dataTransfer.setData("text/plain", token);
+          event.dataTransfer.setData(
+            "application/x-sozocraft-prompt",
+            JSON.stringify({
+              id: item.id,
+              name: item.name,
+              tagPath: path,
+              token,
+            }),
+          );
+        }}
         onClick={() => onSelectPrompt(item.id)}
       >
         <span className="prompt-list-name">{item.name}</span>
@@ -801,6 +874,90 @@ function renderTagNode({
     );
   }
   return rows;
+}
+
+function promptIncludeToken(item: PromptListItem, tagPath: string) {
+  if (!tagPath) {
+    return `{# ${quoteIncludePart(item.name)}}`;
+  }
+  return `{# ${quoteTagPath(tagPath)}:${quoteIncludePart(item.name)}}`;
+}
+
+function quoteTagPath(tagPath: string) {
+  return tagPath
+    .split("/")
+    .filter(Boolean)
+    .map(quoteIncludePart)
+    .join("/");
+}
+
+function quoteIncludePart(value: string) {
+  return /^[A-Za-z0-9_.-]+$/.test(value) ? value : JSON.stringify(value);
+}
+
+function hasPromptIncludeDragData(dataTransfer: DataTransfer) {
+  const types = [...dataTransfer.types];
+  return types.includes("application/x-sozocraft-prompt") || types.includes("text/plain");
+}
+
+function promptIncludeTokenFromDrop(dataTransfer: DataTransfer) {
+  const raw = dataTransfer.getData("application/x-sozocraft-prompt");
+  if (raw) {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (isPlainObject(parsed) && typeof parsed.token === "string") {
+        return parsed.token;
+      }
+    } catch {
+      return "";
+    }
+  }
+  return dataTransfer.getData("text/plain");
+}
+
+function textareaIndexFromPoint(textarea: HTMLTextAreaElement, clientX: number, clientY: number) {
+  const rect = textarea.getBoundingClientRect();
+  const style = window.getComputedStyle(textarea);
+  const paddingLeft = parseFloat(style.paddingLeft) || 0;
+  const paddingRight = parseFloat(style.paddingRight) || 0;
+  const paddingTop = parseFloat(style.paddingTop) || 0;
+  const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.7 || 20;
+  const charWidth = measureTextareaCharWidth(style);
+  const contentWidth = Math.max(1, textarea.clientWidth - paddingLeft - paddingRight);
+  const charsPerLine = Math.max(1, Math.floor(contentWidth / charWidth));
+  const x = Math.max(0, clientX - rect.left - paddingLeft + textarea.scrollLeft);
+  const y = Math.max(0, clientY - rect.top - paddingTop + textarea.scrollTop);
+  const targetVisualLine = Math.max(0, Math.floor(y / lineHeight));
+  const targetColumn = Math.max(0, Math.round(x / charWidth));
+  const lines = textarea.value.split("\n");
+  let sourceIndex = 0;
+  let visualLine = 0;
+
+  for (const line of lines) {
+    const wrappedLines = Math.max(1, Math.ceil(Math.max(1, line.length) / charsPerLine));
+    if (targetVisualLine < visualLine + wrappedLines) {
+      const wrappedLine = targetVisualLine - visualLine;
+      return sourceIndex + Math.min(line.length, wrappedLine * charsPerLine + targetColumn);
+    }
+    visualLine += wrappedLines;
+    sourceIndex += line.length + 1;
+  }
+
+  return textarea.value.length;
+}
+
+function measureTextareaCharWidth(style: CSSStyleDeclaration) {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return 8;
+  }
+  context.font = style.font;
+  return Math.max(1, context.measureText("0000000000").width / 10);
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function saveStateLabel(saveState: PromptSaveState) {

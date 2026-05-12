@@ -132,6 +132,29 @@ export function usePromptLibrary({
     setMessage("Prompt created");
   }, [flushCurrentPrompt, loadPrompt, setMessage, setStatus, settings, upsertItem]);
 
+  const importPromptSource = useCallback(
+    async (name: string, source: string) => {
+      if (!settings) {
+        return;
+      }
+      await flushCurrentPrompt();
+      const created = await createPrompt(settings.promptDirectory, {
+        name: promptNameFromImport(name),
+        tags: [],
+        description: "",
+      });
+      const document = await savePrompt(settings.promptDirectory, {
+        id: created.item.id,
+        source,
+      });
+      upsertItem(document.item);
+      await loadPrompt(document.item.id);
+      setStatus("ready");
+      setMessage(`Imported ${document.item.name}`);
+    },
+    [flushCurrentPrompt, loadPrompt, setMessage, setStatus, settings, upsertItem],
+  );
+
   useEffect(() => {
     if (!settings) {
       return;
@@ -376,6 +399,7 @@ export function usePromptLibrary({
     filteredItems,
     query,
     refreshPrompts,
+    importPromptSource,
     renderedPrompt,
     renameTagPath,
     saveState,
@@ -401,6 +425,11 @@ function parseTagsText(value: string) {
 
 function tagsToText(tags: string[]) {
   return tags.map((tag) => `#${tag}`).join(" ");
+}
+
+function promptNameFromImport(name: string) {
+  const withoutExtension = name.replace(/\.(md|txt)$/i, "");
+  return withoutExtension.trim() || "Imported Prompt";
 }
 
 function compareUpdated(left: PromptListItem, right: PromptListItem) {

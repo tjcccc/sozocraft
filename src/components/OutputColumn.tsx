@@ -17,6 +17,7 @@ export function OutputColumn({
   batches,
   errorMessage,
   expandedBatchId,
+  fileDropActive,
   failedImagePaths,
   historyDate,
   imageDataUrls,
@@ -28,6 +29,7 @@ export function OutputColumn({
   batches: GenerationBatch[];
   errorMessage: string | null;
   expandedBatchId: string | null;
+  fileDropActive?: boolean;
   failedImagePaths: Set<string>;
   historyDate: string;
   imageDataUrls: Record<string, string>;
@@ -82,7 +84,11 @@ export function OutputColumn({
   );
 
   return (
-    <section className="panel output-panel" ref={panelRef}>
+    <section
+      className={`panel output-panel${fileDropActive ? " file-drop-active" : ""}`}
+      data-file-drop-zone="output"
+      ref={panelRef}
+    >
       <PanelHeader icon={<ImageIcon size={16} />} title="Output Images" />
       <div className="active-batch">
         {errorMessage ? (

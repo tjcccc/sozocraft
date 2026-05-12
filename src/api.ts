@@ -6,6 +6,7 @@ import type {
   CreatePromptRequest,
   GenerationBatch,
   GenerationRequest,
+  ImageTextMetadata,
   PromptDocument,
   PromptListItem,
   RenamePromptTagRequest,
@@ -72,6 +73,14 @@ export function cancelGenerationTask(taskId: string) {
 
 export function readImageDataUrl(path: string) {
   return invoke<string>("read_image_data_url", { path });
+}
+
+export function readTextFile(path: string) {
+  return invoke<string>("read_text_file", { path });
+}
+
+export function readImageTextMetadata(path: string) {
+  return invoke<ImageTextMetadata>("read_image_text_metadata", { path });
 }
 
 export function exportRenderedPrompt(outputPath: string, renderedPrompt: string) {

@@ -251,6 +251,19 @@ fn read_image_data_url(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn read_text_file(path: String) -> Result<String, String> {
+    fs::read_to_string(&path).map_err(|err| format!("Failed to read text file: {err}"))
+}
+
+#[tauri::command]
+fn read_image_text_metadata(path: String) -> Result<HashMap<String, String>, String> {
+    let bytes = fs::read(&path).map_err(|err| format!("Failed to read image metadata: {err}"))?;
+    Ok(image_meta::read_png_text_chunks(&bytes)
+        .into_iter()
+        .collect())
+}
+
+#[tauri::command]
 fn export_rendered_prompt(output_path: String, rendered_prompt: String) -> Result<String, String> {
     let path = PathBuf::from(output_path.trim());
     if path.as_os_str().is_empty() {
@@ -728,6 +741,8 @@ pub fn run() {
             has_openrouter_api_key,
             has_xai_api_key,
             read_image_data_url,
+            read_text_file,
+            read_image_text_metadata,
             cancel_generation_task,
             generate_images,
             get_config_status

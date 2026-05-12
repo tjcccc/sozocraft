@@ -1,5 +1,13 @@
 # DEVLOG
 
+## 2026-05-13
+
+- Bumped app/package/crate version metadata to `0.18.0` for the contextual drag/drop import checkpoint.
+- Added contextual native file drops: Image Generation imports reference images, Prompt Editor imports dropped `.md`/`.txt` files as new prompts, and Output Images imports reusable prompt metadata from images.
+- Added SozoCraft PNG metadata restore so dropped output images can recreate the prompt snapshot, restore provider/model/options, and switch to the matching image provider tab.
+- Added prompt-list drag-to-editor includes, inserting scoped `{# tag/path:title}` references at the drop point.
+- Show real loaded output dimensions next to image indexes, such as `#1 (1024 x 1536)`.
+
 ## 2026-05-12
 
 - Bumped app/package/crate version metadata to `0.16.6` for the image-provider tab icon checkpoint.

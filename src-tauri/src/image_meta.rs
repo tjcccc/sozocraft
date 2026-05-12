@@ -47,6 +47,77 @@ pub fn embed_png_itxt(bytes: &[u8], key: &str, value: &str) -> Vec<u8> {
     result
 }
 
+pub fn read_png_text_chunks(bytes: &[u8]) -> Vec<(String, String)> {
+    if !is_png(bytes) {
+        return Vec::new();
+    }
+
+    let mut chunks = Vec::new();
+    let mut pos = 8;
+    while pos + 12 <= bytes.len() {
+        let len = u32::from_be_bytes(bytes[pos..pos + 4].try_into().unwrap_or([0; 4])) as usize;
+        let chunk_type = &bytes[pos + 4..pos + 8];
+        let data_start = pos + 8;
+        let Some(data_end) = data_start.checked_add(len) else {
+            break;
+        };
+        if data_end > bytes.len() {
+            break;
+        }
+        let data = &bytes[data_start..data_end];
+        if chunk_type == b"iTXt" {
+            if let Some((key, value)) = parse_itxt_chunk(data) {
+                chunks.push((key, value));
+            }
+        } else if chunk_type == b"tEXt" {
+            if let Some((key, value)) = parse_text_chunk(data) {
+                chunks.push((key, value));
+            }
+        }
+        pos += 12 + len;
+    }
+    chunks
+}
+
+fn parse_itxt_chunk(data: &[u8]) -> Option<(String, String)> {
+    let key_end = data.iter().position(|byte| *byte == 0)?;
+    if key_end == 0 || key_end + 3 > data.len() {
+        return None;
+    }
+    let compression_flag = data[key_end + 1];
+    if compression_flag != 0 {
+        return None;
+    }
+
+    let language_start = key_end + 3;
+    let language_end = data[language_start..]
+        .iter()
+        .position(|byte| *byte == 0)
+        .map(|index| language_start + index)?;
+    let translated_start = language_end + 1;
+    let translated_end = data[translated_start..]
+        .iter()
+        .position(|byte| *byte == 0)
+        .map(|index| translated_start + index)?;
+    let text_start = translated_end + 1;
+
+    Some((
+        String::from_utf8_lossy(&data[..key_end]).to_string(),
+        String::from_utf8_lossy(&data[text_start..]).to_string(),
+    ))
+}
+
+fn parse_text_chunk(data: &[u8]) -> Option<(String, String)> {
+    let key_end = data.iter().position(|byte| *byte == 0)?;
+    if key_end == 0 {
+        return None;
+    }
+    Some((
+        String::from_utf8_lossy(&data[..key_end]).to_string(),
+        String::from_utf8_lossy(&data[key_end + 1..]).to_string(),
+    ))
+}
+
 fn find_iend(bytes: &[u8]) -> usize {
     let mut pos = 8;
     while pos + 12 <= bytes.len() {
@@ -128,6 +199,24 @@ mod tests {
     }
 
     #[test]
+    fn reads_embedded_itxt_chunks() {
+        let png = minimal_png();
+        let result = embed_png_itxt(&png, "prompt", "中文 prompt");
+
+        assert!(read_png_text_chunks(&result)
+            .contains(&("prompt".to_string(), "中文 prompt".to_string())));
+    }
+
+    #[test]
+    fn reads_text_chunks() {
+        let png = minimal_png();
+        let result = insert_text_chunk(&png, "prompt", "plain prompt");
+
+        assert!(read_png_text_chunks(&result)
+            .contains(&("prompt".to_string(), "plain prompt".to_string())));
+    }
+
+    #[test]
     fn non_png_returned_unchanged() {
         let jpeg = b"\xff\xd8\xff\xe0hello world";
         let result = embed_png_itxt(jpeg, "key", "value");
@@ -157,6 +246,30 @@ mod tests {
         buf.extend_from_slice(b"IEND");
         buf.extend_from_slice(&crc32(b"IEND").to_be_bytes());
         buf
+    }
+
+    fn insert_text_chunk(bytes: &[u8], key: &str, value: &str) -> Vec<u8> {
+        let iend_pos = find_iend(bytes);
+        let mut data = Vec::new();
+        data.extend_from_slice(key.as_bytes());
+        data.push(0);
+        data.extend_from_slice(value.as_bytes());
+
+        let mut crc_input = Vec::new();
+        crc_input.extend_from_slice(b"tEXt");
+        crc_input.extend_from_slice(&data);
+
+        let mut chunk = Vec::new();
+        chunk.extend_from_slice(&(data.len() as u32).to_be_bytes());
+        chunk.extend_from_slice(b"tEXt");
+        chunk.extend_from_slice(&data);
+        chunk.extend_from_slice(&crc32(&crc_input).to_be_bytes());
+
+        let mut result = Vec::new();
+        result.extend_from_slice(&bytes[..iend_pos]);
+        result.extend_from_slice(&chunk);
+        result.extend_from_slice(&bytes[iend_pos..]);
+        result
     }
 
     fn itxt_chunks(bytes: &[u8]) -> Vec<(String, String)> {

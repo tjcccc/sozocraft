@@ -8,7 +8,10 @@ import {
 } from "../api";
 import type { AppSettings, GenerationBatch, GenerationRequest, ReferenceImageInput } from "../types";
 import type { AppStatus } from "../components/common";
+import { getGeminiImageModelConfig } from "../models/geminiImageModels";
+import { getProviderConfig, getProviderModels } from "../models/imageProviders";
 import type { ImageProviderId } from "../models/imageProviders";
+import { isSupportedImagePath, pathToReferenceImage } from "../utils/referenceImages";
 
 type QueuedGenerationTask = {
   id: string;
@@ -127,6 +130,42 @@ export function useGeneration({
       },
       [activeProvider],
     );
+
+  const addReferenceImagePaths = useCallback(
+    async (paths: string[]) => {
+      if (!settings) {
+        return 0;
+      }
+      const provider = settings.defaultProvider;
+      const maxReferenceImages = maxReferenceImagesForSettings(settings);
+      const currentImages = referenceImagesByProvider[provider];
+      const remaining = maxReferenceImages - currentImages.length;
+      const nextPaths = paths.filter(isSupportedImagePath).slice(0, Math.max(0, remaining));
+      if (nextPaths.length === 0) {
+        return 0;
+      }
+      const nextImages = await Promise.all(nextPaths.map(pathToReferenceImage));
+      setReferenceImagesByProvider((current) => ({
+        ...current,
+        [provider]: [...current[provider], ...nextImages].slice(0, maxReferenceImages),
+      }));
+      return nextImages.length;
+    },
+    [referenceImagesByProvider, settings],
+  );
+
+  const applyImportedOptions = useCallback(
+    (provider: ImageProviderId, options: Partial<GenerationOptionState>) => {
+      setOptionsByProvider((current) => ({
+        ...current,
+        [provider]: {
+          ...current[provider],
+          ...options,
+        },
+      }));
+    },
+    [],
+  );
 
   useEffect(() => {
     queueRef.current = queuedTasks;
@@ -254,6 +293,8 @@ export function useGeneration({
     topP: activeOptions.topP,
     runGeneration,
     stopGeneration,
+    addReferenceImagePaths,
+    applyImportedOptions,
     referenceImages,
     setAspectRatio,
     setBatchCount,
@@ -264,4 +305,15 @@ export function useGeneration({
     setThinkingLevel,
     setTopP,
   };
+}
+
+function maxReferenceImagesForSettings(settings: AppSettings): number {
+  if (settings.defaultProvider === "nano-banana") {
+    return getGeminiImageModelConfig(settings.defaultModel).maxReferenceImages;
+  }
+  const providerConfig = getProviderConfig(settings.defaultProvider);
+  const modelConfig = getProviderModels(settings.defaultProvider, settings.openaiApiPlatform).find(
+    (model) => model.id === settings.defaultModel,
+  );
+  return modelConfig?.maxReferenceImages ?? providerConfig.maxReferenceImages;
 }

@@ -4,6 +4,7 @@ import {
   Image as ImageIcon,
   Loader2,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { OutputImage } from "../types";
 import { formatTime } from "../utils/dates";
@@ -62,19 +63,32 @@ export function ImageTile({
   src?: string;
   onPreview?: () => void;
 }) {
+  const [dimensions, setDimensions] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDimensions(null);
+  }, [src]);
+
   return (
     <article className="image-tile">
       {failed ? (
         <div className="image-placeholder missing">File not found</div>
       ) : src ? (
         <button className="image-preview-button" onClick={onPreview} type="button">
-          <img alt={image.filename} src={src} />
+          <img
+            alt={image.filename}
+            onLoad={(event) => {
+              const { naturalHeight, naturalWidth } = event.currentTarget;
+              setDimensions(naturalWidth > 0 && naturalHeight > 0 ? `${naturalWidth} x ${naturalHeight}` : null);
+            }}
+            src={src}
+          />
         </button>
       ) : (
         <div className="image-placeholder">Loading</div>
       )}
       <footer>
-        <span># {index}</span>
+        <span>{dimensions ? `#${index} (${dimensions})` : `#${index}`}</span>
       </footer>
     </article>
   );

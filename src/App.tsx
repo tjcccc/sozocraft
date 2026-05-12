@@ -1,6 +1,7 @@
 import { Loader2, Play, Settings, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { exportRenderedPrompt } from "./api";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { exportRenderedPrompt, readImageTextMetadata, readTextFile } from "./api";
 import { GenerationPanel } from "./components/GenerationPanel";
 import { ImageLightbox, type LightboxImage, type LightboxState } from "./components/ImageLightbox";
 import { OutputColumn } from "./components/OutputColumn";
@@ -18,12 +19,20 @@ import { useHistoryDate } from "./hooks/useHistoryDate";
 import { useImagePreviews } from "./hooks/useImagePreviews";
 import { useModelOptions } from "./hooks/useModelOptions";
 import { usePromptLibrary } from "./hooks/usePromptLibrary";
-import { getProviderConfig, getProviderModelDisplayName } from "./models/imageProviders";
+import {
+  getProviderConfig,
+  getProviderModelDisplayName,
+  isImageProviderId,
+  normalizeProviderOptions,
+} from "./models/imageProviders";
+import type { GptImageApiPlatform, ImageProviderId } from "./models/imageProviders";
 import { clamp } from "./utils/math";
+import { fileNameFromPath, isSupportedImagePath } from "./utils/referenceImages";
 import sozocraftIcon from "./assets/sozocraft-icon.png";
 import type { AppSettings } from "./types";
 
 const MIN_COLUMN_WIDTHS = [24, 24, 28];
+type FileDropZone = "prompt-editor" | "generation" | "output";
 
 export function App() {
   const workspaceRef = useRef<HTMLElement>(null);
@@ -35,6 +44,9 @@ export function App() {
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const [columnWidths, setColumnWidths] = useState([35.5, 27.2, 37.3]);
   const [resizingDivider, setResizingDivider] = useState<number | null>(null);
+  const [activeFileDropZone, setActiveFileDropZone] = useState<FileDropZone | null>(null);
+  const draggedPromptIncludeRef = useRef<string | null>(null);
+  const promptIncludeDropHandledAtRef = useRef(0);
   const promptRef = useRef("");
 
   const {
@@ -84,6 +96,7 @@ export function App() {
     setStatus,
     settings,
   });
+  const importPromptSource = promptLibrary.importPromptSource;
 
   const { filteredBatches, historyDate, setHistoryDate } = useHistoryDate(batches);
   useEffect(() => {
@@ -114,6 +127,7 @@ export function App() {
     setStatus,
     settings,
   });
+  const { addReferenceImagePaths, applyImportedOptions } = generation;
 
   useModelOptions({
     aspectRatio: generation.aspectRatio,
@@ -194,6 +208,30 @@ export function App() {
     [setPrompt],
   );
 
+  const markPromptIncludeDropHandled = useCallback(() => {
+    promptIncludeDropHandledAtRef.current = Date.now();
+  }, []);
+
+  const insertPromptIncludeFromNativeDrop = useCallback(
+    (token: string, position: { x: number; y: number }) => {
+      const target = promptTextareaFromPosition(position);
+      if (!target) {
+        return false;
+      }
+      const index = textareaIndexFromPoint(target.textarea, target.x, target.y);
+      const currentPrompt = promptRef.current;
+      updatePrompt(`${currentPrompt.slice(0, index)}${token}${currentPrompt.slice(index)}`);
+      markPromptIncludeDropHandled();
+      window.requestAnimationFrame(() => {
+        target.textarea.focus();
+        target.textarea.selectionStart = index + token.length;
+        target.textarea.selectionEnd = index + token.length;
+      });
+      return true;
+    },
+    [markPromptIncludeDropHandled, updatePrompt],
+  );
+
   const defaultExportPath = useMemo(() => {
     if (!settings) {
       return "";
@@ -240,6 +278,198 @@ export function App() {
     },
     [updateSettings],
   );
+
+  const restoreGenerationFromSozocraftMetadata = useCallback(
+    (metadata: unknown) => {
+      if (!settings || !isPlainObject(metadata)) {
+        return false;
+      }
+      const provider = stringValue(metadata.provider);
+      if (!provider || !isImageProviderId(provider)) {
+        return false;
+      }
+
+      const options = isPlainObject(metadata.options) ? metadata.options : {};
+      const model = stringValue(metadata.model) ?? getProviderConfig(provider).defaults.model;
+      const nextPlatform = gptImagePlatformForModel(provider, model, settings.openaiApiPlatform);
+      const normalized = normalizeProviderOptions(provider, model, {
+        aspectRatio: stringValue(options.aspectRatio) ?? "",
+        imageSize: stringValue(options.imageSize) ?? "",
+        quality: stringValue(options.quality) ?? "",
+        thinkingLevel: stringValue(options.thinkingLevel) ?? "",
+      });
+      const importedTemperature = roundedNumberValue(options.temperature);
+      const importedTopP = roundedNumberValue(options.topP);
+      const importedOptions = {
+        aspectRatio: normalized.aspectRatio,
+        imageSize: normalized.imageSize,
+        quality: normalized.quality,
+        thinkingLevel: normalized.thinkingLevel,
+        ...(importedTemperature === null ? {} : { temperature: importedTemperature }),
+        ...(importedTopP === null ? {} : { topP: importedTopP }),
+      };
+
+      applyImportedOptions(provider, importedOptions);
+      setSettings({
+        ...settings,
+        defaultProvider: provider,
+        defaultModel: normalized.model,
+        openaiApiPlatform: nextPlatform,
+      });
+      return true;
+    },
+    [applyImportedOptions, setSettings, settings],
+  );
+
+  const importPromptTextFile = useCallback(
+    async (path: string) => {
+      if (!isPromptTextPath(path)) {
+        setStatus("error");
+        setMessage("Drop one .md or .txt file into the prompt editor.");
+        return;
+      }
+      const source = await readTextFile(path);
+      await importPromptSource(fileNameFromPath(path), source);
+    },
+    [importPromptSource, setMessage, setStatus],
+  );
+
+  const importPromptFromImageMetadata = useCallback(
+    async (path: string) => {
+      if (!isSupportedImagePath(path)) {
+        setStatus("error");
+        setMessage("Drop one image file into Output Images to import prompt metadata.");
+        return;
+      }
+
+      const metadata = await readImageTextMetadata(path);
+      const importName = `${fileStemFromPath(path)} prompt`;
+      const sozocraft = metadata.sozocraft?.trim();
+      if (sozocraft) {
+        try {
+          const parsed: unknown = JSON.parse(sozocraft);
+          if (isPlainObject(parsed)) {
+            const promptSnapshot = stringValue(parsed.promptSnapshot)?.trim();
+            if (promptSnapshot) {
+              await importPromptSource(importName, promptSnapshot);
+              const restored = restoreGenerationFromSozocraftMetadata(parsed);
+              setStatus("ready");
+              setMessage(
+                restored
+                  ? "Imported SozoCraft prompt and generation settings"
+                  : "Imported SozoCraft prompt",
+              );
+              return;
+            }
+          }
+        } catch {
+          // Fall through to plain prompt metadata below.
+        }
+      }
+
+      const promptMetadata = metadata.prompt?.trim();
+      if (promptMetadata && !promptMetadata.startsWith("{")) {
+        await importPromptSource(importName, promptMetadata);
+        return;
+      }
+      setStatus("error");
+      setMessage(
+        promptMetadata?.startsWith("{")
+          ? "Skipped JSON prompt metadata from this image."
+          : "No reusable prompt metadata found in this image.",
+      );
+    },
+    [importPromptSource, restoreGenerationFromSozocraftMetadata, setMessage, setStatus],
+  );
+
+  const handleNativeFileDrop = useCallback(
+    async (zone: FileDropZone, paths: string[]) => {
+      try {
+        if (paths.length === 0) {
+          return;
+        }
+
+        if (zone === "generation") {
+          const added = await addReferenceImagePaths(paths);
+          setStatus(added > 0 ? "ready" : "error");
+          setMessage(
+            added > 0
+              ? `Added ${added} reference image${added === 1 ? "" : "s"}`
+              : "No supported reference images were dropped.",
+          );
+          return;
+        }
+
+        if (paths.length !== 1) {
+          setStatus("error");
+          setMessage("Drop one file here. Multi-file drops are only for reference images.");
+          return;
+        }
+
+        if (zone === "prompt-editor") {
+          await importPromptTextFile(paths[0]);
+          return;
+        }
+
+        await importPromptFromImageMetadata(paths[0]);
+      } catch (error) {
+        setStatus("error");
+        setMessage(String(error));
+      }
+    },
+    [
+      addReferenceImagePaths,
+      importPromptFromImageMetadata,
+      importPromptTextFile,
+      setMessage,
+      setStatus,
+    ],
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    const unlistenPromise = getCurrentWebview()
+      .onDragDropEvent((event) => {
+        if (disposed) {
+          return;
+        }
+        if (event.payload.type === "leave") {
+          setActiveFileDropZone(null);
+          return;
+        }
+        if (draggedPromptIncludeRef.current && event.payload.type !== "drop") {
+          setActiveFileDropZone(null);
+          return;
+        }
+        const zone = fileDropZoneFromPosition(event.payload.position);
+        if (event.payload.type === "enter" || event.payload.type === "over") {
+          setActiveFileDropZone(zone);
+          return;
+        }
+        setActiveFileDropZone(null);
+        const draggedPromptInclude = draggedPromptIncludeRef.current;
+        if (draggedPromptInclude) {
+          const dropAlreadyHandled = Date.now() - promptIncludeDropHandledAtRef.current < 400;
+          if (!dropAlreadyHandled) {
+            insertPromptIncludeFromNativeDrop(draggedPromptInclude, event.payload.position);
+          }
+          return;
+        }
+        if (event.payload.paths.length === 0) {
+          return;
+        }
+        if (zone) {
+          void handleNativeFileDrop(zone, event.payload.paths);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      setActiveFileDropZone(null);
+      void unlistenPromise.then((unlisten) => unlisten?.());
+    };
+  }, [handleNativeFileDrop, insertPromptIncludeFromNativeDrop]);
 
   const showEditorOnly = !!settings?.promptEditorOnly && !showSettings;
   const completedTasks = batches.filter((batch) => batch.status === "completed").length;
@@ -354,8 +584,18 @@ export function App() {
             onCommitMetadata={() => void promptLibrary.commitMetadata()}
             onCreatePrompt={() => void promptLibrary.createNewPrompt()}
             onDeletePrompt={(id) => void promptLibrary.deletePromptById(id)}
+            onPromptIncludeDragEnd={() => {
+              window.setTimeout(() => {
+                draggedPromptIncludeRef.current = null;
+              }, 400);
+            }}
+            onPromptIncludeDragStart={(token) => {
+              draggedPromptIncludeRef.current = token;
+            }}
+            onPromptIncludeDropHandled={markPromptIncludeDropHandled}
             onRenameTag={(oldTagPath, newTagPath) => void promptLibrary.renameTagPath(oldTagPath, newTagPath)}
             defaultExportPath={defaultExportPath}
+            fileDropActive={activeFileDropZone === "prompt-editor"}
             onExportRenderedPrompt={exportPrompt}
             onPromptChange={updatePrompt}
             onSelectPrompt={(id) => void promptLibrary.selectPrompt(id)}
@@ -398,8 +638,18 @@ export function App() {
             onCommitMetadata={() => void promptLibrary.commitMetadata()}
             onCreatePrompt={() => void promptLibrary.createNewPrompt()}
             onDeletePrompt={(id) => void promptLibrary.deletePromptById(id)}
+            onPromptIncludeDragEnd={() => {
+              window.setTimeout(() => {
+                draggedPromptIncludeRef.current = null;
+              }, 400);
+            }}
+            onPromptIncludeDragStart={(token) => {
+              draggedPromptIncludeRef.current = token;
+            }}
+            onPromptIncludeDropHandled={markPromptIncludeDropHandled}
             onRenameTag={(oldTagPath, newTagPath) => void promptLibrary.renameTagPath(oldTagPath, newTagPath)}
             defaultExportPath={defaultExportPath}
+            fileDropActive={activeFileDropZone === "prompt-editor"}
             onExportRenderedPrompt={exportPrompt}
             onPromptChange={updatePrompt}
             onSelectPrompt={(id) => void promptLibrary.selectPrompt(id)}
@@ -412,6 +662,7 @@ export function App() {
           <GenerationPanel
             settings={settings}
             setSettings={setSettings}
+            fileDropActive={activeFileDropZone === "generation"}
             onPreviewImages={openLightbox}
             {...generation}
           />
@@ -424,6 +675,7 @@ export function App() {
             batches={filteredBatches}
             errorMessage={status === "error" ? message : null}
             expandedBatchId={expandedBatchId}
+            fileDropActive={activeFileDropZone === "output"}
             failedImagePaths={failedImagePaths}
             historyDate={historyDate}
             imageDataUrls={imageDataUrls}
@@ -478,4 +730,110 @@ function sanitizeExportName(value: string) {
     .replace(/\s+/g, "-")
     .replace(/^-+|-+$/g, "");
   return safe || "rendered-prompt";
+}
+
+function fileDropZoneFromPosition(position: { x: number; y: number }): FileDropZone | null {
+  const candidates = [
+    [position.x, position.y],
+    [position.x / window.devicePixelRatio, position.y / window.devicePixelRatio],
+  ];
+  for (const [x, y] of candidates) {
+    const element = document.elementFromPoint(x, y);
+    const zoneElement = element?.closest<HTMLElement>("[data-file-drop-zone]");
+    const zone = zoneElement?.dataset.fileDropZone;
+    if (zone === "prompt-editor" || zone === "generation" || zone === "output") {
+      return zone;
+    }
+  }
+  return null;
+}
+
+function promptTextareaFromPosition(position: { x: number; y: number }) {
+  const candidates = [
+    [position.x, position.y],
+    [position.x / window.devicePixelRatio, position.y / window.devicePixelRatio],
+  ];
+  for (const [x, y] of candidates) {
+    const element = document.elementFromPoint(x, y);
+    const textarea =
+      element instanceof HTMLTextAreaElement
+        ? element
+        : element?.closest<HTMLTextAreaElement>("textarea.prompt-textarea");
+    if (textarea) {
+      return { textarea, x, y };
+    }
+  }
+  return null;
+}
+
+function textareaIndexFromPoint(textarea: HTMLTextAreaElement, clientX: number, clientY: number) {
+  const rect = textarea.getBoundingClientRect();
+  const style = window.getComputedStyle(textarea);
+  const paddingLeft = parseFloat(style.paddingLeft) || 0;
+  const paddingRight = parseFloat(style.paddingRight) || 0;
+  const paddingTop = parseFloat(style.paddingTop) || 0;
+  const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.7 || 20;
+  const charWidth = measureTextareaCharWidth(style);
+  const contentWidth = Math.max(1, textarea.clientWidth - paddingLeft - paddingRight);
+  const charsPerLine = Math.max(1, Math.floor(contentWidth / charWidth));
+  const x = Math.max(0, clientX - rect.left - paddingLeft + textarea.scrollLeft);
+  const y = Math.max(0, clientY - rect.top - paddingTop + textarea.scrollTop);
+  const targetVisualLine = Math.max(0, Math.floor(y / lineHeight));
+  const targetColumn = Math.max(0, Math.round(x / charWidth));
+  const lines = textarea.value.split("\n");
+  let sourceIndex = 0;
+  let visualLine = 0;
+
+  for (const line of lines) {
+    const wrappedLines = Math.max(1, Math.ceil(Math.max(1, line.length) / charsPerLine));
+    if (targetVisualLine < visualLine + wrappedLines) {
+      const wrappedLine = targetVisualLine - visualLine;
+      return sourceIndex + Math.min(line.length, wrappedLine * charsPerLine + targetColumn);
+    }
+    visualLine += wrappedLines;
+    sourceIndex += line.length + 1;
+  }
+
+  return textarea.value.length;
+}
+
+function measureTextareaCharWidth(style: CSSStyleDeclaration) {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return 8;
+  }
+  context.font = style.font;
+  return Math.max(1, context.measureText("0000000000").width / 10);
+}
+
+function isPromptTextPath(path: string) {
+  return /\.(md|txt)$/i.test(path);
+}
+
+function fileStemFromPath(path: string) {
+  return fileNameFromPath(path).replace(/\.[^.]+$/, "") || "Imported image";
+}
+
+function gptImagePlatformForModel(
+  provider: ImageProviderId,
+  model: string,
+  fallback: GptImageApiPlatform,
+): GptImageApiPlatform {
+  if (provider !== "gpt-image") {
+    return fallback;
+  }
+  return model.startsWith("openai/") ? "openrouter" : "openai";
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function roundedNumberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
 }
