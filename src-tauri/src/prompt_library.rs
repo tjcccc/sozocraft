@@ -105,8 +105,11 @@ pub fn rescan_prompt_directory(prompt_directory: &str) -> Result<Vec<PromptListI
         .map_err(|err| err.to_string())?;
     for id in ids {
         if !seen.contains(&id) {
-            conn.execute("UPDATE prompts SET missing = 1 WHERE id = ?1", params![id])
-                .map_err(|err| err.to_string())?;
+            conn.execute(
+                "UPDATE prompts SET missing = 1 WHERE id = ?1 AND missing != 1",
+                params![id],
+            )
+            .map_err(|err| err.to_string())?;
         }
     }
 
@@ -483,7 +486,18 @@ fn index_file(conn: &Connection, root: &Path, path: &Path) -> Result<PromptListI
             file_mtime = excluded.file_mtime,
             schema_version = excluded.schema_version,
             last_indexed_at = excluded.last_indexed_at,
-            missing = 0",
+            missing = 0
+        WHERE prompts.root IS NOT excluded.root
+            OR prompts.path IS NOT excluded.path
+            OR prompts.name IS NOT excluded.name
+            OR prompts.tags IS NOT excluded.tags
+            OR prompts.description IS NOT excluded.description
+            OR prompts.created_at IS NOT excluded.created_at
+            OR prompts.updated_at IS NOT excluded.updated_at
+            OR prompts.content_hash IS NOT excluded.content_hash
+            OR prompts.file_mtime IS NOT excluded.file_mtime
+            OR prompts.schema_version IS NOT excluded.schema_version
+            OR prompts.missing IS NOT 0",
         params![
             id,
             root.to_string_lossy().to_string(),
@@ -1411,6 +1425,40 @@ prompt = {
         assert_eq!(item.name, "Identify Reference");
         assert_eq!(item.tags, vec!["nano-banana/identity"]);
         assert_eq!(item.description, "portable metadata");
+
+        fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[test]
+    fn indexing_unchanged_file_does_not_rewrite_row() {
+        let temp_root =
+            std::env::temp_dir().join(format!("sozocraft-prompt-idempotent-{}", Uuid::new_v4()));
+        let root = temp_root.join("prompts");
+        fs::create_dir_all(&root).unwrap();
+
+        let id = Uuid::new_v4().to_string();
+        let path = root.join(format!("{id}.md"));
+        fs::write(&path, "prompt = {\nStable body.\n}").unwrap();
+
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        index_file(&conn, &root, &path).unwrap();
+        conn.execute(
+            "UPDATE prompts SET last_indexed_at = 'sentinel' WHERE id = ?1",
+            params![id],
+        )
+        .unwrap();
+
+        index_file(&conn, &root, &path).unwrap();
+        let last_indexed_at: String = conn
+            .query_row(
+                "SELECT last_indexed_at FROM prompts WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(last_indexed_at, "sentinel");
 
         fs::remove_dir_all(temp_root).unwrap();
     }

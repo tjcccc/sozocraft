@@ -12,8 +12,8 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode, RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent, ReactNode, RefObject } from "react";
 import type { PromptListItem, PromptPreviewPlacement } from "../types";
 import { clamp } from "../utils/math";
 import { PanelHeader, ToggleSwitch } from "./common";
@@ -447,28 +447,100 @@ function PromptEditor({
   onPromptChange: (value: string) => void;
   prompt: string;
 }) {
+  const stackRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isComposing, setIsComposing] = useState(false);
   const highlightedPrompt = useMemo(
     () => (dslEnabled ? highlightPromptDsl(prompt) : null),
     [prompt, dslEnabled],
   );
 
+  const syncHighlightViewport = useCallback(() => {
+    const stack = stackRef.current;
+    const textarea = textareaRef.current;
+    const highlight = highlightRef.current;
+    if (!stack || !textarea) {
+      return;
+    }
+
+    const scrollbarWidth = Math.max(0, textarea.offsetWidth - textarea.clientWidth);
+    const scrollbarHeight = Math.max(0, textarea.offsetHeight - textarea.clientHeight);
+    stack.style.setProperty("--prompt-textarea-scrollbar-width", `${scrollbarWidth}px`);
+    stack.style.setProperty("--prompt-textarea-scrollbar-height", `${scrollbarHeight}px`);
+
+    if (highlight) {
+      highlight.scrollTop = textarea.scrollTop;
+      highlight.scrollLeft = textarea.scrollLeft;
+    }
+  }, [highlightRef]);
+
+  useLayoutEffect(() => {
+    syncHighlightViewport();
+  }, [dslEnabled, prompt, syncHighlightViewport]);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(syncHighlightViewport);
+    resizeObserver?.observe(textarea);
+    window.addEventListener("resize", syncHighlightViewport);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", syncHighlightViewport);
+    };
+  }, [syncHighlightViewport]);
+
+  const handlePromptChange = useCallback(
+    (event: ChangeEvent<HTMLTextAreaElement>) => {
+      onPromptChange(event.target.value);
+      requestAnimationFrame(syncHighlightViewport);
+    },
+    [onPromptChange, syncHighlightViewport],
+  );
+
   return (
-    <div className={`prompt-editor-stack ${dslEnabled ? "dsl-highlight-enabled" : ""}`}>
+    <div
+      className={[
+        "prompt-editor-stack",
+        dslEnabled ? "dsl-highlight-enabled" : "",
+        isComposing ? "is-composing" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      ref={stackRef}
+    >
       {dslEnabled ? (
         <pre aria-hidden="true" className="prompt-highlight" ref={highlightRef}>
           {highlightedPrompt}
+          {prompt.endsWith("\n") ? " " : null}
         </pre>
       ) : null}
       <textarea
         className="prompt-textarea"
+        ref={textareaRef}
         value={prompt}
-        onChange={(event) => onPromptChange(event.target.value)}
+        onChange={handlePromptChange}
+        onBlur={() => setIsComposing(false)}
+        onCompositionEnd={(event) => {
+          setIsComposing(false);
+          onPromptChange(event.currentTarget.value);
+          requestAnimationFrame(syncHighlightViewport);
+        }}
+        onCompositionStart={() => setIsComposing(true)}
         onScroll={(event) => {
           if (highlightRef.current) {
             highlightRef.current.scrollTop = event.currentTarget.scrollTop;
             highlightRef.current.scrollLeft = event.currentTarget.scrollLeft;
           }
+          syncHighlightViewport();
         }}
+        autoCapitalize="off"
+        autoCorrect="off"
         spellCheck={false}
       />
     </div>

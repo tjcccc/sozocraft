@@ -628,28 +628,37 @@ button {
     flex: 1 1 0;
     overflow: hidden;
     background: #fff;
+    --prompt-textarea-scrollbar-width: 0px;
+    --prompt-textarea-scrollbar-height: 0px;
 }
 
 .prompt-textarea,
 .prompt-highlight {
+    width: 100%;
+    height: 100%;
+    margin: 0;
     padding: 18px;
     font-family: "SF Mono", "Roboto Mono", ui-monospace, monospace;
     font-size: 13px;
+    font-kerning: none;
     font-variant-ligatures: none;
     font-feature-settings: "liga" 0;
     line-height: 1.7;
+    letter-spacing: 0;
+    tab-size: 4;
     white-space: pre-wrap;
+    overflow-wrap: break-word;
     word-break: break-word;
+    text-rendering: auto;
 }
 
 .prompt-textarea {
     position: relative;
     display: block;
     min-height: 0;
-    width: 100%;
-    height: 100%;
     border: 0;
     outline: 0;
+    overflow: auto;
     resize: none;
     color: #293241;
     background: transparent;
@@ -657,9 +666,13 @@ button {
 
 .prompt-highlight {
     position: absolute;
-    inset: 0;
+    top: 0;
+    right: var(--prompt-textarea-scrollbar-width);
+    bottom: var(--prompt-textarea-scrollbar-height);
+    left: 0;
+    width: auto;
+    height: auto;
     z-index: 0;
-    margin: 0;
     overflow: hidden;
     color: #293241;
     pointer-events: none;
@@ -668,7 +681,17 @@ button {
 .dsl-highlight-enabled .prompt-textarea {
     z-index: 1;
     color: transparent;
+    -webkit-text-fill-color: transparent;
     caret-color: #172033;
+}
+
+.dsl-highlight-enabled.is-composing .prompt-highlight {
+    visibility: hidden;
+}
+
+.dsl-highlight-enabled.is-composing .prompt-textarea {
+    color: #293241;
+    -webkit-text-fill-color: #293241;
 }
 
 .dsl-keyword {

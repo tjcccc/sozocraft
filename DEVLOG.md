@@ -1,5 +1,11 @@
 # DEVLOG
 
+## 2026-05-12
+
+- Bumped app/package/crate version metadata to `0.16.3` for the prompt editor alignment and prompt index stability checkpoint.
+- Fixed DSL prompt editor overlay alignment by synchronizing textarea/highlight viewport metrics, scrollbar gutters, scroll position, and IME composition visibility.
+- Changed prompt-library indexing so unchanged prompt files do not rewrite `~/.sozocraft/prompts.sqlite` during startup scans or prompt reads.
+
 ## 2026-05-11
 
 - Bumped app/package/crate version metadata to `0.16.1` for the output gallery layout checkpoint.
