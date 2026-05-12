@@ -2,6 +2,8 @@
 
 ## 2026-05-12
 
+- Bumped app/package/crate version metadata to `0.16.6` for the image-provider tab icon checkpoint.
+- Added provider SVG icons to the Image Generation tabs with compact responsive labels that collapse inactive tab names at narrow panel widths.
 - Bumped app/package/crate version metadata to `0.16.5` for the macOS Dock icon sizing checkpoint.
 - Adjusted the macOS-specific `icon.icns` footprint so Dock/Finder sizing matches neighboring app icons while keeping full-bleed PNG and toolbar assets unchanged.
 - Bumped app/package/crate version metadata to `0.16.4` for the refreshed SozoCraft icon checkpoint.

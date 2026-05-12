@@ -15,6 +15,15 @@ import {
   normalizeProviderOptions,
 } from "../models/imageProviders";
 import { Field, PanelHeader } from "./common";
+import grokIconUrl from "../assets/grok.svg";
+import nanoBananaIconUrl from "../assets/nanobanana-color.svg";
+import openaiIconUrl from "../assets/openai.svg";
+
+const PROVIDER_ICON_URLS: Record<(typeof IMAGE_PROVIDER_IDS)[number], string> = {
+  "nano-banana": nanoBananaIconUrl,
+  "gpt-image": openaiIconUrl,
+  "grok-imagine": grokIconUrl,
+};
 
 export function GenerationPanel(props: {
   settings: AppSettings;
@@ -133,33 +142,39 @@ export function GenerationPanel(props: {
     <section className="panel generation-panel">
       <PanelHeader icon={<SlidersHorizontal size={16} />} title="Image Generation" />
       <div className="tabs">
-        {IMAGE_PROVIDER_IDS.map((provider) => (
-          <button
-            className={props.settings.defaultProvider === provider ? "active" : ""}
-            key={provider}
-            onClick={() => {
-              const config = getProviderConfig(provider);
-              const fallbackModel =
-                provider === "gpt-image"
-                  ? GPT_IMAGE_PLATFORM_MODELS[props.settings.openaiApiPlatform]
-                  : config.defaults.model;
-              const next = normalizeProviderOptions(provider, modelByProvider[provider] ?? fallbackModel, {
-                aspectRatio: props.aspectRatio,
-                imageSize: props.imageSize,
-                quality: props.quality,
-                thinkingLevel: props.thinkingLevel,
-              });
-              props.setSettings({
-                ...props.settings,
-                defaultProvider: provider,
-                defaultModel: next.model,
-              });
-            }}
-            type="button"
-          >
-            {getProviderConfig(provider).label}
-          </button>
-        ))}
+        {IMAGE_PROVIDER_IDS.map((provider) => {
+          const config = getProviderConfig(provider);
+
+          return (
+            <button
+              aria-label={config.label}
+              className={props.settings.defaultProvider === provider ? "active" : ""}
+              key={provider}
+              onClick={() => {
+                const fallbackModel =
+                  provider === "gpt-image"
+                    ? GPT_IMAGE_PLATFORM_MODELS[props.settings.openaiApiPlatform]
+                    : config.defaults.model;
+                const next = normalizeProviderOptions(provider, modelByProvider[provider] ?? fallbackModel, {
+                  aspectRatio: props.aspectRatio,
+                  imageSize: props.imageSize,
+                  quality: props.quality,
+                  thinkingLevel: props.thinkingLevel,
+                });
+                props.setSettings({
+                  ...props.settings,
+                  defaultProvider: provider,
+                  defaultModel: next.model,
+                });
+              }}
+              title={config.label}
+              type="button"
+            >
+              <img alt="" className="provider-tab-icon" src={PROVIDER_ICON_URLS[provider]} />
+              <span className="provider-tab-label">{config.label}</span>
+            </button>
+          );
+        })}
       </div>
       <div className="form-grid">
         <Field label="Model" className="field-full">

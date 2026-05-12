@@ -827,6 +827,10 @@ button {
     line-height: 1.65;
 }
 
+.generation-panel {
+    container: generation-panel / inline-size;
+}
+
 .tabs {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -841,11 +845,50 @@ button {
     color: #5b6475;
     background: transparent;
     font-weight: 600;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 8px;
 }
 
 .tabs button.active {
     color: #1265f4;
     border-bottom-color: #1265f4;
+}
+
+.provider-tab-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    object-fit: contain;
+}
+
+.provider-tab-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@container generation-panel (max-width: 480px) {
+    .tabs {
+        display: flex;
+    }
+
+    .tabs button {
+        flex: 1 1 0;
+    }
+
+    .tabs button:not(.active) {
+        flex: 0 0 48px;
+        padding: 0;
+    }
+
+    .tabs button:not(.active) .provider-tab-label {
+        display: none;
+    }
 }
 
 .form-grid {
