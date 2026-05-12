@@ -2,6 +2,8 @@
 
 ## 2026-05-12
 
+- Bumped app/package/crate version metadata to `0.16.5` for the macOS Dock icon sizing checkpoint.
+- Adjusted the macOS-specific `icon.icns` footprint so Dock/Finder sizing matches neighboring app icons while keeping full-bleed PNG and toolbar assets unchanged.
 - Bumped app/package/crate version metadata to `0.16.4` for the refreshed SozoCraft icon checkpoint.
 - Replaced the Tauri bundle icons and in-app toolbar icon with the adjusted full-bleed creative icon asset.
 - Bumped app/package/crate version metadata to `0.16.3` for the prompt editor alignment and prompt index stability checkpoint.
