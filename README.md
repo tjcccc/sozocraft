@@ -10,7 +10,7 @@ This repository currently targets the `0.1.0` MVP:
 - Tauri 2 desktop shell
 - React + TypeScript frontend
 - Rust backend
-- Gemini image generation for Nano Banana / Nano Banana Pro
+- Gemini and Higgsfield CLI image generation for Nano Banana / Nano Banana Pro
 - OpenAI GPT-Image text-to-image generation
 - xAI Grok Imagine text-to-image generation
 - local output saving
@@ -79,6 +79,7 @@ Open the settings button in the top toolbar to switch to the full-page settings 
 - optional Gemini-compatible base URL
 - optional OpenAI-compatible base URL
 - optional xAI-compatible base URL
+- optional Higgsfield CLI path and API platform routing for supported image providers
 - optional proxy URL, for example `http://127.0.0.1:7890`
 - provider proxy toggles
 - provider timeouts
@@ -130,6 +131,9 @@ default_model = "grok-imagine-image-quality"
 base_url = "https://api.x.ai/v1"
 proxy_enabled = true
 timeout_seconds = 180
+
+[higgsfield]
+cli_path = "higgsfield"
 
 [output]
 directory = "/Users/you/Pictures/SozoCraft"
@@ -242,6 +246,12 @@ Generation controls are model-aware:
 Reference images are selected with the native file picker and sent to Gemini as
 inline image data. Supported picker formats are PNG, JPEG, and WebP.
 
+When the Nano Banana API platform is set to Higgsfield CLI, SozoCraft routes
+generation through the installed `higgsfield` command and follows the
+CLI-reported model options. The app forwards its configured provider proxy to
+the CLI process, saves returned result images locally, and keeps generated PNG
+metadata compatible with the rest of the output workflow.
+
 Before provider requests, SozoCraft optimizes large PNG/JPEG reference images
 into high-quality JPEGs when the image has no alpha channel. The default keeps a
 maximum long edge of 1600 px and JPEG quality 85, which reduces upload size and
@@ -286,6 +296,11 @@ OpenAI-compatible Image API endpoints, SozoCraft sends reference-image runs to
 `/images/edits` as multipart `image[]` inputs. For OpenRouter endpoints, it
 sends reference images as chat message `image_url` data URLs.
 
+GPT-Image can also be routed through Higgsfield CLI from the provider platform
+setting. Higgsfield CLI requests use CLI-supported aspect ratios, 1K/2K/4K
+resolution buckets, low/medium/high quality options, and app-configured proxy
+environment forwarding.
+
 ## Grok Imagine Models
 
 The Grok Imagine tab enables xAI text-to-image generation through
@@ -300,6 +315,10 @@ providers. The Grok Imagine tab supports xAI aspect ratios, `1k`/`2k`
 resolution, the documented `quality` field, and up to 5 uploaded reference
 images through xAI's JSON image edit endpoint. Mask editing is intentionally not
 implemented yet.
+
+Grok Imagine can also be routed through Higgsfield CLI. In that mode SozoCraft
+uses the CLI-supported Grok Image aspect ratios and maps Standard/Quality to the
+CLI `std`/`pro` modes.
 
 ## Output Metadata
 

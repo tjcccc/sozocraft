@@ -2,6 +2,11 @@
 
 ## 2026-05-13
 
+- Bumped app/package/crate version metadata to `0.19.0` for the Higgsfield CLI image-generation checkpoint.
+- Added Higgsfield CLI as an image-generation platform for Nano Banana, GPT-Image, and Grok Imagine, with CLI install/auth status checks and app-configured proxy forwarding.
+- Added Higgsfield model-aware controls for CLI-supported aspect ratios, resolutions, quality/mode settings, reference-image limits, and Nano Banana Pro's optional Unlimited preference.
+- Hardened Higgsfield result handling with retries for transient CloudFront reachability failures, robust result downloads with curl fallback, JSON-like prompt string encoding, and failure diagnostics that include job status/code when available.
+- Fixed Higgsfield failure paths so uploaded reference-image URLs are not mistaken for successful output images when a job returns no real result URL.
 - Bumped app/package/crate version metadata to `0.18.0` for the contextual drag/drop import checkpoint.
 - Added contextual native file drops: Image Generation imports reference images, Prompt Editor imports dropped `.md`/`.txt` files as new prompts, and Output Images imports reusable prompt metadata from images.
 - Added SozoCraft PNG metadata restore so dropped output images can recreate the prompt snapshot, restore provider/model/options, and switch to the matching image provider tab.

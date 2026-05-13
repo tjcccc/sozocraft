@@ -1,6 +1,6 @@
 [package]
 name = "sozocraft"
-version = "0.18.0"
+version = "0.19.0"
 description = "A desktop AI visual generation studio and prompt workspace."
 authors = ["SozoCraft"]
 edition = "2021"
@@ -24,7 +24,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2.9", features = [] }
 thiserror = "2"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "fs", "time"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "fs", "process", "time"] }
 toml = "0.8"
 uuid = { version = "1", features = ["v4", "serde"] }
 

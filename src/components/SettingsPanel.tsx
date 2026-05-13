@@ -1,17 +1,24 @@
-import { KeyRound } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { KeyRound, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { checkHiggsfieldStatus } from "../api";
 import type {
   AppSettings,
   ConfigStatus,
+  GrokImagineApiPlatform,
+  HiggsfieldStatus,
+  NanoBananaApiPlatform,
   OpenAiApiPlatform,
   PromptPreviewPlacement,
 } from "../types";
 import {
   GPT_IMAGE_PLATFORM_MODELS,
+  GROK_IMAGE_PLATFORM_MODELS,
   IMAGE_PROVIDER_IDS,
+  NANO_BANANA_PLATFORM_MODELS,
   getProviderConfig,
   getProviderModels,
 } from "../models/imageProviders";
+import type { ImageProviderApiPlatform } from "../models/imageProviders";
 import { validateOutputTemplate } from "../utils/outputTemplate";
 import { Field, ToggleSwitch } from "./common";
 
@@ -60,6 +67,8 @@ export function SettingsPanel({
 }) {
   const templateIssues = validateOutputTemplate(settings.outputTemplate);
   const didMountRef = useRef(false);
+  const [higgsfieldStatus, setHiggsfieldStatus] = useState<HiggsfieldStatus | null>(null);
+  const [checkingHiggsfield, setCheckingHiggsfield] = useState(false);
 
   useEffect(() => {
     if (!didMountRef.current) {
@@ -69,6 +78,17 @@ export function SettingsPanel({
     const handle = window.setTimeout(() => onSaveSettings(settings), 650);
     return () => window.clearTimeout(handle);
   }, [onSaveSettings, settings]);
+
+  async function verifyHiggsfield() {
+    setCheckingHiggsfield(true);
+    try {
+      setHiggsfieldStatus(
+        await checkHiggsfieldStatus(settings.higgsfieldCliPath, settings.proxyUrl),
+      );
+    } finally {
+      setCheckingHiggsfield(false);
+    }
+  }
 
   return (
     <section className="settings-panel">
@@ -197,9 +217,69 @@ export function SettingsPanel({
 
         <div className="settings-section" id="settings-providers">
           <h2>Providers</h2>
+          <fieldset className="provider-settings">
+            <legend>Higgsfield CLI</legend>
+            <Field label="CLI Path">
+              <div className="template-row">
+                <input
+                  placeholder="higgsfield"
+                  value={settings.higgsfieldCliPath ?? ""}
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      higgsfieldCliPath: event.target.value || null,
+                    })
+                  }
+                />
+                <button
+                  className="secondary-button"
+                  disabled={checkingHiggsfield}
+                  onClick={() => void verifyHiggsfield()}
+                  type="button"
+                >
+                  <RefreshCw className={checkingHiggsfield ? "spin" : undefined} size={15} />
+                  Check
+                </button>
+              </div>
+            </Field>
+            {higgsfieldStatus ? (
+              <div className="provider-status-grid">
+                <ConfigBadge label="CLI" ok={higgsfieldStatus.installed} />
+                <ConfigBadge
+                  label="Auth"
+                  ok={higgsfieldStatus.authenticated}
+                  okText="Logged in"
+                  missingText="Login needed"
+                />
+                {higgsfieldStatus.version ? (
+                  <div className="config-status-row">
+                    <span className="config-status-label">Version</span>
+                    <code className="config-status-value">{higgsfieldStatus.version}</code>
+                  </div>
+                ) : null}
+                {higgsfieldStatus.account ? (
+                  <div className="config-status-row">
+                    <span className="config-status-label">Account</span>
+                    <span className="config-status-value">{higgsfieldStatus.account}</span>
+                  </div>
+                ) : null}
+                {higgsfieldStatus.error ? (
+                  <div className="config-status-row field-full">
+                    <span className="config-status-label">Message</span>
+                    <span className="config-status-value">{higgsfieldStatus.error}</span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </fieldset>
           <ProviderSettings
             apiKey={apiKey}
             apiKeySaved={apiKeySaved}
+            apiPlatform={settings.nanoBananaApiPlatform}
+            apiPlatformOptions={[
+              { label: "Gemini", value: "gemini" },
+              { label: "Higgsfield CLI", value: "higgsfield" },
+            ]}
             baseUrl={settings.optionalBaseUrl}
             defaultModel={
               settings.defaultProvider === "nano-banana"
@@ -207,6 +287,17 @@ export function SettingsPanel({
                 : null
             }
             keyPlaceholder="Gemini API key"
+            onApiPlatformChange={(platform) => {
+              const nextPlatform = platform as NanoBananaApiPlatform;
+              setSettings({
+                ...settings,
+                nanoBananaApiPlatform: nextPlatform,
+                defaultModel:
+                  settings.defaultProvider === "nano-banana"
+                    ? NANO_BANANA_PLATFORM_MODELS[nextPlatform]
+                    : settings.defaultModel,
+              });
+            }}
             onSaveKey={onSaveKey}
             providerId="nano-banana"
             proxyEnabled={settings.geminiProxyEnabled}
@@ -245,6 +336,11 @@ export function SettingsPanel({
                 : openaiApiKeySaved
             }
             apiPlatform={settings.openaiApiPlatform}
+            apiPlatformOptions={[
+              { label: "OpenAI", value: "openai" },
+              { label: "OpenRouter", value: "openrouter" },
+              { label: "Higgsfield CLI", value: "higgsfield" },
+            ]}
             baseUrl={
               settings.openaiApiPlatform === "openrouter"
                 ? settings.openrouterBaseUrl
@@ -263,10 +359,10 @@ export function SettingsPanel({
             onApiPlatformChange={(platform) =>
               setSettings({
                 ...settings,
-                openaiApiPlatform: platform,
+                openaiApiPlatform: platform as OpenAiApiPlatform,
                 defaultModel:
                   settings.defaultProvider === "gpt-image"
-                    ? GPT_IMAGE_PLATFORM_MODELS[platform]
+                    ? GPT_IMAGE_PLATFORM_MODELS[platform as OpenAiApiPlatform]
                     : settings.defaultModel,
               })
             }
@@ -307,6 +403,11 @@ export function SettingsPanel({
           <ProviderSettings
             apiKey={xaiApiKey}
             apiKeySaved={xaiApiKeySaved}
+            apiPlatform={settings.grokApiPlatform}
+            apiPlatformOptions={[
+              { label: "xAI", value: "xai" },
+              { label: "Higgsfield CLI", value: "higgsfield" },
+            ]}
             baseUrl={settings.xaiBaseUrl}
             defaultModel={
               settings.defaultProvider === "grok-imagine"
@@ -314,6 +415,17 @@ export function SettingsPanel({
                 : null
             }
             keyPlaceholder="xAI API key"
+            onApiPlatformChange={(platform) => {
+              const nextPlatform = platform as GrokImagineApiPlatform;
+              setSettings({
+                ...settings,
+                grokApiPlatform: nextPlatform,
+                defaultModel:
+                  settings.defaultProvider === "grok-imagine"
+                    ? GROK_IMAGE_PLATFORM_MODELS[nextPlatform]
+                    : settings.defaultModel,
+              });
+            }}
             onSaveKey={onSaveXaiKey}
             providerId="grok-imagine"
             proxyEnabled={settings.xaiProxyEnabled}
@@ -346,6 +458,7 @@ function ProviderSettings({
   apiKey,
   apiKeySaved,
   apiPlatform,
+  apiPlatformOptions,
   baseUrl,
   defaultModel,
   keyPlaceholder,
@@ -362,12 +475,13 @@ function ProviderSettings({
 }: {
   apiKey: string;
   apiKeySaved: boolean;
-  apiPlatform?: OpenAiApiPlatform;
+  apiPlatform?: string;
+  apiPlatformOptions?: Array<{ label: string; value: string }>;
   baseUrl?: string | null;
   defaultModel: string | null;
   keyPlaceholder: string;
   onSaveKey: () => void;
-  onApiPlatformChange?: (platform: OpenAiApiPlatform) => void;
+  onApiPlatformChange?: (platform: string) => void;
   providerId: (typeof IMAGE_PROVIDER_IDS)[number];
   proxyEnabled: boolean;
   setApiKey: (value: string) => void;
@@ -378,63 +492,69 @@ function ProviderSettings({
   timeoutSeconds: number;
 }) {
   const provider = getProviderConfig(providerId);
-  const models = getProviderModels(providerId, apiPlatform ?? "openai");
+  const models = getProviderModels(providerId, (apiPlatform ?? "openai") as ImageProviderApiPlatform);
   const activeModel = defaultModel ?? models[0]?.id ?? provider.defaults.model;
+  const usesHiggsfield = apiPlatform === "higgsfield";
 
   return (
     <fieldset className="provider-settings">
       <legend>{provider.label}</legend>
-      {providerId === "gpt-image" && apiPlatform && onApiPlatformChange ? (
-        <Field label="API Platform">
+      {apiPlatform && onApiPlatformChange && apiPlatformOptions ? (
+        <Field label="Platform">
           <select
             value={apiPlatform}
-            onChange={(event) =>
-              onApiPlatformChange(event.target.value as OpenAiApiPlatform)
-            }
+            onChange={(event) => onApiPlatformChange(event.target.value)}
           >
-            <option value="openai">OpenAI</option>
-            <option value="openrouter">OpenRouter</option>
+            {apiPlatformOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </Field>
       ) : null}
-      <Field label="API Key">
-        <div className="template-row">
-          <input
-            placeholder={
-              apiKeySaved
-                ? "Stored in ~/.sozocraft/config.toml"
-                : keyPlaceholder
-            }
-            type="password"
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-          />
-          <button
-            className="secondary-button"
-            onClick={onSaveKey}
-            type="button"
-          >
-            <KeyRound size={15} />
-            Save Key
-          </button>
-        </div>
-      </Field>
-      <div className="provider-settings-grid">
-        <Field label="Base URL">
-          <input
-            placeholder={
-              providerId === "nano-banana"
-                ? "Default Google Generative Language API"
-                : providerId === "gpt-image" && apiPlatform === "openrouter"
-                  ? "https://openrouter.ai/api/v1"
-                  : providerId === "gpt-image"
-                    ? "https://api.openai.com/v1"
-                    : undefined
-            }
-            value={baseUrl ?? ""}
-            onChange={(event) => setBaseUrl(event.target.value || null)}
-          />
+      {!usesHiggsfield ? (
+        <Field label="API Key">
+          <div className="template-row">
+            <input
+              placeholder={
+                apiKeySaved
+                  ? "Stored in ~/.sozocraft/config.toml"
+                  : keyPlaceholder
+              }
+              type="password"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+            />
+            <button
+              className="secondary-button"
+              onClick={onSaveKey}
+              type="button"
+            >
+              <KeyRound size={15} />
+              Save Key
+            </button>
+          </div>
         </Field>
+      ) : null}
+      <div className="provider-settings-grid">
+        {!usesHiggsfield ? (
+          <Field label="Base URL">
+            <input
+              placeholder={
+                providerId === "nano-banana"
+                  ? "Default Google Generative Language API"
+                  : providerId === "gpt-image" && apiPlatform === "openrouter"
+                    ? "https://openrouter.ai/api/v1"
+                    : providerId === "gpt-image"
+                      ? "https://api.openai.com/v1"
+                      : undefined
+              }
+              value={baseUrl ?? ""}
+              onChange={(event) => setBaseUrl(event.target.value || null)}
+            />
+          </Field>
+        ) : null}
         <Field label="Timeout">
           <input
             min={10}
@@ -456,11 +576,13 @@ function ProviderSettings({
           </select>
         </Field>
       </div>
-      <ToggleSwitch
-        checked={proxyEnabled}
-        label="Use proxy"
-        onChange={setProxyEnabled}
-      />
+      {!usesHiggsfield ? (
+        <ToggleSwitch
+          checked={proxyEnabled}
+          label="Use proxy"
+          onChange={setProxyEnabled}
+        />
+      ) : null}
     </fieldset>
   );
 }

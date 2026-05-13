@@ -6,6 +6,7 @@ import type {
   CreatePromptRequest,
   GenerationBatch,
   GenerationRequest,
+  HiggsfieldStatus,
   ImageTextMetadata,
   PromptDocument,
   PromptListItem,
@@ -93,6 +94,13 @@ export function saveOutputTemplate(template: string) {
 
 export function getConfigStatus() {
   return invoke<ConfigStatus>("get_config_status");
+}
+
+export function checkHiggsfieldStatus(cliPath?: string | null, proxyUrl?: string | null) {
+  return invoke<HiggsfieldStatus>("check_higgsfield_status", {
+    cliPath: cliPath ?? null,
+    proxyUrl: proxyUrl ?? null,
+  });
 }
 
 export function listPrompts(promptDirectory: string, query?: string) {

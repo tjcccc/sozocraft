@@ -3,6 +3,7 @@ mod error_log;
 mod filename_template;
 mod gemini;
 mod gemini_models;
+mod higgsfield;
 mod image_meta;
 mod local_config;
 mod models;
@@ -17,6 +18,7 @@ use chrono::{Local, Utc};
 use error_log::GenerationErrorLog;
 use filename_template::resolve_output_path;
 use gemini::GeminiClient;
+use higgsfield::HiggsfieldStatus;
 use models::{
     AppSettings, AppState, GenerationBatch, GenerationRequest, GenerationStatus, OutputImage,
 };
@@ -58,6 +60,14 @@ fn get_config_status() -> ConfigStatus {
         has_xai_api_key: local_config::has_xai_api_key(),
         has_proxy: local_config::has_proxy_configured(),
     }
+}
+
+#[tauri::command]
+async fn check_higgsfield_status(
+    cli_path: Option<String>,
+    proxy_url: Option<String>,
+) -> HiggsfieldStatus {
+    higgsfield::check_status(cli_path, proxy_url).await
 }
 
 #[tauri::command]
@@ -337,7 +347,7 @@ async fn generate_images_inner(
     };
 
     let mut last_error: Option<String> = None;
-    let attempts = if ["gpt-image", "grok-imagine"].contains(&request.provider.as_str()) {
+    let attempts = if provider_supports_batch(&request, &settings) {
         1
     } else {
         request.batch_count
@@ -415,7 +425,7 @@ async fn generate_images_inner(
                     let path = resolve_output_path(
                         &settings.output_directory,
                         &request.output_template,
-                        filename_provider(&request.provider),
+                        filename_provider(&request, &settings),
                         filename_model(&request.model),
                         &file_id,
                         &short_id(&batch_id),
@@ -442,6 +452,7 @@ async fn generate_images_inner(
                         "renderedPrompt": rendered_prompt.clone(),
                         "provider": request.provider.clone(),
                         "model": request.model.clone(),
+                        "platform": generation_platform(&request, &settings),
                         "options": {
                             "aspectRatio": request.options.aspect_ratio.clone(),
                             "imageSize": request.options.image_size.clone(),
@@ -449,6 +460,7 @@ async fn generate_images_inner(
                             "topP": request.options.top_p,
                             "thinkingLevel": request.options.thinking_level.clone(),
                             "quality": request.options.quality.clone(),
+                            "unlimited": request.options.unlimited,
                         },
                         "batchId": batch_id.clone(),
                         "imageId": image_id.clone(),
@@ -482,14 +494,18 @@ async fn generate_images_inner(
                 }
             }
             Err(err) => {
-                let proxy_note = provider_proxy_ref(&request.provider, &settings)
-                    .filter(|value| !value.trim().is_empty())
-                    .map(|value| format!("Proxy configured: {value}"))
-                    .unwrap_or_else(|| {
-                        "No proxy active for this provider. Save Proxy URL in settings and enable provider proxy if needed.".to_string()
-                    });
-                let detailed_error = err.clone();
-                let message = format!("{detailed_error}. {proxy_note}");
+                let is_higgsfield = is_higgsfield_provider(&request, &settings);
+                let message = if is_higgsfield {
+                    err.clone()
+                } else {
+                    let proxy_note = provider_proxy_ref(&request.provider, &settings)
+                        .filter(|value| !value.trim().is_empty())
+                        .map(|value| format!("Proxy configured: {value}"))
+                        .unwrap_or_else(|| {
+                            "No proxy active for this provider. Save Proxy URL in settings and enable provider proxy if needed.".to_string()
+                        });
+                    format!("{err}. {proxy_note}")
+                };
                 error_log::log_generation_error(&GenerationErrorLog {
                     timestamp: Utc::now(),
                     batch_id: &batch_id,
@@ -507,7 +523,7 @@ async fn generate_images_inner(
                     reference_image_count: error_log::reference_image_count(&item_request),
                     response_metadata: None,
                 });
-                last_error = Some(format!("{err}. {proxy_note}"));
+                last_error = Some(message);
             }
         }
     }
@@ -539,8 +555,11 @@ async fn generate_images_inner(
     }
 }
 
-fn filename_provider(provider: &str) -> &str {
-    match provider {
+fn filename_provider<'a>(request: &'a GenerationRequest, settings: &AppSettings) -> &'a str {
+    if is_higgsfield_provider(request, settings) {
+        return "higgsfield";
+    }
+    match request.provider.as_str() {
         "nano-banana" => "gemini",
         "gpt-image" => "openai",
         "grok-imagine" => "xai",
@@ -553,9 +572,14 @@ fn filename_model(model: &str) -> &str {
         "gemini-3-pro-image-preview" => "nano-banana-pro",
         "gemini-3.1-flash-image-preview" => "nano-banana-2",
         "gemini-2.5-flash-image" => "nano-banana",
+        "nano_banana_2" => "nano-banana-pro",
+        "nano_banana_flash" => "nano-banana-2",
+        "nano_banana" => "nano-banana",
         "gpt-image-2" => "gpt-image-2",
+        "gpt_image_2" => "gpt-image-2",
         "grok-imagine-image-quality" => "grok-imagine-quality",
         "grok-imagine-image" => "grok-imagine",
+        "grok_image" => "grok-image",
         value => value,
     }
 }
@@ -594,6 +618,31 @@ fn provider_proxy_ref<'a>(provider: &str, settings: &'a AppSettings) -> Option<&
     enabled.then_some(settings.proxy_url.as_deref()).flatten()
 }
 
+fn is_higgsfield_provider(request: &GenerationRequest, settings: &AppSettings) -> bool {
+    match request.provider.as_str() {
+        "nano-banana" => settings.nano_banana_api_platform == "higgsfield",
+        "gpt-image" => settings.openai_api_platform == "higgsfield",
+        "grok-imagine" => settings.grok_api_platform == "higgsfield",
+        _ => false,
+    }
+}
+
+fn provider_supports_batch(request: &GenerationRequest, settings: &AppSettings) -> bool {
+    if is_higgsfield_provider(request, settings) {
+        return request.model == "gpt_image_2";
+    }
+    ["gpt-image", "grok-imagine"].contains(&request.provider.as_str())
+}
+
+fn generation_platform(request: &GenerationRequest, settings: &AppSettings) -> String {
+    match request.provider.as_str() {
+        "nano-banana" => settings.nano_banana_api_platform.clone(),
+        "gpt-image" => settings.openai_api_platform.clone(),
+        "grok-imagine" => settings.grok_api_platform.clone(),
+        _ => "native".to_string(),
+    }
+}
+
 #[derive(Debug, Clone)]
 struct ProviderGeneratedImage {
     bytes: Vec<u8>,
@@ -609,6 +658,24 @@ async fn generate_with_provider(
     request: &GenerationRequest,
     settings: &AppSettings,
 ) -> Result<ProviderResponse, String> {
+    if is_higgsfield_provider(request, settings) {
+        let response = higgsfield::generate_image(
+            request,
+            settings.higgsfield_cli_path.clone(),
+            provider_timeout(&request.provider, settings),
+            provider_proxy(&request.provider, settings),
+        )
+        .await?;
+        return Ok(ProviderResponse {
+            images: response
+                .images
+                .into_iter()
+                .map(|image| ProviderGeneratedImage { bytes: image.bytes })
+                .collect(),
+            metadata: response.metadata,
+        });
+    }
+
     match request.provider.as_str() {
         "nano-banana" => {
             let client = GeminiClient::new(
@@ -745,7 +812,8 @@ pub fn run() {
             read_image_text_metadata,
             cancel_generation_task,
             generate_images,
-            get_config_status
+            get_config_status,
+            check_higgsfield_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running SozoCraft");

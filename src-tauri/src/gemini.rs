@@ -506,6 +506,7 @@ mod tests {
                 top_p: Some(0.95),
                 thinking_level: Some("high".to_string()),
                 quality: None,
+                unlimited: None,
             },
             base_url: None,
         }

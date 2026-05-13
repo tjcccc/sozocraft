@@ -8,9 +8,8 @@ import {
 } from "../api";
 import type { AppSettings, GenerationBatch, GenerationRequest, ReferenceImageInput } from "../types";
 import type { AppStatus } from "../components/common";
-import { getGeminiImageModelConfig } from "../models/geminiImageModels";
-import { getProviderConfig, getProviderModels } from "../models/imageProviders";
-import type { ImageProviderId } from "../models/imageProviders";
+import { getProviderControlConfig } from "../models/imageProviders";
+import type { ImageProviderApiPlatform, ImageProviderId } from "../models/imageProviders";
 import { isSupportedImagePath, pathToReferenceImage } from "../utils/referenceImages";
 
 type QueuedGenerationTask = {
@@ -29,6 +28,7 @@ type GenerationOptionState = {
   topP: number;
   quality: string;
   thinkingLevel: string;
+  unlimited: boolean;
 };
 
 const EMPTY_REFERENCE_IMAGES: ReferenceImagesByProvider = {
@@ -46,6 +46,7 @@ const DEFAULT_GENERATION_OPTIONS: GenerationOptionsByProvider = {
     topP: 0.95,
     quality: "",
     thinkingLevel: "",
+    unlimited: false,
   },
   "gpt-image": {
     batchCount: 1,
@@ -55,6 +56,7 @@ const DEFAULT_GENERATION_OPTIONS: GenerationOptionsByProvider = {
     topP: 0.95,
     quality: "auto",
     thinkingLevel: "",
+    unlimited: false,
   },
   "grok-imagine": {
     batchCount: 1,
@@ -64,6 +66,7 @@ const DEFAULT_GENERATION_OPTIONS: GenerationOptionsByProvider = {
     topP: 0.95,
     quality: "medium",
     thinkingLevel: "",
+    unlimited: false,
   },
 };
 
@@ -118,6 +121,7 @@ export function useGeneration({
   const setTopP = useCallback((value: number) => setActiveOption("topP", value), [setActiveOption]);
   const setQuality = useCallback((value: string) => setActiveOption("quality", value), [setActiveOption]);
   const setThinkingLevel = useCallback((value: string) => setActiveOption("thinkingLevel", value), [setActiveOption]);
+  const setUnlimited = useCallback((value: boolean) => setActiveOption("unlimited", value), [setActiveOption]);
 
   const setReferenceImages: React.Dispatch<React.SetStateAction<ReferenceImageInput[]>> =
     useCallback(
@@ -187,14 +191,7 @@ export function useGeneration({
       batchCount: activeOptions.batchCount,
       referenceImages,
       outputTemplate: settings.outputTemplate,
-      baseUrl:
-        settings.defaultProvider === "gpt-image"
-          ? settings.openaiApiPlatform === "openrouter"
-            ? settings.openrouterBaseUrl
-            : settings.openaiBaseUrl
-          : settings.defaultProvider === "grok-imagine"
-            ? settings.xaiBaseUrl
-            : settings.optionalBaseUrl,
+      baseUrl: baseUrlForSettings(settings),
       options: {
         aspectRatio: activeOptions.aspectRatio,
         imageSize: activeOptions.imageSize,
@@ -202,6 +199,7 @@ export function useGeneration({
         topP: activeOptions.topP,
         thinkingLevel: activeOptions.thinkingLevel,
         quality: activeOptions.quality,
+        unlimited: shouldRequestUnlimited(settings, activeOptions),
       },
     };
 
@@ -291,6 +289,7 @@ export function useGeneration({
     temperature: activeOptions.temperature,
     thinkingLevel: activeOptions.thinkingLevel,
     topP: activeOptions.topP,
+    unlimited: activeOptions.unlimited,
     runGeneration,
     stopGeneration,
     addReferenceImagePaths,
@@ -304,16 +303,52 @@ export function useGeneration({
     setTemperature,
     setThinkingLevel,
     setTopP,
+    setUnlimited,
   };
 }
 
 function maxReferenceImagesForSettings(settings: AppSettings): number {
-  if (settings.defaultProvider === "nano-banana") {
-    return getGeminiImageModelConfig(settings.defaultModel).maxReferenceImages;
+  return getProviderControlConfig(
+    settings.defaultProvider,
+    settings.defaultModel,
+    settingsPlatformForProvider(settings, settings.defaultProvider),
+  ).maxReferenceImages;
+}
+
+function baseUrlForSettings(settings: AppSettings) {
+  if (settings.defaultProvider === "gpt-image") {
+    if (settings.openaiApiPlatform === "higgsfield") {
+      return null;
+    }
+    return settings.openaiApiPlatform === "openrouter"
+      ? settings.openrouterBaseUrl
+      : settings.openaiBaseUrl;
   }
-  const providerConfig = getProviderConfig(settings.defaultProvider);
-  const modelConfig = getProviderModels(settings.defaultProvider, settings.openaiApiPlatform).find(
-    (model) => model.id === settings.defaultModel,
+  if (settings.defaultProvider === "grok-imagine") {
+    return settings.grokApiPlatform === "higgsfield" ? null : settings.xaiBaseUrl;
+  }
+  return settings.nanoBananaApiPlatform === "higgsfield" ? null : settings.optionalBaseUrl;
+}
+
+function settingsPlatformForProvider(
+  settings: AppSettings,
+  provider: ImageProviderId,
+): ImageProviderApiPlatform {
+  if (provider === "nano-banana") {
+    return settings.nanoBananaApiPlatform;
+  }
+  if (provider === "grok-imagine") {
+    return settings.grokApiPlatform;
+  }
+  return settings.openaiApiPlatform;
+}
+
+function shouldRequestUnlimited(settings: AppSettings, options: GenerationOptionState) {
+  return (
+    settings.defaultProvider === "nano-banana" &&
+    settings.nanoBananaApiPlatform === "higgsfield" &&
+    settings.defaultModel === "nano_banana_2" &&
+    options.imageSize.toLowerCase() !== "4k" &&
+    options.unlimited
   );
-  return modelConfig?.maxReferenceImages ?? providerConfig.maxReferenceImages;
 }

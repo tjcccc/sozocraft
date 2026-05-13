@@ -782,6 +782,7 @@ mod tests {
                 top_p: None,
                 thinking_level: None,
                 quality: Some("high".to_string()),
+                unlimited: None,
             },
             base_url: None,
         }

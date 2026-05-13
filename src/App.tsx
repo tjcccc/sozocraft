@@ -25,7 +25,12 @@ import {
   isImageProviderId,
   normalizeProviderOptions,
 } from "./models/imageProviders";
-import type { GptImageApiPlatform, ImageProviderId } from "./models/imageProviders";
+import type {
+  GrokImagineApiPlatform,
+  ImageProviderApiPlatform,
+  ImageProviderId,
+  NanoBananaApiPlatform,
+} from "./models/imageProviders";
 import { clamp } from "./utils/math";
 import { fileNameFromPath, isSupportedImagePath } from "./utils/referenceImages";
 import sozocraftIcon from "./assets/sozocraft-icon.png";
@@ -291,15 +296,16 @@ export function App() {
 
       const options = isPlainObject(metadata.options) ? metadata.options : {};
       const model = stringValue(metadata.model) ?? getProviderConfig(provider).defaults.model;
-      const nextPlatform = gptImagePlatformForModel(provider, model, settings.openaiApiPlatform);
+      const nextPlatform = platformForMetadata(provider, model, stringValue(metadata.platform), settings);
       const normalized = normalizeProviderOptions(provider, model, {
         aspectRatio: stringValue(options.aspectRatio) ?? "",
         imageSize: stringValue(options.imageSize) ?? "",
         quality: stringValue(options.quality) ?? "",
         thinkingLevel: stringValue(options.thinkingLevel) ?? "",
-      });
+      }, nextPlatform);
       const importedTemperature = roundedNumberValue(options.temperature);
       const importedTopP = roundedNumberValue(options.topP);
+      const importedUnlimited = booleanValue(options.unlimited);
       const importedOptions = {
         aspectRatio: normalized.aspectRatio,
         imageSize: normalized.imageSize,
@@ -307,15 +313,23 @@ export function App() {
         thinkingLevel: normalized.thinkingLevel,
         ...(importedTemperature === null ? {} : { temperature: importedTemperature }),
         ...(importedTopP === null ? {} : { topP: importedTopP }),
+        ...(importedUnlimited === null ? {} : { unlimited: importedUnlimited }),
       };
 
       applyImportedOptions(provider, importedOptions);
-      setSettings({
+      const nextSettings: AppSettings = {
         ...settings,
         defaultProvider: provider,
         defaultModel: normalized.model,
-        openaiApiPlatform: nextPlatform,
-      });
+      };
+      if (provider === "nano-banana") {
+        nextSettings.nanoBananaApiPlatform = nextPlatform as NanoBananaApiPlatform;
+      } else if (provider === "gpt-image") {
+        nextSettings.openaiApiPlatform = nextPlatform as AppSettings["openaiApiPlatform"];
+      } else if (provider === "grok-imagine") {
+        nextSettings.grokApiPlatform = nextPlatform as GrokImagineApiPlatform;
+      }
+      setSettings(nextSettings);
       return true;
     },
     [applyImportedOptions, setSettings, settings],
@@ -700,7 +714,7 @@ export function App() {
         {!settings.promptEditorOnly || showSettings ? (
           <>
             <div className="status-info">
-              <span>{getProviderConfig(settings.defaultProvider).providerName}</span>
+              <span>{providerPlatformDisplayName(settings)}</span>
               <span>/</span>
               <span>{getProviderModelDisplayName(settings.defaultProvider, settings.defaultModel)}</span>
             </div>
@@ -815,15 +829,44 @@ function fileStemFromPath(path: string) {
   return fileNameFromPath(path).replace(/\.[^.]+$/, "") || "Imported image";
 }
 
-function gptImagePlatformForModel(
+function platformForMetadata(
   provider: ImageProviderId,
   model: string,
-  fallback: GptImageApiPlatform,
-): GptImageApiPlatform {
-  if (provider !== "gpt-image") {
-    return fallback;
+  metadataPlatform: string | null,
+  settings: AppSettings,
+): ImageProviderApiPlatform {
+  if (provider === "nano-banana") {
+    if (metadataPlatform === "higgsfield" || model.startsWith("nano_")) {
+      return "higgsfield";
+    }
+    return settings.nanoBananaApiPlatform;
   }
-  return model.startsWith("openai/") ? "openrouter" : "openai";
+  if (provider === "gpt-image") {
+    if (metadataPlatform === "higgsfield" || model === "gpt_image_2") {
+      return "higgsfield";
+    }
+    return model.startsWith("openai/") ? "openrouter" : "openai";
+  }
+  if (provider === "grok-imagine") {
+    if (metadataPlatform === "higgsfield" || model === "grok_image") {
+      return "higgsfield";
+    }
+    return settings.grokApiPlatform;
+  }
+  return "openai";
+}
+
+function providerPlatformDisplayName(settings: AppSettings) {
+  if (settings.defaultProvider === "nano-banana") {
+    return settings.nanoBananaApiPlatform === "higgsfield" ? "Higgsfield" : "Gemini";
+  }
+  if (settings.defaultProvider === "gpt-image") {
+    if (settings.openaiApiPlatform === "higgsfield") {
+      return "Higgsfield";
+    }
+    return settings.openaiApiPlatform === "openrouter" ? "OpenRouter" : "OpenAI";
+  }
+  return settings.grokApiPlatform === "higgsfield" ? "Higgsfield" : "xAI";
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -836,4 +879,8 @@ function stringValue(value: unknown) {
 
 function roundedNumberValue(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
+}
+
+function booleanValue(value: unknown) {
+  return typeof value === "boolean" ? value : null;
 }

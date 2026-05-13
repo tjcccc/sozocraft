@@ -43,14 +43,20 @@ pub struct AppSettings {
     pub prompt_editor_only: bool,
     #[serde(default = "default_prompt_preview_placement")]
     pub prompt_preview_placement: String,
+    #[serde(default = "default_nano_banana_api_platform")]
+    pub nano_banana_api_platform: String,
     #[serde(default = "default_proxy_enabled")]
     pub gemini_proxy_enabled: bool,
     #[serde(default = "default_openai_api_platform")]
     pub openai_api_platform: String,
     #[serde(default = "default_proxy_enabled")]
     pub openai_proxy_enabled: bool,
+    #[serde(default = "default_grok_api_platform")]
+    pub grok_api_platform: String,
     #[serde(default = "default_proxy_enabled")]
     pub xai_proxy_enabled: bool,
+    #[serde(default)]
+    pub higgsfield_cli_path: Option<String>,
     #[serde(default)]
     pub optional_base_url: Option<String>,
     #[serde(default)]
@@ -116,8 +122,16 @@ fn default_proxy_enabled() -> bool {
     true
 }
 
+fn default_nano_banana_api_platform() -> String {
+    "gemini".to_string()
+}
+
 fn default_openai_api_platform() -> String {
     "openai".to_string()
+}
+
+fn default_grok_api_platform() -> String {
+    "xai".to_string()
 }
 
 impl Default for AppSettings {
@@ -132,10 +146,13 @@ impl Default for AppSettings {
             prompt_dsl_enabled: true,
             prompt_editor_only: false,
             prompt_preview_placement: default_prompt_preview_placement(),
+            nano_banana_api_platform: default_nano_banana_api_platform(),
             gemini_proxy_enabled: true,
             openai_api_platform: default_openai_api_platform(),
             openai_proxy_enabled: true,
+            grok_api_platform: default_grok_api_platform(),
             xai_proxy_enabled: true,
+            higgsfield_cli_path: None,
             optional_base_url: None,
             openai_base_url: None,
             openrouter_base_url: None,
@@ -229,29 +246,40 @@ pub struct ReferenceImageInput {
     pub data: String,
 }
 
-pub const SUPPORTED_MODELS: [&str; 3] = [
-    "gemini-3-pro-image-preview",
-    "gemini-3.1-flash-image-preview",
-    "gemini-2.5-flash-image",
+pub const HIGGSFIELD_NANO_BANANA_MODELS: [&str; 3] =
+    ["nano_banana_2", "nano_banana_flash", "nano_banana"];
+
+pub const OPENAI_IMAGE_MODELS: [&str; 3] = ["gpt-image-2", "openai/gpt-5.4-image-2", "gpt_image_2"];
+
+pub const XAI_IMAGE_MODELS: [&str; 3] = [
+    "grok-imagine-image-quality",
+    "grok-imagine-image",
+    "grok_image",
 ];
-
-pub const OPENAI_IMAGE_MODELS: [&str; 2] = ["gpt-image-2", "openai/gpt-5.4-image-2"];
-
-pub const XAI_IMAGE_MODELS: [&str; 2] = ["grok-imagine-image-quality", "grok-imagine-image"];
 
 fn supported_models(provider: &str) -> &'static [&'static str] {
     match provider {
-        "nano-banana" => &SUPPORTED_MODELS,
+        "nano-banana" => &NANO_BANANA_MODELS,
         "gpt-image" => &OPENAI_IMAGE_MODELS,
         "grok-imagine" => &XAI_IMAGE_MODELS,
         _ => &[],
     }
 }
 
+pub const NANO_BANANA_MODELS: [&str; 6] = [
+    "gemini-3-pro-image-preview",
+    "gemini-3.1-flash-image-preview",
+    "gemini-2.5-flash-image",
+    "nano_banana_2",
+    "nano_banana_flash",
+    "nano_banana",
+];
+
 fn max_reference_images_for_provider(provider: &str, model: &str) -> usize {
     match provider {
         "gpt-image" => 16,
         "grok-imagine" => 5,
+        "nano-banana" if HIGGSFIELD_NANO_BANANA_MODELS.contains(&model) => 8,
         _ => max_reference_images(model),
     }
 }
@@ -265,6 +293,7 @@ pub struct GenerationOptions {
     pub top_p: Option<f32>,
     pub thinking_level: Option<String>,
     pub quality: Option<String>,
+    pub unlimited: Option<bool>,
 }
 
 impl Default for GenerationOptions {
@@ -276,6 +305,7 @@ impl Default for GenerationOptions {
             top_p: Some(0.95),
             thinking_level: Some("MINIMAL".to_string()),
             quality: None,
+            unlimited: Some(false),
         }
     }
 }

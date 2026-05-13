@@ -1,6 +1,8 @@
 export type GenerationStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 export type PromptPreviewPlacement = "bottom" | "right" | "hidden";
-export type OpenAiApiPlatform = "openai" | "openrouter";
+export type NanoBananaApiPlatform = "gemini" | "higgsfield";
+export type OpenAiApiPlatform = "openai" | "openrouter" | "higgsfield";
+export type GrokImagineApiPlatform = "xai" | "higgsfield";
 
 export type ConfigStatus = {
   configPath: string;
@@ -9,6 +11,15 @@ export type ConfigStatus = {
   hasOpenrouterApiKey: boolean;
   hasXaiApiKey: boolean;
   hasProxy: boolean;
+};
+
+export type HiggsfieldStatus = {
+  cliPath: string;
+  installed: boolean;
+  authenticated: boolean;
+  version?: string | null;
+  account?: string | null;
+  error?: string | null;
 };
 
 export type AppSettings = {
@@ -20,10 +31,13 @@ export type AppSettings = {
   promptDslEnabled: boolean;
   promptEditorOnly: boolean;
   promptPreviewPlacement: PromptPreviewPlacement;
+  nanoBananaApiPlatform: NanoBananaApiPlatform;
   geminiProxyEnabled: boolean;
   openaiApiPlatform: OpenAiApiPlatform;
   openaiProxyEnabled: boolean;
+  grokApiPlatform: GrokImagineApiPlatform;
   xaiProxyEnabled: boolean;
+  higgsfieldCliPath?: string | null;
   optionalBaseUrl?: string | null;
   openaiBaseUrl?: string | null;
   openrouterBaseUrl?: string | null;
@@ -49,6 +63,7 @@ export type GenerationOptions = {
   topP?: number | null;
   thinkingLevel?: string | null;
   quality?: string | null;
+  unlimited?: boolean | null;
 };
 
 export type ImageTextMetadata = Record<string, string>;

@@ -3,17 +3,18 @@ import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { AppSettings, ReferenceImageInput } from "../types";
 import type { LightboxImage } from "./ImageLightbox";
-import { getGeminiImageModelConfig } from "../models/geminiImageModels";
 import {
   GPT_IMAGE_PLATFORM_MODELS,
   IMAGE_PROVIDER_IDS,
   getImageSizeDisplayName,
+  getProviderControlConfig,
   getProviderConfig,
   getProviderModels,
   normalizeProviderOptions,
 } from "../models/imageProviders";
+import type { ImageProviderApiPlatform, ImageProviderId } from "../models/imageProviders";
 import { fileToReferenceImage } from "../utils/referenceImages";
-import { Field, PanelHeader } from "./common";
+import { Field, PanelHeader, ToggleSwitch } from "./common";
 import grokIconUrl from "../assets/grok.svg";
 import nanoBananaIconUrl from "../assets/nanobanana-color.svg";
 import openaiIconUrl from "../assets/openai.svg";
@@ -41,28 +42,31 @@ export function GenerationPanel(props: {
   setQuality: (value: string) => void;
   thinkingLevel: string;
   setThinkingLevel: (value: string) => void;
+  unlimited: boolean;
+  setUnlimited: (value: boolean) => void;
   referenceImages: ReferenceImageInput[];
   setReferenceImages: Dispatch<SetStateAction<ReferenceImageInput[]>>;
   fileDropActive?: boolean;
   onPreviewImages: (images: LightboxImage[], index: number) => void;
 }) {
-  const providerConfig = getProviderConfig(props.settings.defaultProvider);
-  const modelConfig =
-    props.settings.defaultProvider === "nano-banana"
-      ? getGeminiImageModelConfig(props.settings.defaultModel)
-      : null;
-  const aspectRatios = modelConfig?.aspectRatios ?? providerConfig.aspectRatios;
-  const imageSizes = modelConfig?.imageSizes ?? providerConfig.imageSizes;
-  const thinkingLevels = modelConfig?.thinkingLevels ?? providerConfig.thinkingLevels;
+  const activePlatform = settingsPlatformForProvider(props.settings, props.settings.defaultProvider);
+  const controlConfig = getProviderControlConfig(
+    props.settings.defaultProvider,
+    props.settings.defaultModel,
+    activePlatform,
+  );
+  const aspectRatios = controlConfig.aspectRatios;
+  const imageSizes = controlConfig.imageSizes;
+  const thinkingLevels = controlConfig.thinkingLevels;
   const providerModels = getProviderModels(
     props.settings.defaultProvider,
-    props.settings.openaiApiPlatform,
+    activePlatform,
   );
-  const providerModelConfig = providerModels.find((model) => model.id === props.settings.defaultModel);
-  const maxReferenceImages =
-    modelConfig?.maxReferenceImages ??
-    providerModelConfig?.maxReferenceImages ??
-    providerConfig.maxReferenceImages;
+  const maxReferenceImages = controlConfig.maxReferenceImages;
+  const supportsUnlimited =
+    activePlatform === "higgsfield" &&
+    props.settings.defaultModel === "nano_banana_2" &&
+    props.imageSize.toLowerCase() !== "4k";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [modelByProvider, setModelByProvider] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -112,16 +116,17 @@ export function GenerationPanel(props: {
               className={props.settings.defaultProvider === provider ? "active" : ""}
               key={provider}
               onClick={() => {
+                const platform = settingsPlatformForProvider(props.settings, provider);
                 const fallbackModel =
                   provider === "gpt-image"
                     ? GPT_IMAGE_PLATFORM_MODELS[props.settings.openaiApiPlatform]
-                    : config.defaults.model;
+                    : getProviderModels(provider, platform)[0]?.id ?? config.defaults.model;
                 const next = normalizeProviderOptions(provider, modelByProvider[provider] ?? fallbackModel, {
                   aspectRatio: props.aspectRatio,
                   imageSize: props.imageSize,
                   quality: props.quality,
                   thinkingLevel: props.thinkingLevel,
-                });
+                }, platform);
                 props.setSettings({
                   ...props.settings,
                   defaultProvider: provider,
@@ -148,7 +153,7 @@ export function GenerationPanel(props: {
                 imageSize: props.imageSize,
                 quality: props.quality,
                 thinkingLevel: props.thinkingLevel,
-              });
+              }, activePlatform);
               setModelByProvider((current) => ({
                 ...current,
                 [props.settings.defaultProvider]: next.model,
@@ -190,7 +195,7 @@ export function GenerationPanel(props: {
             </select>
           </Field>
         ) : null}
-        {props.settings.defaultProvider === "nano-banana" ? (
+        {props.settings.defaultProvider === "nano-banana" && activePlatform !== "higgsfield" ? (
           <>
             <Field label="Temperature">
               <input
@@ -214,12 +219,12 @@ export function GenerationPanel(props: {
             </Field>
           </>
         ) : null}
-        {providerConfig.qualityLevels ? (
-          <Field label="Quality">
+        {controlConfig.qualityLevels ? (
+          <Field label={controlConfig.qualityLabel}>
             <select value={props.quality} onChange={(event) => props.setQuality(event.target.value)}>
-              {providerConfig.qualityLevels.map((level) => (
+              {controlConfig.qualityLevels.map((level) => (
                 <option key={level} value={level}>
-                  {level}
+                  {qualityLevelDisplayName(level)}
                 </option>
               ))}
             </select>
@@ -248,6 +253,15 @@ export function GenerationPanel(props: {
             onChange={(event) => props.setBatchCount(Number(event.target.value))}
           />
         </Field>
+        {supportsUnlimited ? (
+          <div className="generation-toggle-row">
+            <ToggleSwitch
+              checked={props.unlimited}
+              label="Unlimited"
+              onChange={props.setUnlimited}
+            />
+          </div>
+        ) : null}
       </div>
       {maxReferenceImages > 0 ? (
         <div className="reference-field">
@@ -334,4 +348,27 @@ export function GenerationPanel(props: {
       ) : null}
     </section>
   );
+}
+
+function qualityLevelDisplayName(level: string) {
+  if (level === "std") {
+    return "Standard";
+  }
+  if (level === "pro") {
+    return "Quality";
+  }
+  return level;
+}
+
+function settingsPlatformForProvider(
+  settings: AppSettings,
+  provider: ImageProviderId,
+): ImageProviderApiPlatform {
+  if (provider === "nano-banana") {
+    return settings.nanoBananaApiPlatform;
+  }
+  if (provider === "grok-imagine") {
+    return settings.grokApiPlatform;
+  }
+  return settings.openaiApiPlatform;
 }

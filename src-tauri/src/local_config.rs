@@ -18,6 +18,8 @@ struct LocalConfig {
     #[serde(default)]
     xai: XaiConfig,
     #[serde(default)]
+    higgsfield: HiggsfieldConfig,
+    #[serde(default)]
     output: OutputConfig,
     #[serde(default)]
     prompts: PromptsConfig,
@@ -33,6 +35,8 @@ struct AppConfig {
 struct GeminiConfig {
     #[serde(default)]
     api_key: String,
+    #[serde(default)]
+    api_platform: Option<String>,
     #[serde(default)]
     default_model: Option<String>,
     #[serde(default)]
@@ -74,6 +78,8 @@ struct XaiConfig {
     #[serde(default)]
     api_key: String,
     #[serde(default)]
+    api_platform: Option<String>,
+    #[serde(default)]
     default_model: Option<String>,
     #[serde(default)]
     base_url: Option<String>,
@@ -81,6 +87,12 @@ struct XaiConfig {
     timeout_seconds: Option<u64>,
     #[serde(default)]
     proxy_enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct HiggsfieldConfig {
+    #[serde(default)]
+    cli_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -113,9 +125,17 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
         .default_provider
         .filter(|value| !value.trim().is_empty())
         .unwrap_or(defaults.default_provider);
+    let nano_banana_api_platform = normalize_nano_banana_api_platform(
+        config.gemini.api_platform.clone(),
+        defaults.nano_banana_api_platform.clone(),
+    );
     let openai_api_platform = normalize_openai_api_platform(
         config.openai.api_platform.clone(),
         defaults.openai_api_platform.clone(),
+    );
+    let grok_api_platform = normalize_grok_api_platform(
+        config.xai.api_platform.clone(),
+        defaults.grok_api_platform.clone(),
     );
     let default_model = match default_provider.as_str() {
         "gpt-image" => config
@@ -128,12 +148,14 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .xai
             .default_model
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or(defaults.default_model),
+            .map(|value| normalize_grok_model(&grok_api_platform, value))
+            .unwrap_or_else(|| default_grok_model(&grok_api_platform)),
         _ => config
             .gemini
             .default_model
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or(defaults.default_model),
+            .map(|value| normalize_nano_banana_model(&nano_banana_api_platform, value))
+            .unwrap_or_else(|| default_nano_banana_model(&nano_banana_api_platform)),
     };
 
     AppSettings {
@@ -166,6 +188,7 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             config.prompts.preview_placement,
             defaults.prompt_preview_placement,
         ),
+        nano_banana_api_platform,
         gemini_proxy_enabled: config
             .gemini
             .proxy_enabled
@@ -175,10 +198,16 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .openai
             .proxy_enabled
             .unwrap_or(defaults.openai_proxy_enabled),
+        grok_api_platform,
         xai_proxy_enabled: config
             .xai
             .proxy_enabled
             .unwrap_or(defaults.xai_proxy_enabled),
+        higgsfield_cli_path: config
+            .higgsfield
+            .cli_path
+            .filter(|value| !value.trim().is_empty())
+            .or(defaults.higgsfield_cli_path),
         optional_base_url: config
             .gemini
             .base_url
@@ -231,6 +260,10 @@ pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
         "grok-imagine" => config.xai.default_model = Some(settings.default_model.clone()),
         _ => config.gemini.default_model = Some(settings.default_model.clone()),
     }
+    config.gemini.api_platform = Some(normalize_nano_banana_api_platform(
+        Some(settings.nano_banana_api_platform.clone()),
+        "gemini".to_string(),
+    ));
     config.gemini.base_url = normalize_optional(settings.optional_base_url.clone());
     config.openai.api_platform = Some(normalize_openai_api_platform(
         Some(settings.openai_api_platform.clone()),
@@ -238,7 +271,12 @@ pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
     ));
     config.openai.base_url = normalize_optional(settings.openai_base_url.clone());
     config.openrouter.base_url = normalize_optional(settings.openrouter_base_url.clone());
+    config.xai.api_platform = Some(normalize_grok_api_platform(
+        Some(settings.grok_api_platform.clone()),
+        "xai".to_string(),
+    ));
     config.xai.base_url = normalize_optional(settings.xai_base_url.clone());
+    config.higgsfield.cli_path = normalize_optional(settings.higgsfield_cli_path.clone());
     config.gemini.proxy_url = normalize_optional(settings.proxy_url.clone());
     config.gemini.proxy_enabled = Some(settings.gemini_proxy_enabled);
     config.openai.proxy_enabled = Some(settings.openai_proxy_enabled);
@@ -412,23 +450,77 @@ fn normalize_preview_placement(value: Option<String>, fallback: String) -> Strin
 
 fn normalize_openai_api_platform(value: Option<String>, fallback: String) -> String {
     match value.as_deref().map(str::trim) {
+        Some("higgsfield") => "higgsfield".to_string(),
         Some("openrouter") => "openrouter".to_string(),
         Some("openai") => "openai".to_string(),
         _ => fallback,
     }
 }
 
+fn normalize_nano_banana_api_platform(value: Option<String>, fallback: String) -> String {
+    match value.as_deref().map(str::trim) {
+        Some("higgsfield") => "higgsfield".to_string(),
+        Some("gemini") => "gemini".to_string(),
+        _ => fallback,
+    }
+}
+
+fn normalize_grok_api_platform(value: Option<String>, fallback: String) -> String {
+    match value.as_deref().map(str::trim) {
+        Some("higgsfield") => "higgsfield".to_string(),
+        Some("xai") => "xai".to_string(),
+        _ => fallback,
+    }
+}
+
+fn default_nano_banana_model(platform: &str) -> String {
+    match platform {
+        "higgsfield" => "nano_banana_2".to_string(),
+        _ => "gemini-3-pro-image-preview".to_string(),
+    }
+}
+
 fn default_gpt_image_model(platform: &str) -> String {
     match platform {
+        "higgsfield" => "gpt_image_2".to_string(),
         "openrouter" => "openai/gpt-5.4-image-2".to_string(),
         _ => "gpt-image-2".to_string(),
     }
 }
 
+fn default_grok_model(platform: &str) -> String {
+    match platform {
+        "higgsfield" => "grok_image".to_string(),
+        _ => "grok-imagine-image-quality".to_string(),
+    }
+}
+
+fn normalize_nano_banana_model(platform: &str, model: String) -> String {
+    match (platform, model.as_str()) {
+        ("higgsfield", "nano_banana_2" | "nano_banana_flash" | "nano_banana") => model,
+        (
+            "gemini",
+            "gemini-3-pro-image-preview"
+            | "gemini-3.1-flash-image-preview"
+            | "gemini-2.5-flash-image",
+        ) => model,
+        _ => default_nano_banana_model(platform),
+    }
+}
+
 fn normalize_gpt_image_model(platform: &str, model: String) -> String {
     match (platform, model.as_str()) {
+        ("higgsfield", "gpt_image_2") => model,
         ("openrouter", "openai/gpt-5.4-image-2") => model,
         ("openai", "gpt-image-2") => model,
         _ => default_gpt_image_model(platform),
+    }
+}
+
+fn normalize_grok_model(platform: &str, model: String) -> String {
+    match (platform, model.as_str()) {
+        ("higgsfield", "grok_image") => model,
+        ("xai", "grok-imagine-image-quality" | "grok-imagine-image") => model,
+        _ => default_grok_model(platform),
     }
 }
