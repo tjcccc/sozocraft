@@ -1,5 +1,6 @@
 mod app_state;
 mod error_log;
+mod file_access;
 mod filename_template;
 mod gemini;
 mod gemini_models;
@@ -13,7 +14,6 @@ mod reference_image_cache;
 mod xai_image;
 
 use app_state::{load_state, save_state};
-use base64::{engine::general_purpose, Engine as _};
 use chrono::{Local, Utc};
 use error_log::GenerationErrorLog;
 use filename_template::resolve_output_path;
@@ -242,35 +242,17 @@ fn has_xai_api_key() -> bool {
 
 #[tauri::command]
 fn read_image_data_url(path: String) -> Result<String, String> {
-    let bytes = fs::read(&path).map_err(|err| format!("Failed to read image: {err}"))?;
-    let mime = match PathBuf::from(&path)
-        .extension()
-        .and_then(|value| value.to_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "jpg" | "jpeg" => "image/jpeg",
-        "webp" => "image/webp",
-        _ => "image/png",
-    };
-    Ok(format!(
-        "data:{mime};base64,{}",
-        general_purpose::STANDARD.encode(bytes)
-    ))
+    file_access::read_image_data_url(&path)
 }
 
 #[tauri::command]
 fn read_text_file(path: String) -> Result<String, String> {
-    fs::read_to_string(&path).map_err(|err| format!("Failed to read text file: {err}"))
+    file_access::read_text_file(&path)
 }
 
 #[tauri::command]
 fn read_image_text_metadata(path: String) -> Result<HashMap<String, String>, String> {
-    let bytes = fs::read(&path).map_err(|err| format!("Failed to read image metadata: {err}"))?;
-    Ok(image_meta::read_png_text_chunks(&bytes)
-        .into_iter()
-        .collect())
+    file_access::read_image_text_metadata(&path)
 }
 
 #[tauri::command]

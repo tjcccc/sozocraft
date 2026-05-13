@@ -21,6 +21,15 @@
 - Add output gallery filtering by provider/model/status/date.
 - Add safe cleanup controls for failed batches and missing local files.
 
+## Architecture Roadmap
+
+- Continue architecture work opportunistically before or during major feature work, not as a broad standalone rewrite.
+- Before video generation, split shared generation orchestration out of `App.tsx` so image and video flows can share queue/history/settings behavior without adding more top-level state.
+- Split `prompt_library.rs` by responsibility: storage/indexing, source parsing/rendering, include resolution, metadata/frontmatter migration, and filesystem safety.
+- Split `higgsfield.rs` into focused units for CLI status/auth, model option mapping, job/result parsing, downloading, and temporary reference-image handling.
+- Keep provider integrations behind narrow adapter contracts with focused tests for request mapping, option validation, result parsing, proxy behavior, and failure diagnostics.
+- Add regression tests when extracting a boundary first; refactor only the code needed for the feature or risk being handled.
+
 ## Provider Roadmap
 
 - Keep Nano Banana / Gemini as the only implemented provider until the MVP flow is stable.

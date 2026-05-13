@@ -69,6 +69,7 @@ export function SettingsPanel({
   const didMountRef = useRef(false);
   const [higgsfieldStatus, setHiggsfieldStatus] = useState<HiggsfieldStatus | null>(null);
   const [checkingHiggsfield, setCheckingHiggsfield] = useState(false);
+  const higgsfieldPlan = planNameFromAccount(higgsfieldStatus?.account);
 
   useEffect(() => {
     if (!didMountRef.current) {
@@ -101,27 +102,27 @@ export function SettingsPanel({
       <div className="settings-content">
         {configStatus ? (
           <div className="config-status">
-            <div className="config-status-row">
+            <div className="config-status-row field-full">
               <span className="config-status-label">Config file</span>
               <code className="config-status-value">
                 {configStatus.configPath}
               </code>
             </div>
-            <ConfigBadge label="Gemini API key" ok={configStatus.hasApiKey} />
-            <ConfigBadge
-              label="OpenAI API key"
-              ok={configStatus.hasOpenaiApiKey}
-            />
-            <ConfigBadge
-              label="OpenRouter API key"
-              ok={configStatus.hasOpenrouterApiKey}
-            />
-            <ConfigBadge label="xAI API key" ok={configStatus.hasXaiApiKey} />
             <ConfigBadge
               label="Proxy"
               ok={configStatus.hasProxy}
               okText="Configured"
               missingText="Not set"
+            />
+            <ConfigBadge label="Gemini API key" ok={configStatus.hasApiKey} />
+            <ConfigBadge
+              label="OpenAI API key"
+              ok={configStatus.hasOpenaiApiKey}
+            />
+            <ConfigBadge label="xAI API key" ok={configStatus.hasXaiApiKey} />
+            <ConfigBadge
+              label="OpenRouter API key"
+              ok={configStatus.hasOpenrouterApiKey}
             />
           </div>
         ) : null}
@@ -217,61 +218,6 @@ export function SettingsPanel({
 
         <div className="settings-section" id="settings-providers">
           <h2>Providers</h2>
-          <fieldset className="provider-settings">
-            <legend>Higgsfield CLI</legend>
-            <Field label="CLI Path">
-              <div className="template-row">
-                <input
-                  placeholder="higgsfield"
-                  value={settings.higgsfieldCliPath ?? ""}
-                  onChange={(event) =>
-                    setSettings({
-                      ...settings,
-                      higgsfieldCliPath: event.target.value || null,
-                    })
-                  }
-                />
-                <button
-                  className="secondary-button"
-                  disabled={checkingHiggsfield}
-                  onClick={() => void verifyHiggsfield()}
-                  type="button"
-                >
-                  <RefreshCw className={checkingHiggsfield ? "spin" : undefined} size={15} />
-                  Check
-                </button>
-              </div>
-            </Field>
-            {higgsfieldStatus ? (
-              <div className="provider-status-grid">
-                <ConfigBadge label="CLI" ok={higgsfieldStatus.installed} />
-                <ConfigBadge
-                  label="Auth"
-                  ok={higgsfieldStatus.authenticated}
-                  okText="Logged in"
-                  missingText="Login needed"
-                />
-                {higgsfieldStatus.version ? (
-                  <div className="config-status-row">
-                    <span className="config-status-label">Version</span>
-                    <code className="config-status-value">{higgsfieldStatus.version}</code>
-                  </div>
-                ) : null}
-                {higgsfieldStatus.account ? (
-                  <div className="config-status-row">
-                    <span className="config-status-label">Account</span>
-                    <span className="config-status-value">{higgsfieldStatus.account}</span>
-                  </div>
-                ) : null}
-                {higgsfieldStatus.error ? (
-                  <div className="config-status-row field-full">
-                    <span className="config-status-label">Message</span>
-                    <span className="config-status-value">{higgsfieldStatus.error}</span>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </fieldset>
           <ProviderSettings
             apiKey={apiKey}
             apiKeySaved={apiKeySaved}
@@ -448,6 +394,61 @@ export function SettingsPanel({
             }
             timeoutSeconds={settings.xaiTimeoutSeconds}
           />
+          <fieldset className="provider-settings">
+            <legend>Higgsfield CLI</legend>
+            <Field label="CLI Path">
+              <div className="template-row">
+                <input
+                  placeholder="higgsfield"
+                  value={settings.higgsfieldCliPath ?? ""}
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      higgsfieldCliPath: event.target.value || null,
+                    })
+                  }
+                />
+                <button
+                  className="secondary-button"
+                  disabled={checkingHiggsfield}
+                  onClick={() => void verifyHiggsfield()}
+                  type="button"
+                >
+                  <RefreshCw className={checkingHiggsfield ? "spin" : undefined} size={15} />
+                  Check
+                </button>
+              </div>
+            </Field>
+            {higgsfieldStatus ? (
+              <div className="provider-status-grid">
+                <ConfigBadge label="CLI" ok={higgsfieldStatus.installed} />
+                <ConfigBadge
+                  label="Auth"
+                  ok={higgsfieldStatus.authenticated}
+                  okText="Logged in"
+                  missingText="Login needed"
+                />
+                <ConfigBadge
+                  label="Plan"
+                  ok={Boolean(higgsfieldPlan)}
+                  okText={higgsfieldPlan ?? "Unknown"}
+                  missingText="Unknown"
+                />
+                {higgsfieldStatus.version ? (
+                  <div className="config-status-row field-full">
+                    <span className="config-status-label">Version</span>
+                    <code className="config-status-value">{higgsfieldStatus.version}</code>
+                  </div>
+                ) : null}
+                {higgsfieldStatus.error ? (
+                  <div className="config-status-row field-full">
+                    <span className="config-status-label">Message</span>
+                    <span className="config-status-value">{higgsfieldStatus.error}</span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </fieldset>
         </div>
       </div>
     </section>
@@ -537,7 +538,7 @@ function ProviderSettings({
           </div>
         </Field>
       ) : null}
-      <div className="provider-settings-grid">
+      <div className={`provider-settings-grid${usesHiggsfield ? " higgsfield-grid" : ""}`}>
         {!usesHiggsfield ? (
           <Field label="Base URL">
             <input
@@ -606,4 +607,16 @@ function ConfigBadge({
       </span>
     </div>
   );
+}
+
+function planNameFromAccount(account?: string | null) {
+  const normalized = account?.trim().replace(/\s+/g, " ");
+  if (!normalized) {
+    return null;
+  }
+  return normalized
+    .replace(/\s+plan$/i, "")
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
 }

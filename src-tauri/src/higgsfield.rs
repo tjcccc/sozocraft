@@ -35,6 +35,29 @@ struct CliOutput {
     stderr: String,
 }
 
+#[derive(Debug, Default)]
+struct TempReferenceFiles {
+    directory: Option<PathBuf>,
+    paths: Vec<PathBuf>,
+}
+
+impl TempReferenceFiles {
+    fn paths(&self) -> &[PathBuf] {
+        &self.paths
+    }
+}
+
+impl Drop for TempReferenceFiles {
+    fn drop(&mut self) {
+        for path in &self.paths {
+            let _ = fs::remove_file(path);
+        }
+        if let Some(directory) = &self.directory {
+            let _ = fs::remove_dir(directory);
+        }
+    }
+}
+
 const HIGGSFIELD_NANO_ASPECT_RATIOS: &[&str] = &[
     "auto", "1:1", "3:2", "2:3", "4:3", "3:4", "4:5", "5:4", "9:16", "16:9", "21:9",
 ];
@@ -128,7 +151,7 @@ pub async fn generate_image(
     let unlimited_requested = request.options.unlimited.unwrap_or(false);
 
     let reference_files = materialize_reference_images(request)?;
-    let args = build_generate_args(request, &reference_files, timeout_seconds, false);
+    let args = build_generate_args(request, reference_files.paths(), timeout_seconds, false);
     let result = run_generate_create_with_retries(
         &cli_path,
         &args,
@@ -136,7 +159,6 @@ pub async fn generate_image(
         proxy_url.as_deref(),
     )
     .await;
-    cleanup_reference_files(&reference_files);
 
     let output = result?;
     let parsed_metadata = parse_json_output(&output.stdout);
@@ -386,6 +408,7 @@ async fn run_cli(
     timeout: Duration,
     proxy_url: Option<&str>,
 ) -> Result<CliOutput, String> {
+    validate_cli_path(cli_path)?;
     let mut command = Command::new(cli_path);
     command
         .args(args)
@@ -431,12 +454,12 @@ fn clean_cli_error(stdout: &str, stderr: &str) -> String {
     format!("Higgsfield CLI error: {message}")
 }
 
-fn materialize_reference_images(request: &GenerationRequest) -> Result<Vec<PathBuf>, String> {
+fn materialize_reference_images(request: &GenerationRequest) -> Result<TempReferenceFiles, String> {
     let Some(reference_images) = &request.reference_images else {
-        return Ok(Vec::new());
+        return Ok(TempReferenceFiles::default());
     };
     if reference_images.is_empty() {
-        return Ok(Vec::new());
+        return Ok(TempReferenceFiles::default());
     }
 
     let directory = local_config::config_dir()
@@ -446,29 +469,25 @@ fn materialize_reference_images(request: &GenerationRequest) -> Result<Vec<PathB
     fs::create_dir_all(&directory)
         .map_err(|err| format!("Failed to create Higgsfield input cache: {err}"))?;
 
-    reference_images
-        .iter()
-        .enumerate()
-        .map(|(index, image)| {
-            let extension = extension_for_mime(&image.mime_type);
-            let path = directory.join(format!("{:03}.{extension}", index + 1));
-            let bytes = general_purpose::STANDARD
-                .decode(image.data.trim())
-                .map_err(|err| format!("Failed to decode reference image {}: {err}", image.name))?;
-            fs::write(&path, bytes)
-                .map_err(|err| format!("Failed to write Higgsfield reference image: {err}"))?;
-            Ok(path)
-        })
-        .collect()
-}
-
-fn cleanup_reference_files(paths: &[PathBuf]) {
-    for path in paths {
-        let _ = fs::remove_file(path);
+    let mut temp_files = TempReferenceFiles {
+        directory: Some(directory),
+        paths: Vec::new(),
+    };
+    for (index, image) in reference_images.iter().enumerate() {
+        let extension = extension_for_mime(&image.mime_type);
+        let directory = temp_files
+            .directory
+            .as_ref()
+            .ok_or_else(|| "Higgsfield input cache is unavailable.".to_string())?;
+        let path = directory.join(format!("{:03}.{extension}", index + 1));
+        let bytes = general_purpose::STANDARD
+            .decode(image.data.trim())
+            .map_err(|err| format!("Failed to decode reference image {}: {err}", image.name))?;
+        fs::write(&path, bytes)
+            .map_err(|err| format!("Failed to write Higgsfield reference image: {err}"))?;
+        temp_files.paths.push(path);
     }
-    if let Some(parent) = paths.first().and_then(|path| path.parent()) {
-        let _ = fs::remove_dir(parent);
-    }
+    Ok(temp_files)
 }
 
 fn extension_for_mime(mime_type: &str) -> &'static str {
@@ -752,6 +771,18 @@ fn normalized_cli_path(cli_path: Option<String>) -> String {
         .unwrap_or_else(|| "higgsfield".to_string())
 }
 
+fn validate_cli_path(cli_path: &str) -> Result<(), String> {
+    let file_name = PathBuf::from(cli_path)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or(cli_path)
+        .to_ascii_lowercase();
+    if file_name == "higgsfield" || file_name.starts_with("higgsfield.") {
+        return Ok(());
+    }
+    Err("Higgsfield CLI path must point to a `higgsfield` executable.".to_string())
+}
+
 fn first_non_empty_line(text: &str) -> Option<String> {
     text.lines()
         .map(str::trim)
@@ -792,7 +823,7 @@ mod tests {
     use super::{
         build_generate_args, collect_fallback_urls_from_text, collect_result_urls,
         is_retryable_cli_create_error, job_id_from_metadata, no_result_url_error,
-        validate_request_options,
+        validate_cli_path, validate_request_options,
     };
     use crate::models::{GenerationOptions, GenerationRequest};
     use serde_json::json;
@@ -859,6 +890,13 @@ mod tests {
         assert!(!is_retryable_cli_create_error(
             "Higgsfield CLI error: Error: invalid aspect ratio"
         ));
+    }
+
+    #[test]
+    fn cli_path_validation_rejects_unrelated_executables() {
+        assert!(validate_cli_path("higgsfield").is_ok());
+        assert!(validate_cli_path("/opt/homebrew/bin/higgsfield").is_ok());
+        assert!(validate_cli_path("/bin/sh").is_err());
     }
 
     #[test]

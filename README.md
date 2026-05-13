@@ -363,6 +363,7 @@ Provider and model values are sanitized for filesystem safety. For Gemini genera
 
 ```bash
 pnpm typecheck
+pnpm test:frontend
 pnpm build
 cd src-tauri && cargo test
 ```

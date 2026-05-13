@@ -80,7 +80,7 @@ export function useGeneration({
   setStatus,
   settings,
 }: {
-  getPrompt: () => string;
+  getPrompt: () => Promise<string> | string;
   getPromptSnapshot: () => string;
   setBatches: React.Dispatch<React.SetStateAction<GenerationBatch[]>>;
   setExpandedBatchId: (id: string | null) => void;
@@ -179,7 +179,7 @@ export function useGeneration({
     if (!settings) {
       return;
     }
-    const currentPrompt = getPrompt();
+    const currentPrompt = await getPrompt();
     const promptSnapshot = getPromptSnapshot();
     const taskId = crypto.randomUUID();
     const request: GenerationRequest = {

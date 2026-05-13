@@ -335,7 +335,8 @@ pub fn rename_prompt_tag(
             ],
         )
         .map_err(|err| err.to_string())?;
-        update_legacy_frontmatter_tags(Path::new(&item.path), &next_tags)?;
+        let item_path = ensure_existing_prompt_path(&root, Path::new(&item.path))?;
+        update_legacy_frontmatter_tags(&item_path, &next_tags)?;
     }
 
     list_prompts(prompt_directory, None)
@@ -554,7 +555,7 @@ fn path_for_id(conn: &Connection, root: &Path, id: &str) -> Result<PathBuf, Stri
         .optional()
         .map_err(|err| err.to_string())?
         .ok_or_else(|| "Prompt not found.".to_string())?;
-    Ok(PathBuf::from(path))
+    ensure_existing_prompt_path(root, Path::new(&path))
 }
 
 fn find_prompt_by_title(
@@ -783,7 +784,8 @@ fn resolve_prompt_includes(
             continue;
         }
         visited.insert(item.id.clone());
-        let included_source = fs::read_to_string(&item.path)
+        let include_path = ensure_existing_prompt_path(root, Path::new(&item.path))?;
+        let included_source = fs::read_to_string(&include_path)
             .map_err(|err| format!("Failed to read included prompt: {err}"))?;
         let rendered = render_source_body(prompt_body(&included_source));
         let resolved =
@@ -820,13 +822,15 @@ fn collect_markdown_files(root: &Path) -> io::Result<Vec<PathBuf>> {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.is_dir() {
+            let file_type = entry.file_type()?;
+            if file_type.is_dir() {
                 stack.push(path);
-            } else if path
-                .extension()
-                .and_then(|value| value.to_str())
-                .map(|value| value.eq_ignore_ascii_case("md"))
-                .unwrap_or(false)
+            } else if file_type.is_file()
+                && path
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    .map(|value| value.eq_ignore_ascii_case("md"))
+                    .unwrap_or(false)
             {
                 files.push(path);
             }
@@ -834,6 +838,19 @@ fn collect_markdown_files(root: &Path) -> io::Result<Vec<PathBuf>> {
     }
     files.sort();
     Ok(files)
+}
+
+fn ensure_existing_prompt_path(root: &Path, path: &Path) -> Result<PathBuf, String> {
+    let root = root
+        .canonicalize()
+        .map_err(|err| format!("Failed to inspect prompt root: {err}"))?;
+    let path = path
+        .canonicalize()
+        .map_err(|err| format!("Failed to inspect prompt file: {err}"))?;
+    if !path.starts_with(&root) {
+        return Err("Prompt file is outside the configured prompt directory.".to_string());
+    }
+    Ok(path)
 }
 
 fn split_frontmatter(source: &str) -> (Frontmatter, &str) {
@@ -1459,6 +1476,37 @@ prompt = {
             .unwrap();
 
         assert_eq!(last_indexed_at, "sentinel");
+
+        fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[test]
+    fn path_for_id_rejects_file_outside_prompt_root() {
+        let temp_root =
+            std::env::temp_dir().join(format!("sozocraft-prompt-path-check-{}", Uuid::new_v4()));
+        let root = temp_root.join("prompts");
+        let outside = temp_root.join("outside");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+
+        let id = Uuid::new_v4().to_string();
+        let outside_path = outside.join(format!("{id}.md"));
+        fs::write(&outside_path, "Outside prompt").unwrap();
+
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        insert_prompt_for_test(
+            &conn,
+            &root,
+            &id,
+            &outside_path,
+            "outside",
+            "[]",
+            "2026-01-01T00:00:00Z",
+        );
+
+        let err = path_for_id(&conn, &root, &id).unwrap_err();
+        assert!(err.contains("outside the configured prompt directory"));
 
         fs::remove_dir_all(temp_root).unwrap();
     }

@@ -2,6 +2,13 @@
 
 ## 2026-05-13
 
+- Added global/repo agent guidance for product-grade engineering standards and created a SozoCraft repo `AGENTS.md` with Tauri/React quality, security-boundary, validation, and documentation rules.
+- Tightened Tauri security posture with a concrete CSP, native file read validation by extension/size, prompt-library path containment checks, and safer Higgsfield CLI executable validation/temp-file cleanup.
+- Changed generation startup to render the current prompt source on demand so immediately clicking Run after an edit does not use stale debounced preview text.
+- Split the prompt editor and native file-access boundary into focused modules, added a frontend Vitest regression suite for editor search/replace, and documented the new validation command.
+- Polished narrow prompt editor/preview layouts and reorganized provider settings so config status, Higgsfield status, and Higgsfield timeout controls scan more cleanly.
+- Added a TODO architecture roadmap for incremental module splitting before video generation and future provider work.
+- Bumped app/package/crate version metadata to `0.20.0` for the product hardening and architecture cleanup checkpoint.
 - Bumped app/package/crate version metadata to `0.19.1` for the prompt editor search/replace checkpoint.
 - Added a compact prompt editor find/replace panel opened with `Cmd+F`/`Cmd+R` on macOS or `Ctrl+F`/`Ctrl+R` on Windows/Linux.
 - Disabled autocorrect, autocapitalize, and spellcheck for prompt search, replace, title, and prompt-list search inputs so typed prompt/file terms are preserved.
