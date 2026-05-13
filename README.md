@@ -5,7 +5,11 @@ SozoCraft is a macOS-first, cross-platform desktop AI visual generation studio a
 The name comes from Japanese `sōzō` / `souzou`, evoking both imagination
 (`想像`) and creation (`創造`).
 
-This repository currently targets the `0.1.0` MVP:
+SozoCraft is now beyond its early MVP stage. The project is in active pre-1.0
+product hardening, with the remaining work focused on reliability, packaging,
+workflow polish, and completing the video-generation track.
+
+The current app includes:
 
 - Tauri 2 desktop shell
 - React + TypeScript frontend
@@ -225,7 +229,7 @@ search fields disable autocorrect, autocapitalize, and spellcheck.
 
 ## Gemini Models
 
-The MVP enables these models:
+The Gemini provider enables these models:
 
 - `gemini-3-pro-image-preview`
 - `gemini-3.1-flash-image-preview`

@@ -70,6 +70,10 @@ export function SettingsPanel({
   const [higgsfieldStatus, setHiggsfieldStatus] = useState<HiggsfieldStatus | null>(null);
   const [checkingHiggsfield, setCheckingHiggsfield] = useState(false);
   const higgsfieldPlan = planNameFromAccount(higgsfieldStatus?.account);
+  const gptImageBaseUrls = splitGptImageBaseUrls(
+    settings.openaiBaseUrl,
+    settings.openrouterBaseUrl,
+  );
 
   useEffect(() => {
     if (!didMountRef.current) {
@@ -289,8 +293,8 @@ export function SettingsPanel({
             ]}
             baseUrl={
               settings.openaiApiPlatform === "openrouter"
-                ? settings.openrouterBaseUrl
-                : settings.openaiBaseUrl
+                ? gptImageBaseUrls.openrouterBaseUrl
+                : gptImageBaseUrls.openaiBaseUrl
             }
             defaultModel={
               settings.defaultProvider === "gpt-image"
@@ -302,16 +306,19 @@ export function SettingsPanel({
                 ? "OpenRouter API key"
                 : "OpenAI API key"
             }
-            onApiPlatformChange={(platform) =>
+            onApiPlatformChange={(platform) => {
+              const nextPlatform = platform as OpenAiApiPlatform;
               setSettings({
                 ...settings,
-                openaiApiPlatform: platform as OpenAiApiPlatform,
+                openaiApiPlatform: nextPlatform,
+                openaiBaseUrl: gptImageBaseUrls.openaiBaseUrl,
+                openrouterBaseUrl: gptImageBaseUrls.openrouterBaseUrl,
                 defaultModel:
                   settings.defaultProvider === "gpt-image"
-                    ? GPT_IMAGE_PLATFORM_MODELS[platform as OpenAiApiPlatform]
+                    ? GPT_IMAGE_PLATFORM_MODELS[nextPlatform]
                     : settings.defaultModel,
-              })
-            }
+              });
+            }}
             onSaveKey={
               settings.openaiApiPlatform === "openrouter"
                 ? onSaveOpenrouterKey
@@ -326,10 +333,18 @@ export function SettingsPanel({
             }
             setBaseUrl={(value) => {
               if (settings.openaiApiPlatform === "openrouter") {
-                setSettings({ ...settings, openrouterBaseUrl: value });
+                setSettings({
+                  ...settings,
+                  openaiBaseUrl: gptImageBaseUrls.openaiBaseUrl,
+                  openrouterBaseUrl: value,
+                });
                 return;
               }
-              setSettings({ ...settings, openaiBaseUrl: value });
+              setSettings({
+                ...settings,
+                openaiBaseUrl: value,
+                openrouterBaseUrl: gptImageBaseUrls.openrouterBaseUrl,
+              });
             }}
             setDefaultModel={(model) =>
               setSettings({
@@ -549,7 +564,9 @@ function ProviderSettings({
                     ? "https://openrouter.ai/api/v1"
                     : providerId === "gpt-image"
                       ? "https://api.openai.com/v1"
-                      : undefined
+                      : providerId === "grok-imagine"
+                        ? "Default xAI API"
+                        : undefined
               }
               value={baseUrl ?? ""}
               onChange={(event) => setBaseUrl(event.target.value || null)}
@@ -619,4 +636,24 @@ function planNameFromAccount(account?: string | null) {
     .split(" ")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ");
+}
+
+function splitGptImageBaseUrls(
+  openaiBaseUrl?: string | null,
+  openrouterBaseUrl?: string | null,
+): { openaiBaseUrl: string | null; openrouterBaseUrl: string | null } {
+  if (looksLikeOpenRouterBaseUrl(openaiBaseUrl)) {
+    return {
+      openaiBaseUrl: null,
+      openrouterBaseUrl: openrouterBaseUrl ?? openaiBaseUrl ?? null,
+    };
+  }
+  return {
+    openaiBaseUrl: openaiBaseUrl ?? null,
+    openrouterBaseUrl: openrouterBaseUrl ?? null,
+  };
+}
+
+function looksLikeOpenRouterBaseUrl(value?: string | null): boolean {
+  return value?.toLowerCase().includes("openrouter.ai") ?? false;
 }

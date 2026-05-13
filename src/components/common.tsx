@@ -67,23 +67,48 @@ export function ImageTile({
 
   useEffect(() => {
     setDimensions(null);
-  }, [src]);
+    if (!src || failed || typeof Image === "undefined") {
+      return;
+    }
+
+    let cancelled = false;
+    const probe = new Image();
+    probe.onload = () => {
+      if (cancelled) {
+        return;
+      }
+      const naturalHeight = Number(probe.naturalHeight);
+      const naturalWidth = Number(probe.naturalWidth);
+      setDimensions(
+        naturalWidth > 0 && naturalHeight > 0
+          ? `${naturalWidth} x ${naturalHeight}`
+          : null,
+      );
+    };
+    probe.onerror = () => {
+      if (!cancelled) {
+        setDimensions(null);
+      }
+    };
+    probe.src = src;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [failed, src]);
 
   return (
     <article className="image-tile">
       {failed ? (
         <div className="image-placeholder missing">File not found</div>
       ) : src ? (
-        <button className="image-preview-button" onClick={onPreview} type="button">
-          <img
-            alt={image.filename}
-            onLoad={(event) => {
-              const { naturalHeight, naturalWidth } = event.currentTarget;
-              setDimensions(naturalWidth > 0 && naturalHeight > 0 ? `${naturalWidth} x ${naturalHeight}` : null);
-            }}
-            src={src}
-          />
-        </button>
+        <button
+          aria-label={`Preview ${image.filename}`}
+          className="image-preview-button"
+          onClick={onPreview}
+          style={{ backgroundImage: `url(${JSON.stringify(src)})` }}
+          type="button"
+        />
       ) : (
         <div className="image-placeholder">Loading</div>
       )}

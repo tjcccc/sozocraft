@@ -157,6 +157,15 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .map(|value| normalize_nano_banana_model(&nano_banana_api_platform, value))
             .unwrap_or_else(|| default_nano_banana_model(&nano_banana_api_platform)),
     };
+    let optional_base_url =
+        normalize_optional(config.gemini.base_url).or(defaults.optional_base_url);
+    let raw_openai_base_url =
+        normalize_optional(config.openai.base_url).or(defaults.openai_base_url);
+    let raw_openrouter_base_url =
+        normalize_optional(config.openrouter.base_url).or(defaults.openrouter_base_url);
+    let (openai_base_url, openrouter_base_url) =
+        split_openai_base_urls(raw_openai_base_url, raw_openrouter_base_url);
+    let xai_base_url = normalize_optional(config.xai.base_url).or(defaults.xai_base_url);
 
     AppSettings {
         default_provider,
@@ -208,26 +217,10 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .cli_path
             .filter(|value| !value.trim().is_empty())
             .or(defaults.higgsfield_cli_path),
-        optional_base_url: config
-            .gemini
-            .base_url
-            .filter(|value| !value.trim().is_empty())
-            .or(defaults.optional_base_url),
-        openai_base_url: config
-            .openai
-            .base_url
-            .filter(|value| !value.trim().is_empty())
-            .or(defaults.openai_base_url),
-        openrouter_base_url: config
-            .openrouter
-            .base_url
-            .filter(|value| !value.trim().is_empty())
-            .or(defaults.openrouter_base_url),
-        xai_base_url: config
-            .xai
-            .base_url
-            .filter(|value| !value.trim().is_empty())
-            .or(defaults.xai_base_url),
+        optional_base_url,
+        openai_base_url,
+        openrouter_base_url,
+        xai_base_url,
         proxy_url: config
             .gemini
             .proxy_url
@@ -254,6 +247,10 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
 
 pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
     let mut config = load_config().unwrap_or_default();
+    let (openai_base_url, openrouter_base_url) = split_openai_base_urls(
+        normalize_optional(settings.openai_base_url.clone()),
+        normalize_optional(settings.openrouter_base_url.clone()),
+    );
     config.app.default_provider = Some(settings.default_provider.clone());
     match settings.default_provider.as_str() {
         "gpt-image" => config.openai.default_model = Some(settings.default_model.clone()),
@@ -269,8 +266,8 @@ pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
         Some(settings.openai_api_platform.clone()),
         "openai".to_string(),
     ));
-    config.openai.base_url = normalize_optional(settings.openai_base_url.clone());
-    config.openrouter.base_url = normalize_optional(settings.openrouter_base_url.clone());
+    config.openai.base_url = openai_base_url;
+    config.openrouter.base_url = openrouter_base_url;
     config.xai.api_platform = Some(normalize_grok_api_platform(
         Some(settings.grok_api_platform.clone()),
         "xai".to_string(),
@@ -457,6 +454,22 @@ fn normalize_openai_api_platform(value: Option<String>, fallback: String) -> Str
     }
 }
 
+fn split_openai_base_urls(
+    openai_base_url: Option<String>,
+    openrouter_base_url: Option<String>,
+) -> (Option<String>, Option<String>) {
+    match openai_base_url {
+        Some(value) if looks_like_openrouter_base_url(&value) => {
+            (None, openrouter_base_url.or(Some(value)))
+        }
+        value => (value, openrouter_base_url),
+    }
+}
+
+fn looks_like_openrouter_base_url(value: &str) -> bool {
+    value.to_ascii_lowercase().contains("openrouter.ai")
+}
+
 fn normalize_nano_banana_api_platform(value: Option<String>, fallback: String) -> String {
     match value.as_deref().map(str::trim) {
         Some("higgsfield") => "higgsfield".to_string(),
@@ -522,5 +535,42 @@ fn normalize_grok_model(platform: &str, model: String) -> String {
         ("higgsfield", "grok_image") => model,
         ("xai", "grok-imagine-image-quality" | "grok-imagine-image") => model,
         _ => default_grok_model(platform),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn moves_openrouter_url_out_of_openai_base_url() {
+        let (openai, openrouter) =
+            split_openai_base_urls(Some("https://openrouter.ai/api/v1".to_string()), None);
+
+        assert_eq!(openai, None);
+        assert_eq!(openrouter, Some("https://openrouter.ai/api/v1".to_string()));
+    }
+
+    #[test]
+    fn keeps_explicit_openrouter_base_url_when_migrating_openai_value() {
+        let (openai, openrouter) = split_openai_base_urls(
+            Some("https://openrouter.ai/api/v1".to_string()),
+            Some("https://openrouter.example/api/v1".to_string()),
+        );
+
+        assert_eq!(openai, None);
+        assert_eq!(
+            openrouter,
+            Some("https://openrouter.example/api/v1".to_string())
+        );
+    }
+
+    #[test]
+    fn keeps_non_openrouter_openai_base_url() {
+        let (openai, openrouter) =
+            split_openai_base_urls(Some("https://api.openai.com/v1".to_string()), None);
+
+        assert_eq!(openai, Some("https://api.openai.com/v1".to_string()));
+        assert_eq!(openrouter, None);
     }
 }

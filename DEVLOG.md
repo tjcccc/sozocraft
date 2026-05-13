@@ -1,5 +1,12 @@
 # DEVLOG
 
+## 2026-05-14
+
+- Fixed provider settings base URL handling so legacy OpenRouter URLs are moved out of the OpenAI field and Grok Imagine shows a default xAI API placeholder.
+- Fixed output image gallery sizing so single portrait images keep their intrinsic aspect ratio without covering the image index and dimensions footer.
+- Updated README project status from early MVP language to active pre-1.0 product hardening.
+- Bumped app/package/crate version metadata to `0.20.1` for the output preview and provider settings fix checkpoint.
+
 ## 2026-05-13
 
 - Added global/repo agent guidance for product-grade engineering standards and created a SozoCraft repo `AGENTS.md` with Tauri/React quality, security-boundary, validation, and documentation rules.

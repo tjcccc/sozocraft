@@ -568,6 +568,9 @@ fn filename_model(model: &str) -> &str {
 
 fn effective_base_url<'a>(provider: &str, settings: &'a AppSettings) -> Option<&'a str> {
     match provider {
+        "gpt-image" if settings.openai_api_platform == "openrouter" => {
+            settings.openrouter_base_url.as_deref()
+        }
         "gpt-image" => settings.openai_base_url.as_deref(),
         "grok-imagine" => settings.xai_base_url.as_deref(),
         _ => settings.optional_base_url.as_deref(),

@@ -20,6 +20,7 @@
 - Add image context actions: reveal in Finder, copy path, copy prompt, and open metadata.
 - Add output gallery filtering by provider/model/status/date.
 - Add safe cleanup controls for failed batches and missing local files.
+- Replace base64 output previews with safe file-backed preview URLs, likely by copying generated preview assets into a scoped temp/cache directory and serving only that directory through a narrow Tauri asset/protocol path.
 
 ## Architecture Roadmap
 
