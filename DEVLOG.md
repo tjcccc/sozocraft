@@ -2,6 +2,9 @@
 
 ## 2026-05-13
 
+- Bumped app/package/crate version metadata to `0.19.1` for the prompt editor search/replace checkpoint.
+- Added a compact prompt editor find/replace panel opened with `Cmd+F`/`Cmd+R` on macOS or `Ctrl+F`/`Ctrl+R` on Windows/Linux.
+- Disabled autocorrect, autocapitalize, and spellcheck for prompt search, replace, title, and prompt-list search inputs so typed prompt/file terms are preserved.
 - Bumped app/package/crate version metadata to `0.19.0` for the Higgsfield CLI image-generation checkpoint.
 - Added Higgsfield CLI as an image-generation platform for Nano Banana, GPT-Image, and Grok Imagine, with CLI install/auth status checks and app-configured proxy forwarding.
 - Added Higgsfield model-aware controls for CLI-supported aspect ratios, resolutions, quality/mode settings, reference-image limits, and Nano Banana Pro's optional Unlimited preference.

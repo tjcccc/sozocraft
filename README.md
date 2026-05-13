@@ -219,6 +219,10 @@ The Prompt Editor header includes a DSL toggle. When DSL is on, the preview and
 generation path use the variable/block renderer described above. When DSL is
 off, SozoCraft sends the editor text exactly as written.
 
+While editing a prompt, `Cmd+F` / `Ctrl+F` opens editor search and `Cmd+R` /
+`Ctrl+R` opens replace. Prompt editor search, replace, title, and prompt-list
+search fields disable autocorrect, autocapitalize, and spellcheck.
+
 ## Gemini Models
 
 The MVP enables these models:

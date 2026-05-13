@@ -604,6 +604,91 @@ button {
     grid-template-rows: minmax(0, 1fr) 44px;
 }
 
+.prompt-editor-shell {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+}
+
+.editor-search-panel {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 7px;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(124, 136, 158, 0.16);
+    background: #f8fafc;
+}
+
+.editor-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 48px 30px 30px 30px 30px 30px;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.editor-search-row.replace-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.editor-search-input {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    height: 30px;
+    padding: 0 9px;
+    border: 1px solid rgba(124, 136, 158, 0.22);
+    border-radius: 7px;
+    color: #5b6475;
+    background: white;
+}
+
+.editor-search-input input {
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    outline: 0;
+    color: #293241;
+    background: transparent;
+    font-size: 13px;
+}
+
+.editor-search-count {
+    color: #6d7686;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.editor-search-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid rgba(124, 136, 158, 0.22);
+    border-radius: 7px;
+    color: #3f4858;
+    background: white;
+}
+
+.editor-search-button.active {
+    border-color: rgba(18, 101, 244, 0.34);
+    color: #1265f4;
+    background: rgba(18, 101, 244, 0.08);
+}
+
+.secondary-button.editor-replace-button {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
+}
+
 .editor-topline {
     display: flex;
     align-items: center;
