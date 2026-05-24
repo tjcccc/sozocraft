@@ -1,0 +1,40 @@
+{
+  "terms": [
+    {
+      "term": "provider catalog",
+      "aliases": ["image provider catalog", "model capability catalog", "provider controls"],
+      "mapsTo": ["src/models/imageProviders.ts", "src/models/geminiImageModels.ts", "src-tauri/src/models.rs"],
+      "topics": ["providers", "models", "generation options", "capability tables"],
+      "paths": ["src/models/imageProviders.ts", "src/models/geminiImageModels.ts", "src-tauri/src/models.rs"],
+      "notes": "Frontend catalogs drive control visibility and defaults; backend model arrays and request validation remain authoritative."
+    },
+    {
+      "term": "generation request",
+      "aliases": ["GenerationRequest", "generate_images", "image generation flow"],
+      "mapsTo": ["src/hooks/useGeneration.ts", "src/api.ts", "src-tauri/src/lib.rs", "src-tauri/src/models.rs"],
+      "topics": ["generation", "Tauri commands", "provider dispatch", "validation"],
+      "paths": ["src/hooks/useGeneration.ts", "src/api.ts", "src-tauri/src/lib.rs", "src-tauri/src/models.rs"]
+    },
+    {
+      "term": "prompt library",
+      "aliases": ["PromptCraft", "prompt DSL", "prompt includes", "prompt metadata"],
+      "mapsTo": ["src/hooks/usePromptLibrary.ts", "src/components/PromptColumn.tsx", "src/components/PromptEditor.tsx", "src-tauri/src/prompt_library.rs"],
+      "topics": ["prompts", "library", "DSL", "includes", "SQLite"],
+      "paths": ["src/hooks/usePromptLibrary.ts", "src/components/PromptColumn.tsx", "src/components/PromptEditor.tsx", "src-tauri/src/prompt_library.rs", "README.md"]
+    },
+    {
+      "term": "settings",
+      "aliases": ["local config", "API keys", "provider platform routing", "config.toml"],
+      "mapsTo": ["src/components/SettingsPanel.tsx", "src/hooks/useAppState.ts", "src-tauri/src/local_config.rs", "src-tauri/src/models.rs"],
+      "topics": ["settings", "secrets", "configuration", "Higgsfield", "proxy"],
+      "paths": ["src/components/SettingsPanel.tsx", "src/hooks/useAppState.ts", "src-tauri/src/local_config.rs", "src-tauri/src/models.rs", "README.md"]
+    },
+    {
+      "term": "output metadata",
+      "aliases": ["PNG metadata", "sozocraft metadata", "prompt snapshot"],
+      "mapsTo": ["src-tauri/src/lib.rs", "src-tauri/src/image_meta.rs", "src-tauri/src/filename_template.rs"],
+      "topics": ["outputs", "history", "metadata", "PNG"],
+      "paths": ["src-tauri/src/lib.rs", "src-tauri/src/image_meta.rs", "src-tauri/src/filename_template.rs", "docs/architecture.md"]
+    }
+  ]
+}
