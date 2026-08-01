@@ -1,247 +1,257 @@
 {
   "version": 1,
-  "projnaviVersion": "0.1.0",
-  "generatedAt": "2026-05-24T05:26:47.198Z",
+  "projnaviVersion": "0.5.0",
+  "generatedAt": "2026-08-01T15:35:37.831Z",
   "root": ".",
   "files": {
     "AGENTS.md": {
       "hash": "febbf5c0379997adca07b04d0729b827194bbe906bd840cfd5dc2a95dd0869d6",
       "size": 3364,
-      "mtimeMs": 1779599819958.09,
       "category": "docs"
     },
     "DEVLOG.md": {
-      "hash": "e38cf58957b99e8c44ebeb4428a3a2cfa218bcd7cde4382a95a029979d031214",
-      "size": 24922,
-      "mtimeMs": 1778718556771.9626,
+      "hash": "ce27f99ab5bdf85b1a1ea949cb201f941f98f327b174fc2fb770a8f44651634a",
+      "size": 29768,
       "category": "docs"
     },
     "docs/architecture.md": {
-      "hash": "8d6aed127334373e6dd9b1fbeafe7bc02baa05fa79eb95b725f794b41c122e0b",
-      "size": 3536,
-      "mtimeMs": 1777722893792.8523,
+      "hash": "7930d64a19e67122e8d6b3c5eea70b0d970374579a3f9c719094066dcbdb8ad4",
+      "size": 6871,
       "category": "docs"
     },
     "package.json": {
-      "hash": "892d01de5c2923662c39ff0503364cf029cf4b0a607b4e758efdff5e88df81dd",
+      "hash": "f2c4e4e0efb4a0c64e099d640434db643ed55d47d673cf7f8f43be692b611bd8",
       "size": 1032,
-      "mtimeMs": 1778718556771.9626,
       "category": "config"
     },
     "pnpm-lock.yaml": {
       "hash": "f93650c5ddfa0e7a6e925c0bb5eeac5e3209884b86a9ad0b6820d386a8417b33",
       "size": 64897,
-      "mtimeMs": 1778718556771.9626,
       "category": "source"
     },
     "pnpm-workspace.yaml": {
       "hash": "ac02d96368617c760f093cfe61fdec64b6244007ab3553e0d6621f706f54a353",
       "size": 29,
-      "mtimeMs": 1777702996217.1074,
       "category": "config"
     },
     "README.md": {
-      "hash": "7416254752f3721cd2ebab6ba7cab954303cf1071fd4746b117cf728326e7b8c",
-      "size": 13035,
-      "mtimeMs": 1778718556771.9626,
+      "hash": "bdc8c3929fd0f86f0a35a829f099996b6a360840335f2aa37fd7482b6bda239b",
+      "size": 18224,
       "category": "docs"
     },
     "spec/ui.md": {
-      "hash": "f14cd168f5fa39ad1749378230b0b07d023fbb4ccc830173a06fc72f2516fdab",
-      "size": 2716,
-      "mtimeMs": 1777692658040.372,
+      "hash": "9977b5319e8c394c8c4bc7808af91ec62f7700b60792e1798936d463a848369c",
+      "size": 4997,
       "category": "docs"
     },
     "src-tauri/capabilities/default.json": {
       "hash": "806021ca28abbb02fca6e6fc0c7e1fedd5f0fe3632f3dd6c1bd6cb420f16d179",
       "size": 193,
-      "mtimeMs": 1777692658041.372,
       "category": "source"
     },
     "src-tauri/tauri.conf.json": {
-      "hash": "aa3f7c17bdd1323e12e120628ee5838e9b8f824c0f91c12e3cf3d4878d5ae641",
-      "size": 1208,
-      "mtimeMs": 1778718556775.9626,
+      "hash": "fa6a32b2b4c42b2bb01e443f4fbd1b80286cbe1777b966c6b533b202e721a880",
+      "size": 1347,
       "category": "source"
     },
     "src/api.ts": {
-      "hash": "4e8b4c50fbf81f53a4933946139d55b07b4e0833cf4dbc4f435b71ebf2ff75a7",
-      "size": 4424,
-      "mtimeMs": 1778718556775.9626,
+      "hash": "fd5834fa6b00fbce3ac4f715d5e16ae165089dd40e4d137d6975acf8a6aeec4c",
+      "size": 5400,
       "category": "source"
     },
     "src/App.tsx": {
-      "hash": "6d19f67fb308f2367e77758d960c117660a607aef3d407d8e2e0192cf999012c",
-      "size": 30419,
-      "mtimeMs": 1778718556775.9626,
+      "hash": "e8b7a92f0bea9be0a7f6573ba27d91ab2374dbeb4254f86f76cd716c0d8f2500",
+      "size": 32933,
       "category": "source"
     },
     "src/components/common.tsx": {
-      "hash": "89dd0dd40784ca7835d254e9c905396c5b78d67f601a7857610a05ab91ac9019",
-      "size": 4784,
-      "mtimeMs": 1778718556775.9626,
+      "hash": "f2e247405bc98ea584a8c3fbf905fdfa3b5d33da3f11504d876e128b1274e0aa",
+      "size": 4896,
       "category": "source"
     },
     "src/components/GenerationPanel.tsx": {
-      "hash": "a3faea6a2683c99174ea0528ea247ef90623aa41ec8e3a7bb8a3505f94825bde",
-      "size": 13782,
-      "mtimeMs": 1778718556775.9626,
+      "hash": "cf97d77a8e8403da2d05276e0bba8b9f4fa5575889d6391734999acc5ac19130",
+      "size": 10225,
       "category": "source"
     },
     "src/components/ImageLightbox.tsx": {
       "hash": "a83be8eafb11b138c1e50e392bce85c728757b0236b04e1b3905fb53f046cc82",
       "size": 2416,
-      "mtimeMs": 1777692658042.4255,
       "category": "source"
     },
     "src/components/OutputColumn.tsx": {
-      "hash": "aeab55b5884da1cae99ee6b5b20d49ce8fd308e15cea349ec014d9fd96979d73",
-      "size": 8551,
-      "mtimeMs": 1778718556775.9626,
+      "hash": "88d81b8acccb05d7f8b02a7cfaba16a0ef5dc0b7f82a8fedca095f4fdd7e0026",
+      "size": 11024,
       "category": "source"
     },
     "src/components/PromptColumn.tsx": {
       "hash": "aa995d85fd674b36c580c9a48deaca14fe5c9a5a62da73124ea8e1c439b1fc4d",
       "size": 23605,
-      "mtimeMs": 1778718556775.9626,
       "category": "source"
     },
     "src/components/PromptEditor.test.tsx": {
       "hash": "16818bf01add9f8f3c140f435b2f159387c581cd24c213cc8dc40308c9f5c545",
       "size": 2581,
-      "mtimeMs": 1778718556775.9626,
       "category": "test"
     },
     "src/components/PromptEditor.tsx": {
       "hash": "8210612547d6cbe2d76a4d9fce167b2f7c9959bc5c1a9bc99259ee30dad40890",
       "size": 20471,
-      "mtimeMs": 1778718556775.9626,
+      "category": "source"
+    },
+    "src/components/ReferenceImagesField.tsx": {
+      "hash": "c5392bb0904b5bcc61a07c35eff8d73f8b0b7e5acb624dd3c131342400c265b8",
+      "size": 9027,
+      "category": "source"
+    },
+    "src/components/SeedanceAssetPicker.tsx": {
+      "hash": "5e3c6ec61a33ba1def62b75649e1e72f9bc4b9dba48f7b63eb8f04ddbd568352",
+      "size": 6711,
       "category": "source"
     },
     "src/components/SettingsPanel.tsx": {
-      "hash": "1e57ea31662259d23f0aafa3da7168c8597edc8a63b1e2e32f2d257dc3599c4f",
-      "size": 21874,
-      "mtimeMs": 1778718556775.9626,
+      "hash": "a15c9fe89cef8d6eab255e9cab8490e161daa867ab5d5318dc6d1c7f29ad04f8",
+      "size": 25568,
+      "category": "source"
+    },
+    "src/components/VideoGenerationPanel.test.tsx": {
+      "hash": "924ab3925fdc0b70e2817fa3b17849b430e7d0858394a5412cc7a73e1b0f0681",
+      "size": 6113,
+      "category": "test"
+    },
+    "src/components/VideoGenerationPanel.tsx": {
+      "hash": "e73801bf82315bd09b67841b6c2748f89b3ddd86d07d76a6a4d1aafd86f16ed4",
+      "size": 7318,
       "category": "source"
     },
     "src/hooks/useAppState.ts": {
-      "hash": "690a37ab026c1578c3a645c8190564d802c217559aff2fe1c30cf1045d7f52f2",
-      "size": 5309,
-      "mtimeMs": 1778718556776.9626,
+      "hash": "bea0fc2bd1f6bf189f3ba2a2c79822f30a4f8de31f9e6eb2592bad60854ac18f",
+      "size": 6180,
       "category": "source"
     },
     "src/hooks/useGeneration.ts": {
-      "hash": "3e6839fab77c0a231d9c3e1211cd853e3f175ff54fee3e404c26c0bf5c306d00",
-      "size": 11265,
-      "mtimeMs": 1778718556776.9626,
+      "hash": "ea7e9a0e60fddf912084f0b6143f0d77b8b545fd67b912f5e56f6e6f45de3009",
+      "size": 8436,
+      "category": "source"
+    },
+    "src/hooks/useGenerationQueue.test.tsx": {
+      "hash": "e2932ac678d31df3de5f6756d64fe9767a607afcb8c915deaaf0789efbc12c10",
+      "size": 4656,
+      "category": "test"
+    },
+    "src/hooks/useGenerationQueue.ts": {
+      "hash": "6867676e76a4b7787a6791170147760025e0a15d1f5e1c3c2512b04849ecdeb7",
+      "size": 4160,
       "category": "source"
     },
     "src/hooks/useHistoryDate.ts": {
-      "hash": "e214556498790e909cbd8a33d0d096e191ba31d92fb5446ac17fea2baa5c76ee",
-      "size": 536,
-      "mtimeMs": 1777692658042.6252,
+      "hash": "a4721d1e0f3e8244d4dff87cd6d2a35c7b2195b47a79937053a08249f6d57c78",
+      "size": 643,
       "category": "source"
     },
     "src/hooks/useImagePreviews.ts": {
       "hash": "83d4dbe1ab04dbc3d53787c350dc26019996b88a113eff4d6a72e86a60bc5bd4",
       "size": 1183,
-      "mtimeMs": 1777692658042.6252,
       "category": "source"
     },
     "src/hooks/useModelOptions.ts": {
       "hash": "dc58922a3293bfbe0835c6b872fbabddeca3f255f0ab477a9aa2ca22000f4d80",
       "size": 1845,
-      "mtimeMs": 1778718556776.9626,
       "category": "source"
     },
     "src/hooks/usePromptLibrary.ts": {
       "hash": "476cd6edc9dc551192cf9d891081cdca9d0c10f6a2a78c6a0a88d0b91933f855",
       "size": 13667,
-      "mtimeMs": 1778718556776.9626,
+      "category": "source"
+    },
+    "src/hooks/useVideoGeneration.test.ts": {
+      "hash": "972306acb32af7585a8fc8752509deb21f90f952613edb2276964c2dd7dac3b1",
+      "size": 7135,
+      "category": "test"
+    },
+    "src/hooks/useVideoGeneration.ts": {
+      "hash": "c374603439dd9d65ae7ce4ffbd987e19fc8601b721cdb6a0b4688b8ffeda8f80",
+      "size": 13023,
+      "category": "source"
+    },
+    "src/hooks/useVideoPreviews.ts": {
+      "hash": "2d5d1a3c7df0d23472fbe571ac4d27f84cfc19266e53cdcabb246bc626318e63",
+      "size": 1299,
       "category": "source"
     },
     "src/main.tsx": {
       "hash": "2d098f4fbf3d0bdc746684ce67f261209835a18203a13690e51674717bdea99a",
       "size": 256,
-      "mtimeMs": 1777692658042.6252,
       "category": "source"
     },
     "src/models/geminiImageModels.ts": {
       "hash": "dab575a8224f594de15f1d314f022393d62663989abaa26fc663eca10ee70940",
       "size": 3620,
-      "mtimeMs": 1777692658042.6252,
       "category": "source"
     },
     "src/models/imageProviders.ts": {
       "hash": "35eec014475f5f2eaf93e214f14c88ef96e67e4192776e44763b6069eedf8d87",
       "size": 12130,
-      "mtimeMs": 1778718556776.9626,
+      "category": "source"
+    },
+    "src/models/videoProviders.ts": {
+      "hash": "709b39c783ed620ecc0e40b69bda656d6454cab4a1c8187c29eca6a08e2fea2a",
+      "size": 4246,
       "category": "source"
     },
     "src/types.ts": {
-      "hash": "fe93a42f59f09006021aecbbb1b9e24c3f04b57e749dada34a6fb44664031788",
-      "size": 3648,
-      "mtimeMs": 1778718556776.9626,
+      "hash": "31c76b280ea77762f3e7e252b2d0ec03b0a591b6c6be6edf5333067c7fdb7d7b",
+      "size": 5498,
       "category": "source"
     },
     "src/utils/dates.ts": {
       "hash": "7bc36d49f064bedfc9b0db841e4f67cae00e513694f37e3bb6cf7932a1ef7ed5",
       "size": 412,
-      "mtimeMs": 1777692658042.8027,
       "category": "source"
     },
     "src/utils/history.ts": {
-      "hash": "69bf127e74f5b5b70619802515dfb32eb855a5e21c48a7da5a6b50fa82186f12",
-      "size": 982,
-      "mtimeMs": 1777692658042.9556,
+      "hash": "43c8438a114c39b309f58844553b9eddb43f24fe8974cac75ff895d3512d7ace",
+      "size": 631,
       "category": "source"
     },
     "src/utils/math.ts": {
       "hash": "9e3c0f9afca206645e3457156cd50cad6c055f450104e8ea9ba831ac57e43dfa",
       "size": 113,
-      "mtimeMs": 1777692658042.9556,
       "category": "source"
     },
     "src/utils/outputTemplate.ts": {
       "hash": "d7da443ac18deb3be29efb43d04f2424298c5dc971b745c2158d27ce36aa3ba9",
       "size": 1050,
-      "mtimeMs": 1777692658042.9556,
       "category": "source"
     },
     "src/utils/referenceImages.ts": {
       "hash": "4a0d85bc9dc684099c8496d54890cf7051917b6d50c15ca22069f7dc30255b62",
       "size": 2050,
-      "mtimeMs": 1778718556776.9626,
       "category": "source"
     },
     "src/utils/textareaPosition.ts": {
       "hash": "9ee62313341fc97f54af349f3cd2efcaf79971cb827eab57eb8323e13a2e5cea",
       "size": 1811,
-      "mtimeMs": 1778718556776.9626,
       "category": "source"
     },
     "src/vite-env.d.ts": {
       "hash": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5",
       "size": 38,
-      "mtimeMs": 1778320848447.7058,
       "category": "source"
     },
     "TODO.md": {
-      "hash": "d11c653769c6c824e08eef52fcc0f4c44fdc0911458501d729e1260203cf22fa",
-      "size": 2860,
-      "mtimeMs": 1778718556771.9626,
+      "hash": "1e56adabd63dbbed7c54c011747d3df8a5453ade89bc5e2a23d6873b7a8cab5f",
+      "size": 2160,
       "category": "docs"
     },
     "tsconfig.json": {
       "hash": "9665597ba397119a137d724b8987ad6584f84a987aef5cd3d481ad52eedda218",
       "size": 524,
-      "mtimeMs": 1777692658042.9556,
       "category": "config"
     },
     "vite.config.ts": {
       "hash": "6b845901be031f1a87c7256408886bfceb7a80f72ce7acfdfb37b1275ed2fccb",
       "size": 435,
-      "mtimeMs": 1778718556776.9626,
       "category": "config"
     }
   },
@@ -249,49 +259,41 @@
     ".projnavi/project.md": {
       "hash": "407b37fdc5f6c31617045b24ea54fca09a26491536dbce474f84a8d222dd80d0",
       "size": 2356,
-      "mtimeMs": 1779600343714.3018,
       "category": "note"
     },
     ".projnavi/modules/backend.md": {
       "hash": "4c2d8ea0ee0fef41356722c77503a723dbafaf5e5b23b810af0183f63f0c66f7",
       "size": 1873,
-      "mtimeMs": 1779600402257.6052,
       "category": "note"
     },
     ".projnavi/modules/example.md": {
       "hash": "55e9ed5108f8bfadfe2fba454673bba0d2547ea9e13e09ad3d23926bb7e97cfe",
       "size": 142,
-      "mtimeMs": 1779600383869.6433,
       "category": "note"
     },
     ".projnavi/modules/frontend.md": {
       "hash": "cc3f5cbd69015c8856d80713d098ddf1dc1f1f037d87d48ca89995d1af0d63c2",
       "size": 1761,
-      "mtimeMs": 1779600402124.6055,
       "category": "note"
     },
     ".projnavi/modules/prompt-library.md": {
       "hash": "b61b4a8d4e1784586340218f4791497f9fe82ac4022e24350bac26f2862d618d",
       "size": 1591,
-      "mtimeMs": 1779600344265.7134,
       "category": "note"
     },
     ".projnavi/flows/example.md": {
       "hash": "ffcbb99293f54cdbe12f8add1cb4ad835309ae593206f70084992d5a9e920173",
       "size": 149,
-      "mtimeMs": 1779600383869.6433,
       "category": "note"
     },
     ".projnavi/flows/generation.md": {
-      "hash": "1f8187cb615924c343699769613bb3c07a0964dae5a43ae17c95772cafb46fd7",
-      "size": 1550,
-      "mtimeMs": 1779600402383.7651,
+      "hash": "2863c0fa514ff9af7b8278df917c0ce71f7ecb20b72c41be9bc387aa3149dcff",
+      "size": 2270,
       "category": "note"
     },
     ".projnavi/flows/prompt-library.md": {
       "hash": "a9c497ff630ce25142c3df9aa712ac0fedb1ab0c30bf2878620c20b4dc3937aa",
       "size": 1071,
-      "mtimeMs": 1779600344520.713,
       "category": "note"
     }
   },
@@ -299,7 +301,6 @@
     "AGENTS.md": {
       "hash": "febbf5c0379997adca07b04d0729b827194bbe906bd840cfd5dc2a95dd0869d6",
       "size": 3364,
-      "mtimeMs": 1779599819958.09,
       "category": "docs",
       "claimIds": [
         "command.validation",
@@ -307,36 +308,32 @@
       ]
     },
     "docs/architecture.md": {
-      "hash": "8d6aed127334373e6dd9b1fbeafe7bc02baa05fa79eb95b725f794b41c122e0b",
-      "size": 3536,
-      "mtimeMs": 1777722893792.8523,
+      "hash": "7930d64a19e67122e8d6b3c5eea70b0d970374579a3f9c719094066dcbdb8ad4",
+      "size": 6871,
       "category": "docs",
       "claimIds": [
         "risk.tauri-boundary"
       ]
     },
     "package.json": {
-      "hash": "892d01de5c2923662c39ff0503364cf029cf4b0a607b4e758efdff5e88df81dd",
+      "hash": "f2c4e4e0efb4a0c64e099d640434db643ed55d47d673cf7f8f43be692b611bd8",
       "size": 1032,
-      "mtimeMs": 1778718556771.9626,
       "category": "config",
       "claimIds": [
         "command.validation"
       ]
     },
     "README.md": {
-      "hash": "7416254752f3721cd2ebab6ba7cab954303cf1071fd4746b117cf728326e7b8c",
-      "size": 13035,
-      "mtimeMs": 1778718556771.9626,
+      "hash": "bdc8c3929fd0f86f0a35a829f099996b6a360840335f2aa37fd7482b6bda239b",
+      "size": 18224,
       "category": "docs",
       "claimIds": [
         "module.prompt-library"
       ]
     },
     "src-tauri/src/file_access.rs": {
-      "hash": "c52f08dc67dca89fe989afdf0d7da8b7b7d467d88c2723310e90f81298339bc5",
-      "size": 4326,
-      "mtimeMs": 1778718556774.9626,
+      "hash": "d291fddaeb46c632d733dda74107ded7304c56a3317f97e5c48a2cb98bbfa888",
+      "size": 6651,
       "category": "evidence",
       "claimIds": [
         "risk.tauri-boundary"
@@ -345,7 +342,6 @@
     "src-tauri/src/filename_template.rs": {
       "hash": "4461ce89230a2d3a31c658d70d866c8a1f34c2d0834eef54d723f9c2ca6f5713",
       "size": 7094,
-      "mtimeMs": 1777692658041.755,
       "category": "evidence",
       "claimIds": [
         "risk.tauri-boundary"
@@ -354,14 +350,12 @@
     "src-tauri/src/image_meta.rs": {
       "hash": "3267f845684fffa65b35ce752bbe13e408c9ef673b9acabc8a188589026ed3e3",
       "size": 9941,
-      "mtimeMs": 1778718556774.9626,
       "category": "evidence",
       "claimIds": []
     },
     "src-tauri/src/lib.rs": {
-      "hash": "aa9dbf52eceb740227905ac0b48501aed63f0b161bc8655f1f9b8909efce61a1",
-      "size": 28360,
-      "mtimeMs": 1778718556774.9626,
+      "hash": "860c7817de2a74e2fcba730d8763bc9cd0dbee2ec8c316f355161cdaf3413319",
+      "size": 31589,
       "category": "evidence",
       "claimIds": [
         "flow.generation",
@@ -369,16 +363,14 @@
       ]
     },
     "src-tauri/src/local_config.rs": {
-      "hash": "0cf377553a0826d3216642839586b57547da444f2d20f0f9f967674a89987127",
-      "size": 18687,
-      "mtimeMs": 1778718556774.9626,
+      "hash": "510212a3c2e6f199ef114cbed0a00d555329dd178b4e80a8c4a8e99306147e3c",
+      "size": 23652,
       "category": "evidence",
       "claimIds": []
     },
     "src-tauri/src/models.rs": {
-      "hash": "65fe3a325af8b65a1c4fac320c25dc2e64e2e51e91846531e1ceb29ced5c4e16",
-      "size": 10615,
-      "mtimeMs": 1778718556774.9626,
+      "hash": "730b1f52221d007fde513fadea83ec0bb1de06d8cb8e3922ac380e61ee6abb29",
+      "size": 34657,
       "category": "evidence",
       "claimIds": [
         "flow.generation",
@@ -389,16 +381,14 @@
     "src-tauri/src/prompt_library.rs": {
       "hash": "28344e0bfff4736adf30b3c72ad4132f3849dcbc56550cc7f0ec29d87cf1a0a9",
       "size": 55690,
-      "mtimeMs": 1778718556775.9626,
       "category": "evidence",
       "claimIds": [
         "module.prompt-library"
       ]
     },
     "src/api.ts": {
-      "hash": "4e8b4c50fbf81f53a4933946139d55b07b4e0833cf4dbc4f435b71ebf2ff75a7",
-      "size": 4424,
-      "mtimeMs": 1778718556775.9626,
+      "hash": "fd5834fa6b00fbce3ac4f715d5e16ae165089dd40e4d137d6975acf8a6aeec4c",
+      "size": 5400,
       "category": "source",
       "claimIds": [
         "flow.generation"
@@ -407,7 +397,6 @@
     "src/components/PromptColumn.tsx": {
       "hash": "aa995d85fd674b36c580c9a48deaca14fe5c9a5a62da73124ea8e1c439b1fc4d",
       "size": 23605,
-      "mtimeMs": 1778718556775.9626,
       "category": "source",
       "claimIds": [
         "module.prompt-library"
@@ -416,7 +405,6 @@
     "src/components/PromptEditor.test.tsx": {
       "hash": "16818bf01add9f8f3c140f435b2f159387c581cd24c213cc8dc40308c9f5c545",
       "size": 2581,
-      "mtimeMs": 1778718556775.9626,
       "category": "test",
       "claimIds": [
         "command.validation"
@@ -425,30 +413,26 @@
     "src/components/PromptEditor.tsx": {
       "hash": "8210612547d6cbe2d76a4d9fce167b2f7c9959bc5c1a9bc99259ee30dad40890",
       "size": 20471,
-      "mtimeMs": 1778718556775.9626,
       "category": "source",
       "claimIds": [
         "module.prompt-library"
       ]
     },
     "src/components/SettingsPanel.tsx": {
-      "hash": "1e57ea31662259d23f0aafa3da7168c8597edc8a63b1e2e32f2d257dc3599c4f",
-      "size": 21874,
-      "mtimeMs": 1778718556775.9626,
+      "hash": "a15c9fe89cef8d6eab255e9cab8490e161daa867ab5d5318dc6d1c7f29ad04f8",
+      "size": 25568,
       "category": "source",
       "claimIds": []
     },
     "src/hooks/useAppState.ts": {
-      "hash": "690a37ab026c1578c3a645c8190564d802c217559aff2fe1c30cf1045d7f52f2",
-      "size": 5309,
-      "mtimeMs": 1778718556776.9626,
+      "hash": "bea0fc2bd1f6bf189f3ba2a2c79822f30a4f8de31f9e6eb2592bad60854ac18f",
+      "size": 6180,
       "category": "source",
       "claimIds": []
     },
     "src/hooks/useGeneration.ts": {
-      "hash": "3e6839fab77c0a231d9c3e1211cd853e3f175ff54fee3e404c26c0bf5c306d00",
-      "size": 11265,
-      "mtimeMs": 1778718556776.9626,
+      "hash": "ea7e9a0e60fddf912084f0b6143f0d77b8b545fd67b912f5e56f6e6f45de3009",
+      "size": 8436,
       "category": "source",
       "claimIds": [
         "flow.generation"
@@ -457,7 +441,6 @@
     "src/hooks/usePromptLibrary.ts": {
       "hash": "476cd6edc9dc551192cf9d891081cdca9d0c10f6a2a78c6a0a88d0b91933f855",
       "size": 13667,
-      "mtimeMs": 1778718556776.9626,
       "category": "source",
       "claimIds": [
         "module.prompt-library"
@@ -466,7 +449,6 @@
     "src/models/geminiImageModels.ts": {
       "hash": "dab575a8224f594de15f1d314f022393d62663989abaa26fc663eca10ee70940",
       "size": 3620,
-      "mtimeMs": 1777692658042.6252,
       "category": "source",
       "claimIds": [
         "module.frontend.providers"
@@ -475,7 +457,6 @@
     "src/models/imageProviders.ts": {
       "hash": "35eec014475f5f2eaf93e214f14c88ef96e67e4192776e44763b6069eedf8d87",
       "size": 12130,
-      "mtimeMs": 1778718556776.9626,
       "category": "source",
       "claimIds": [
         "module.frontend.providers"
@@ -483,7 +464,7 @@
     }
   },
   "inventory": {
-    "summary": "Detected Node package sozocraft. Indexed 40 relevant files. Detected 1 test files.",
+    "summary": "Detected Node package sozocraft. Indexed 50 relevant files. Detected 4 test files.",
     "packageName": "sozocraft",
     "packageScripts": [
       "build",
@@ -504,11 +485,14 @@
     "fileCounts": {
       "docs": 6,
       "config": 4,
-      "source": 29,
-      "test": 1
+      "source": 36,
+      "test": 4
     },
     "tests": [
-      "src/components/PromptEditor.test.tsx"
+      "src/components/PromptEditor.test.tsx",
+      "src/components/VideoGenerationPanel.test.tsx",
+      "src/hooks/useGenerationQueue.test.tsx",
+      "src/hooks/useVideoGeneration.test.ts"
     ]
   }
 }

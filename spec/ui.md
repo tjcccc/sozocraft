@@ -8,7 +8,7 @@
 
 ## Design Direction
 
-SozoCraft is a desktop creative tool, not a marketing site. The UI should stay compact, work-focused, and optimized for repeated prompt editing, generation, and image review.
+SozoCraft is a desktop creative tool, not a marketing site. The UI should stay compact, work-focused, and optimized for repeated prompt editing, generation, and media review.
 
 The current design uses:
 
@@ -26,6 +26,8 @@ The current design uses:
 - Keep drag handles stable in width/height so resizing does not shift adjacent content.
 - Output preview should remain empty on startup until the user generates or selects a history row.
 - History remains a collapsible bottom drawer inside the output panel.
+- Image and Video modes reuse the same prompt editor and three-column geometry;
+  only generation controls and output rendering change with the mode.
 
 ## Component Conventions
 
@@ -47,6 +49,37 @@ The current design uses:
 - Provider tabs should be active only when the backend can generate through that
   provider. Keep provider-specific controls hidden when the active provider does
   not support them in the current implementation.
+- Reference-image thumbnails wrap onto additional rows within the generation
+  panel; do not introduce a horizontal thumbnail scrollbar.
+- Video provider tabs appear as Seedance, Grok Imagine, and Google Veo. The
+  existing Grok selection remains the initial active provider for compatibility.
+  Each provider preserves its own input images and control values while tabs
+  switch provider-specific models, duration rules, ratios, resolutions, limits,
+  and audio behavior.
+- Seedance's Model control offers Seedance 2.0, Seedance 2.0 Fast, and Seedance
+  2.0 Mini. Changing models preserves valid settings and falls back to the
+  selected model's defaults when a resolution is unavailable.
+- Settings exposes a Seedance API Platform selector for Volcengine Ark and
+  Higgsfield CLI plus a persisted Default Video Model selector with the same
+  Standard, Fast, and Mini choices. The selected default initializes Seedance's
+  main-panel model control.
+- Video mode uses one wrapping Input Images field whose count limit follows the
+  active provider. Its output panel uses native video playback and keeps video
+  history separate from image history.
+- Video input mode follows per-thumbnail roles. New uploads default to Reference;
+  a hover/focus menu assigns Reference or Start frame for every provider and End
+  frame for Seedance and Veo. Reference thumbnails have no badge, while explicit
+  Start and End assignments show compact bottom labels. Assigning either frame
+  in a two-image Seedance or Veo set creates a valid start/end pair; reference
+  and frame workflows remain mutually exclusive. Duration sliders use the
+  active provider's official discrete range and clamp when reference or
+  resolution constraints narrow it.
+- Keep Ark virtual-identity asset controls hidden from Settings and Seedance
+  generation while Volcengine limits activation to enterprise-verified
+  accounts. The native asset client remains available for a future entitled
+  workflow; ordinary uploaded Seedance references remain visible.
+- Video Stop messaging must state that it stops local monitoring and may not
+  cancel the paid provider job.
 
 ## Typography And Color
 

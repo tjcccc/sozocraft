@@ -17,6 +17,8 @@ The current app includes:
 - Gemini and Higgsfield CLI image generation for Nano Banana / Nano Banana Pro
 - OpenAI GPT-Image text-to-image generation
 - xAI Grok Imagine text-to-image generation
+- Seedance, Grok Imagine, and Google Veo text-, image-, and reference-to-video
+  generation with local MP4 output
 - local output saving
 - recent generation history
 - plain prompt editing with a future-ready PromptCraft DSL path
@@ -78,12 +80,15 @@ Open the settings button in the top toolbar to switch to the full-page settings 
 - Gemini API key
 - OpenAI API key
 - xAI API key
+- Seedance video platform and default model (Volcengine Ark or Higgsfield CLI)
+- Volcengine Ark API key when Seedance uses Ark
 - default image model per provider
 - output directory
 - optional Gemini-compatible base URL
 - optional OpenAI-compatible base URL
 - optional xAI-compatible base URL
-- optional Higgsfield CLI path and API platform routing for supported image providers
+- optional Volcengine Ark base URL
+- optional Higgsfield CLI path and API platform routing for supported image and Seedance video providers
 - optional proxy URL, for example `http://127.0.0.1:7890`
 - provider proxy toggles
 - provider timeouts
@@ -136,6 +141,14 @@ base_url = "https://api.x.ai/v1"
 proxy_enabled = true
 timeout_seconds = 180
 
+[ark]
+api_key = "your_ark_model_api_key_here"
+api_platform = "ark"
+default_model = "doubao-seedance-2-0-260128"
+base_url = "https://ark.cn-beijing.volces.com/api/v3"
+proxy_enabled = true
+timeout_seconds = 180
+
 [higgsfield]
 cli_path = "higgsfield"
 
@@ -152,7 +165,7 @@ preview_placement = "bottom"
 
 The config file is local-only and must not be committed. API keys are never stored in project files.
 
-Non-secret app state is stored in the platform local data directory under `SozoCraft/state.json`. Generated images are saved to the configured output directory.
+Non-secret app state is stored in the platform local data directory under `SozoCraft/state.json`. Generated images and videos are saved to the configured output directory.
 
 ## Prompt Library
 
@@ -328,6 +341,76 @@ Grok Imagine can also be routed through Higgsfield CLI. In that mode SozoCraft
 uses the CLI-supported Grok Image aspect ratios and maps Standard/Quality to the
 CLI `std`/`pro` modes.
 
+## Video Providers
+
+Video mode reuses the existing prompt library/editor and presents providers in
+the order Seedance, Grok Imagine, and Google Veo. Each provider keeps its own
+controls and input-image selection when switching tabs. One shared Input Images
+interaction uses per-thumbnail roles: uploads default to Reference, and a hover
+or keyboard-focus menu can assign Start frame for every provider plus End frame
+for Seedance and Veo. Reference thumbnails remain unlabelled; explicit Start and
+End assignments receive compact badges. Start/end-frame pairs and reference
+workflows stay mutually exclusive.
+
+Seedance can use Volcengine Ark directly or route through the authenticated
+Higgsfield CLI. The Settings view persists both the Seedance API platform and
+the default video model. The UI model ids are `doubao-seedance-2-0-260128`,
+`doubao-seedance-2-0-fast-260128`, and `doubao-seedance-2-0-mini-260615`.
+All three support up to nine reference images or a strict start/end-frame pair,
+4–15 second output, six aspect ratios, and an audio-generation toggle. The
+flagship model offers 480p/720p/1080p; Fast and Mini offer 480p/720p. Configure
+the separate Ark API key in Settings for direct Ark use. Higgsfield maps these
+choices to `seedance_2_0 --mode std`, `seedance_2_0 --mode fast`, and
+`seedance_2_0_mini`; local Start, End, and Reference images are auto-uploaded by
+the CLI. Higgsfield requires a selected billing workspace (`higgsfield workspace set`).
+The direct Ark, xAI, and Gemini API video routes form the supported common-API
+checkpoint. Higgsfield Seedance video routing is currently experimental: the
+Standard path and CLI job/result handling have initial coverage, while broader
+end-to-end Standard/Fast/Mini and recovery-path testing remains.
+[Higgsfield CLI](https://github.com/higgsfield-ai/cli) documents the command
+workflow and [its model schemas](https://github.com/higgsfield-ai/cli/blob/main/MODELS.md)
+document the Seedance media inputs. Soul IDs are currently image-model inputs,
+not Seedance video parameters.
+[Seedance 2.0's official API launch notes](https://developer.volcengine.com/articles/7628567056649125942)
+describe its multimodal reference workflow; real-person inputs may additionally
+require a [trusted, authorized Ark asset](https://www.volcengine.com/docs/82379/2315856?lang=zh).
+
+Ark asset-management support remains implemented behind the native boundary,
+but its Settings controls and Seedance picker are currently hidden because
+virtual identity assets require an enterprise-verified Volcengine account.
+Regular uploaded Seedance references remain available.
+
+Google Veo reuses the configured Gemini API key and base URL. The first model is
+`veo-3.1-generate-preview`, with 4/6/8-second output at 720p, 8-second output at
+1080p or 4K, landscape or portrait ratios, one starting image, a start/end-frame
+pair, and up to three reference images. Reference-image runs are fixed to eight
+seconds, and Veo's native audio is always enabled. See Google's
+[Veo 3.1 Gemini API guide](https://ai.google.dev/gemini-api/docs/veo).
+
+Grok Imagine uses the xAI provider configuration and model
+`grok-imagine-video`. Its one-image and reference behavior remains unchanged.
+
+xAI's [image-to-video documentation](https://docs.x.ai/developers/model-capabilities/video/image-to-video)
+defines one source image, while its
+[reference-to-video documentation](https://docs.x.ai/developers/model-capabilities/video/reference-to-video)
+defines up to seven reference images and a maximum duration of 10 seconds.
+Text and starting-frame modes support durations from 1 to 15 seconds. All modes
+offer aspect ratios `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, and `2:3`, and
+`480p` or `720p` resolution.
+
+Video generation is asynchronous. SozoCraft starts the provider job, polls its
+status, downloads the temporary result URL immediately, and saves the MP4 to
+the configured output directory. The shared generation queue serializes image
+and video tasks. Stopping a video task ends local monitoring only; the remote
+provider job may keep processing and charging.
+
+For playback, SozoCraft grants Tauri's asset protocol access only to the exact
+generated MP4 selected from local history. The generated video is accompanied
+by an `.mp4.json` metadata file containing the input mode, input-image filenames
+and MIME types when applicable, prompt snapshot, rendered prompt, model options,
+ids, timestamps, and sanitized provider metadata. Input-image bytes
+are not persisted in the metadata.
+
 ## Output Metadata
 
 Generated images are always saved as PNG files. Non-PNG provider responses are
@@ -338,6 +421,9 @@ metadata:
 - `sozocraft`: JSON metadata with `schemaVersion`, `promptSnapshot`,
   `renderedPrompt`, provider/model/options, batch/image ids, timestamps, and
   provider response metadata
+
+Generated videos are saved as MP4 files with adjacent `.mp4.json` metadata.
+Temporary provider URLs and API credentials are not retained in video metadata.
 
 `promptSnapshot` is the original SozoCraft source prompt. Today it matches the
 plain prompt text; when the PromptCraft DSL is added, it will store the DSL
@@ -375,9 +461,8 @@ cd src-tauri && cargo test
 ## Roadmap Notes
 
 - PromptCraft DSL parsing/rendering and validation
-- syntax-highlighted prompt editor
-- reference image upload UI
 - Prompt Bridge local HTTP server for external tools
 - ComfyUI local backend
 - provider-specific mask editing flows for GPT-Image and Grok Imagine
-- future video generation backend
+- Grok Imagine video editing and extension workflows
+- restart-safe recovery for in-flight video jobs

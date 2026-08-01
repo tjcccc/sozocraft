@@ -232,6 +232,7 @@ mod tests {
             name: "input.png".to_string(),
             mime_type: mime_type.to_string(),
             data: data.to_string(),
+            asset_id: None,
         }
     }
 }

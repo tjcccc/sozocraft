@@ -1,5 +1,5 @@
-import { FilePlus2, SlidersHorizontal, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { SlidersHorizontal } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { AppSettings, ReferenceImageInput } from "../types";
 import type { LightboxImage } from "./ImageLightbox";
@@ -13,8 +13,8 @@ import {
   normalizeProviderOptions,
 } from "../models/imageProviders";
 import type { ImageProviderApiPlatform, ImageProviderId } from "../models/imageProviders";
-import { fileToReferenceImage } from "../utils/referenceImages";
 import { Field, PanelHeader, ToggleSwitch } from "./common";
+import { ReferenceImagesField } from "./ReferenceImagesField";
 import grokIconUrl from "../assets/grok.svg";
 import nanoBananaIconUrl from "../assets/nanobanana-color.svg";
 import openaiIconUrl from "../assets/openai.svg";
@@ -67,14 +67,11 @@ export function GenerationPanel(props: {
     activePlatform === "higgsfield" &&
     props.settings.defaultModel === "nano_banana_2" &&
     props.imageSize.toLowerCase() !== "4k";
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [modelByProvider, setModelByProvider] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       IMAGE_PROVIDER_IDS.map((provider) => [provider, getProviderConfig(provider).defaults.model]),
     ),
   );
-  const [isReferenceDropActive, setIsReferenceDropActive] = useState(false);
-  const canAddReferenceImages = props.referenceImages.length < maxReferenceImages;
 
   useEffect(() => {
     setModelByProvider((current) => ({
@@ -82,23 +79,6 @@ export function GenerationPanel(props: {
       [props.settings.defaultProvider]: props.settings.defaultModel,
     }));
   }, [props.settings.defaultModel, props.settings.defaultProvider]);
-
-  async function addReferenceFiles(files: FileList | null) {
-    if (!files || files.length === 0) {
-      return;
-    }
-
-    const remaining = maxReferenceImages - props.referenceImages.length;
-    const nextFiles = [...files]
-      .filter((file) => file.type.startsWith("image/"))
-      .slice(0, Math.max(0, remaining));
-    const nextImages = await Promise.all(nextFiles.map(fileToReferenceImage));
-
-    props.setReferenceImages((current) => [...current, ...nextImages].slice(0, maxReferenceImages));
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  }
 
   return (
     <section
@@ -264,87 +244,15 @@ export function GenerationPanel(props: {
         ) : null}
       </div>
       {maxReferenceImages > 0 ? (
-        <div className="reference-field">
-          <span className="reference-label">Reference Images</span>
-          <div className="reference-images">
-            <button
-              className={`reference-add ${
-                isReferenceDropActive || props.fileDropActive ? "drop-active" : ""
-              }`}
-              disabled={!canAddReferenceImages}
-              onDragEnter={(event) => {
-                if (!canAddReferenceImages) {
-                  return;
-                }
-                event.preventDefault();
-                setIsReferenceDropActive(true);
-              }}
-              onDragLeave={() => setIsReferenceDropActive(false)}
-              onDragOver={(event) => {
-                if (!canAddReferenceImages) {
-                  return;
-                }
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "copy";
-                setIsReferenceDropActive(true);
-              }}
-              onDrop={(event) => {
-                if (!canAddReferenceImages) {
-                  return;
-                }
-                event.preventDefault();
-                setIsReferenceDropActive(false);
-                void addReferenceFiles(event.dataTransfer.files);
-              }}
-              onClick={() => fileInputRef.current?.click()}
-              title={
-                canAddReferenceImages
-                  ? "Add reference image"
-                  : `Maximum ${maxReferenceImages} reference images`
-              }
-              type="button"
-            >
-              <FilePlus2 size={24} />
-              <span>{`${props.referenceImages.length} / ${maxReferenceImages}`}</span>
-            </button>
-            <input
-              ref={fileInputRef}
-              accept="image/png,image/jpeg,image/webp"
-              multiple
-              onChange={(event) => void addReferenceFiles(event.target.files)}
-              type="file"
-            />
-            {props.referenceImages.map((image, index) => (
-              <div className="reference-thumb" key={image.id} title={image.name}>
-                <button
-                  className="reference-preview-button"
-                  onClick={() =>
-                    props.onPreviewImages(
-                      props.referenceImages.map((item) => ({
-                        id: item.id,
-                        alt: item.name,
-                        src: item.dataUrl,
-                      })),
-                      index,
-                    )
-                  }
-                  type="button"
-                >
-                  <img alt={image.name} src={image.dataUrl} />
-                </button>
-                <button
-                  aria-label={`Remove ${image.name}`}
-                  onClick={() =>
-                    props.setReferenceImages((current) => current.filter((item) => item.id !== image.id))
-                  }
-                  type="button"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ReferenceImagesField
+          fileDropActive={props.fileDropActive}
+          images={props.referenceImages}
+          itemLabel="reference image"
+          label="Reference Images"
+          maxImages={maxReferenceImages}
+          onPreviewImages={props.onPreviewImages}
+          setImages={props.setReferenceImages}
+        />
       ) : null}
     </section>
   );

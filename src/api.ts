@@ -1,9 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AppSettings,
+  ArkAsset,
   AppState,
   ConfigStatus,
   CreatePromptRequest,
+  CreateArkAssetRequest,
   GenerationBatch,
   GenerationRequest,
   HiggsfieldStatus,
@@ -14,6 +16,7 @@ import type {
   RenderPromptResult,
   SavePromptRequest,
   UpdatePromptMetadataRequest,
+  VideoGenerationRequest,
 } from "./types";
 
 export function loadAppState() {
@@ -48,6 +51,14 @@ export function setXaiApiKey(apiKey: string) {
   return invoke<boolean>("set_xai_api_key", { apiKey });
 }
 
+export function setArkApiKey(apiKey: string) {
+  return invoke<boolean>("set_ark_api_key", { apiKey });
+}
+
+export function setArkAssetCredentials(accessKey: string, secretKey: string) {
+  return invoke<boolean>("set_ark_asset_credentials", { accessKey, secretKey });
+}
+
 export function hasGeminiApiKey() {
   return invoke<boolean>("has_gemini_api_key");
 }
@@ -64,8 +75,28 @@ export function hasXaiApiKey() {
   return invoke<boolean>("has_xai_api_key");
 }
 
+export function hasArkApiKey() {
+  return invoke<boolean>("has_ark_api_key");
+}
+
+export function hasArkAssetCredentials() {
+  return invoke<boolean>("has_ark_asset_credentials");
+}
+
+export function listArkAssets() {
+  return invoke<ArkAsset[]>("list_ark_assets");
+}
+
+export function createArkAsset(request: CreateArkAssetRequest) {
+  return invoke<ArkAsset>("create_ark_asset", { request });
+}
+
 export function generateImages(request: GenerationRequest) {
   return invoke<GenerationBatch>("generate_images", { request });
+}
+
+export function generateVideo(request: VideoGenerationRequest) {
+  return invoke<GenerationBatch>("generate_video", { request });
 }
 
 export function cancelGenerationTask(taskId: string) {
@@ -74,6 +105,10 @@ export function cancelGenerationTask(taskId: string) {
 
 export function readImageDataUrl(path: string) {
   return invoke<string>("read_image_data_url", { path });
+}
+
+export function prepareVideoPreview(path: string) {
+  return invoke<string>("prepare_video_preview", { path });
 }
 
 export function readTextFile(path: string) {

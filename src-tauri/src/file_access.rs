@@ -9,6 +9,7 @@ use crate::image_meta;
 
 const MAX_TEXT_IMPORT_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_IMAGE_READ_BYTES: u64 = 100 * 1024 * 1024;
+const MAX_VIDEO_PREVIEW_BYTES: u64 = 1024 * 1024 * 1024;
 
 pub fn read_image_data_url(path: &str) -> Result<String, String> {
     let path = validate_readable_file(
@@ -50,6 +51,40 @@ pub fn read_image_text_metadata(path: &str) -> Result<HashMap<String, String>, S
     Ok(image_meta::read_png_text_chunks(&bytes)
         .into_iter()
         .collect())
+}
+
+pub fn validate_generated_video_preview(
+    path: &str,
+    generated_video_paths: &[String],
+) -> Result<PathBuf, String> {
+    let requested = PathBuf::from(path.trim());
+    if requested.as_os_str().is_empty() {
+        return Err("Choose a generated video first.".to_string());
+    }
+    let metadata = fs::symlink_metadata(&requested)
+        .map_err(|error| format!("Failed to inspect generated video: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err("Generated video preview must be a regular file.".to_string());
+    }
+    if metadata.len() > MAX_VIDEO_PREVIEW_BYTES {
+        return Err("Generated video is too large to preview.".to_string());
+    }
+    let canonical = requested
+        .canonicalize()
+        .map_err(|error| format!("Failed to resolve generated video: {error}"))?;
+    if file_extension(&canonical).as_deref() != Some("mp4") {
+        return Err("Only generated MP4 videos can be previewed.".to_string());
+    }
+    let is_generated_video = generated_video_paths.iter().any(|path| {
+        PathBuf::from(path)
+            .canonicalize()
+            .map(|candidate| candidate == canonical)
+            .unwrap_or(false)
+    });
+    if !is_generated_video {
+        return Err("Video is not present in SozoCraft generation history.".to_string());
+    }
+    Ok(canonical)
 }
 
 fn validate_readable_file(
@@ -101,7 +136,7 @@ fn file_extension(path: &Path) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{validate_readable_file, MAX_TEXT_IMPORT_BYTES};
+    use super::{validate_generated_video_preview, validate_readable_file, MAX_TEXT_IMPORT_BYTES};
     use std::{fs, path::PathBuf};
     use uuid::Uuid;
 
@@ -139,6 +174,26 @@ mod tests {
 
         assert!(err.contains("too large"));
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn video_preview_requires_an_exact_generated_mp4_path() {
+        let generated = temp_path("mp4");
+        let other = temp_path("mp4");
+        fs::write(&generated, b"video").expect("write generated video");
+        fs::write(&other, b"video").expect("write other video");
+        let allowed = vec![generated.to_string_lossy().to_string()];
+
+        let canonical =
+            validate_generated_video_preview(generated.to_string_lossy().as_ref(), &allowed)
+                .expect("generated video should be allowed");
+        assert_eq!(canonical, generated.canonicalize().unwrap());
+
+        let error = validate_generated_video_preview(other.to_string_lossy().as_ref(), &allowed)
+            .unwrap_err();
+        assert!(error.contains("generation history"));
+        let _ = fs::remove_file(generated);
+        let _ = fs::remove_file(other);
     }
 
     fn temp_path(extension: &str) -> PathBuf {

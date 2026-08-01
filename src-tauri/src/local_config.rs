@@ -18,6 +18,8 @@ struct LocalConfig {
     #[serde(default)]
     xai: XaiConfig,
     #[serde(default)]
+    ark: ArkConfig,
+    #[serde(default)]
     higgsfield: HiggsfieldConfig,
     #[serde(default)]
     output: OutputConfig,
@@ -81,6 +83,26 @@ struct XaiConfig {
     api_platform: Option<String>,
     #[serde(default)]
     default_model: Option<String>,
+    #[serde(default)]
+    base_url: Option<String>,
+    #[serde(default)]
+    timeout_seconds: Option<u64>,
+    #[serde(default)]
+    proxy_enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct ArkConfig {
+    #[serde(default)]
+    api_key: String,
+    #[serde(default)]
+    api_platform: Option<String>,
+    #[serde(default)]
+    default_model: Option<String>,
+    #[serde(default)]
+    access_key: String,
+    #[serde(default)]
+    secret_key: String,
     #[serde(default)]
     base_url: Option<String>,
     #[serde(default)]
@@ -166,6 +188,7 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
     let (openai_base_url, openrouter_base_url) =
         split_openai_base_urls(raw_openai_base_url, raw_openrouter_base_url);
     let xai_base_url = normalize_optional(config.xai.base_url).or(defaults.xai_base_url);
+    let ark_base_url = normalize_optional(config.ark.base_url).or(defaults.ark_base_url);
 
     AppSettings {
         default_provider,
@@ -212,6 +235,18 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .xai
             .proxy_enabled
             .unwrap_or(defaults.xai_proxy_enabled),
+        seedance_api_platform: normalize_seedance_api_platform(
+            config.ark.api_platform,
+            defaults.seedance_api_platform,
+        ),
+        seedance_default_model: normalize_seedance_video_model(
+            config.ark.default_model,
+            defaults.seedance_default_model,
+        ),
+        ark_proxy_enabled: config
+            .ark
+            .proxy_enabled
+            .unwrap_or(defaults.ark_proxy_enabled),
         higgsfield_cli_path: config
             .higgsfield
             .cli_path
@@ -221,6 +256,7 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
         openai_base_url,
         openrouter_base_url,
         xai_base_url,
+        ark_base_url,
         proxy_url: config
             .gemini
             .proxy_url
@@ -242,6 +278,10 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .xai
             .timeout_seconds
             .unwrap_or(defaults.xai_timeout_seconds),
+        ark_timeout_seconds: config
+            .ark
+            .timeout_seconds
+            .unwrap_or(defaults.ark_timeout_seconds),
     }
 }
 
@@ -272,15 +312,26 @@ pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
         Some(settings.grok_api_platform.clone()),
         "xai".to_string(),
     ));
+    config.ark.api_platform = Some(normalize_seedance_api_platform(
+        Some(settings.seedance_api_platform.clone()),
+        "ark".to_string(),
+    ));
+    config.ark.default_model = Some(normalize_seedance_video_model(
+        Some(settings.seedance_default_model.clone()),
+        "doubao-seedance-2-0-260128".to_string(),
+    ));
     config.xai.base_url = normalize_optional(settings.xai_base_url.clone());
+    config.ark.base_url = normalize_optional(settings.ark_base_url.clone());
     config.higgsfield.cli_path = normalize_optional(settings.higgsfield_cli_path.clone());
     config.gemini.proxy_url = normalize_optional(settings.proxy_url.clone());
     config.gemini.proxy_enabled = Some(settings.gemini_proxy_enabled);
     config.openai.proxy_enabled = Some(settings.openai_proxy_enabled);
     config.xai.proxy_enabled = Some(settings.xai_proxy_enabled);
+    config.ark.proxy_enabled = Some(settings.ark_proxy_enabled);
     config.gemini.timeout_seconds = Some(settings.gemini_timeout_seconds);
     config.openai.timeout_seconds = Some(settings.openai_timeout_seconds);
     config.xai.timeout_seconds = Some(settings.xai_timeout_seconds);
+    config.ark.timeout_seconds = Some(settings.ark_timeout_seconds);
     config.output.directory = Some(settings.output_directory.clone());
     config.output.template = Some(settings.output_template.clone());
     config.prompts.directory = Some(settings.prompt_directory.clone());
@@ -320,6 +371,27 @@ pub fn set_openrouter_api_key(api_key: &str) -> io::Result<()> {
 pub fn set_xai_api_key(api_key: &str) -> io::Result<()> {
     let mut config = load_config().unwrap_or_default();
     config.xai.api_key = api_key.trim().to_string();
+    save_config(&config)
+}
+
+pub fn set_ark_api_key(api_key: &str) -> io::Result<()> {
+    let mut config = load_config().unwrap_or_default();
+    config.ark.api_key = api_key.trim().to_string();
+    save_config(&config)
+}
+
+pub fn set_ark_asset_credentials(access_key: &str, secret_key: &str) -> io::Result<()> {
+    let access_key = access_key.trim();
+    let secret_key = secret_key.trim();
+    if access_key.is_empty() != secret_key.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Enter both Ark asset AK and SK, or leave both empty to clear them",
+        ));
+    }
+    let mut config = load_config().unwrap_or_default();
+    config.ark.access_key = access_key.to_string();
+    config.ark.secret_key = secret_key.to_string();
     save_config(&config)
 }
 
@@ -371,6 +443,31 @@ pub fn get_xai_api_key() -> io::Result<String> {
     Ok(key)
 }
 
+pub fn get_ark_api_key() -> io::Result<String> {
+    let config = load_config()?;
+    let key = config.ark.api_key.trim().to_string();
+    if key.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "Volcengine Ark API key is missing in ~/.sozocraft/config.toml",
+        ));
+    }
+    Ok(key)
+}
+
+pub fn get_ark_asset_credentials() -> io::Result<(String, String)> {
+    let config = load_config()?;
+    let access_key = config.ark.access_key.trim().to_string();
+    let secret_key = config.ark.secret_key.trim().to_string();
+    if access_key.is_empty() || secret_key.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "Volcengine Ark asset AK/SK credentials are missing in ~/.sozocraft/config.toml",
+        ));
+    }
+    Ok((access_key, secret_key))
+}
+
 pub fn has_gemini_api_key() -> bool {
     get_gemini_api_key()
         .map(|value| !value.trim().is_empty())
@@ -393,6 +490,16 @@ pub fn has_xai_api_key() -> bool {
     get_xai_api_key()
         .map(|value| !value.trim().is_empty())
         .unwrap_or(false)
+}
+
+pub fn has_ark_api_key() -> bool {
+    get_ark_api_key()
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+}
+
+pub fn has_ark_asset_credentials() -> bool {
+    get_ark_asset_credentials().is_ok()
 }
 
 pub fn has_proxy_configured() -> bool {
@@ -486,6 +593,25 @@ fn normalize_grok_api_platform(value: Option<String>, fallback: String) -> Strin
     }
 }
 
+fn normalize_seedance_api_platform(value: Option<String>, fallback: String) -> String {
+    match value.as_deref().map(str::trim) {
+        Some("higgsfield") => "higgsfield".to_string(),
+        Some("ark") => "ark".to_string(),
+        _ => fallback,
+    }
+}
+
+fn normalize_seedance_video_model(value: Option<String>, fallback: String) -> String {
+    match value.as_deref().map(str::trim) {
+        Some(
+            "doubao-seedance-2-0-260128"
+            | "doubao-seedance-2-0-fast-260128"
+            | "doubao-seedance-2-0-mini-260615",
+        ) => value.unwrap().trim().to_string(),
+        _ => fallback,
+    }
+}
+
 fn default_nano_banana_model(platform: &str) -> String {
     match platform {
         "higgsfield" => "nano_banana_2".to_string(),
@@ -572,5 +698,27 @@ mod tests {
 
         assert_eq!(openai, Some("https://api.openai.com/v1".to_string()));
         assert_eq!(openrouter, None);
+    }
+
+    #[test]
+    fn normalizes_seedance_video_defaults() {
+        assert_eq!(
+            normalize_seedance_api_platform(Some("higgsfield".to_string()), "ark".to_string()),
+            "higgsfield"
+        );
+        assert_eq!(
+            normalize_seedance_video_model(
+                Some("doubao-seedance-2-0-fast-260128".to_string()),
+                "doubao-seedance-2-0-260128".to_string(),
+            ),
+            "doubao-seedance-2-0-fast-260128"
+        );
+        assert_eq!(
+            normalize_seedance_video_model(
+                Some("unsupported".to_string()),
+                "doubao-seedance-2-0-260128".to_string(),
+            ),
+            "doubao-seedance-2-0-260128"
+        );
     }
 }

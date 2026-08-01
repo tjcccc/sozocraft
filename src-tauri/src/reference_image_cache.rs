@@ -1,4 +1,7 @@
-use crate::{local_config, models::GenerationRequest};
+use crate::{
+    local_config,
+    models::{GenerationRequest, ReferenceImageInput, VideoGenerationRequest},
+};
 use base64::{engine::general_purpose, Engine as _};
 use image::{codecs::jpeg::JpegEncoder, imageops::FilterType, ColorType, DynamicImage};
 use std::{
@@ -21,14 +24,38 @@ pub fn optimize_request_reference_images(request: &mut GenerationRequest) -> Res
     };
 
     for image in reference_images {
-        let Some(optimized) = optimize_reference_image(&image.mime_type, &image.data)? else {
-            continue;
-        };
-        image.mime_type = "image/jpeg".to_string();
-        image.name = jpeg_name(&image.name);
-        image.data = general_purpose::STANDARD.encode(&optimized);
+        optimize_image_input(image)?;
     }
 
+    Ok(())
+}
+
+pub fn optimize_video_input_images(request: &mut VideoGenerationRequest) -> Result<(), String> {
+    cleanup_old_cache_files();
+    if let Some(image) = request.starting_image.as_mut() {
+        optimize_image_input(image)?;
+    }
+    if let Some(image) = request.ending_image.as_mut() {
+        optimize_image_input(image)?;
+    }
+    if let Some(reference_images) = request.reference_images.as_mut() {
+        for image in reference_images {
+            optimize_image_input(image)?;
+        }
+    }
+    Ok(())
+}
+
+fn optimize_image_input(image: &mut ReferenceImageInput) -> Result<(), String> {
+    if image.asset_id.is_some() {
+        return Ok(());
+    }
+    let Some(optimized) = optimize_reference_image(&image.mime_type, &image.data)? else {
+        return Ok(());
+    };
+    image.mime_type = "image/jpeg".to_string();
+    image.name = jpeg_name(&image.name);
+    image.data = general_purpose::STANDARD.encode(&optimized);
     Ok(())
 }
 
@@ -199,6 +226,7 @@ mod tests {
                 name: "reference.webp".to_string(),
                 mime_type: mime_type.to_string(),
                 data: data.to_string(),
+                asset_id: None,
             }]),
             output_template: "{id}.{extension}".to_string(),
             options: Default::default(),

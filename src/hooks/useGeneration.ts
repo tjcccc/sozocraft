@@ -1,22 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  cancelGenerationTask,
-  generateImages,
-  loadAppState,
-  saveAppSettings,
-  saveCurrentPrompt,
-} from "../api";
-import type { AppSettings, GenerationBatch, GenerationRequest, ReferenceImageInput } from "../types";
-import type { AppStatus } from "../components/common";
+import { useCallback, useState } from "react";
+import { saveCurrentPrompt } from "../api";
+import type { AppSettings, GenerationRequest, ReferenceImageInput } from "../types";
 import { getProviderControlConfig } from "../models/imageProviders";
 import type { ImageProviderApiPlatform, ImageProviderId } from "../models/imageProviders";
 import { isSupportedImagePath, pathToReferenceImage } from "../utils/referenceImages";
-
-type QueuedGenerationTask = {
-  id: string;
-  request: GenerationRequest;
-  settings: AppSettings;
-};
+import type { EnqueueGenerationTask } from "./useGenerationQueue";
 
 type ReferenceImagesByProvider = Record<ImageProviderId, ReferenceImageInput[]>;
 type GenerationOptionsByProvider = Record<ImageProviderId, GenerationOptionState>;
@@ -71,32 +59,20 @@ const DEFAULT_GENERATION_OPTIONS: GenerationOptionsByProvider = {
 };
 
 export function useGeneration({
+  enqueueTask,
   getPrompt,
   getPromptSnapshot,
-  setBatches,
-  setExpandedBatchId,
-  setMessage,
-  setPreviewBatchId,
-  setStatus,
   settings,
 }: {
+  enqueueTask: EnqueueGenerationTask;
   getPrompt: () => Promise<string> | string;
   getPromptSnapshot: () => string;
-  setBatches: React.Dispatch<React.SetStateAction<GenerationBatch[]>>;
-  setExpandedBatchId: (id: string | null) => void;
-  setMessage: (message: string) => void;
-  setPreviewBatchId: (id: string | null) => void;
-  setStatus: (status: AppStatus) => void;
   settings: AppSettings | null;
 }) {
   const [optionsByProvider, setOptionsByProvider] =
     useState<GenerationOptionsByProvider>(DEFAULT_GENERATION_OPTIONS);
   const [referenceImagesByProvider, setReferenceImagesByProvider] =
     useState<ReferenceImagesByProvider>(EMPTY_REFERENCE_IMAGES);
-  const [queuedTasks, setQueuedTasks] = useState<QueuedGenerationTask[]>([]);
-  const [runningTask, setRunningTask] = useState<QueuedGenerationTask | null>(null);
-  const queueRef = useRef<QueuedGenerationTask[]>([]);
-  const processingRef = useRef(false);
   const activeProvider = settings?.defaultProvider ?? "nano-banana";
   const activeOptions = optionsByProvider[activeProvider];
   const referenceImages = referenceImagesByProvider[activeProvider];
@@ -171,10 +147,6 @@ export function useGeneration({
     [],
   );
 
-  useEffect(() => {
-    queueRef.current = queuedTasks;
-  }, [queuedTasks]);
-
   const runGeneration = useCallback(async () => {
     if (!settings) {
       return;
@@ -204,94 +176,26 @@ export function useGeneration({
     };
 
     await saveCurrentPrompt(promptSnapshot);
-    setQueuedTasks((current) => [...current, { id: taskId, request, settings }]);
-    setStatus("running");
-    setMessage(runningTask ? "Task queued" : "Generating images");
+    enqueueTask({ id: taskId, mediaType: "image", request, settings });
   }, [
     activeOptions,
+    enqueueTask,
     getPrompt,
     getPromptSnapshot,
     referenceImages,
-    runningTask,
-    setMessage,
-    setStatus,
     settings,
   ]);
-
-  const stopGeneration = useCallback(async () => {
-    if (!runningTask) {
-      return;
-    }
-    setMessage("Stopping current task");
-    await cancelGenerationTask(runningTask.id).catch((error) => {
-      setStatus("error");
-      setMessage(String(error));
-    });
-  }, [runningTask, setMessage, setStatus]);
-
-  const executeTask = useCallback(
-    async (task: QueuedGenerationTask) => {
-      setStatus("running");
-      setMessage("Generating images");
-
-      try {
-        await saveAppSettings(task.settings);
-        const batch = await generateImages(task.request);
-        setBatches((current) => [batch, ...current.filter((item) => item.id !== batch.id)]);
-        if (batch.status === "completed") {
-          setPreviewBatchId(batch.id);
-          setMessage(`Completed ${batch.images.length} image${batch.images.length === 1 ? "" : "s"}`);
-        } else if (batch.status === "cancelled") {
-          setMessage("Task cancelled");
-        }
-        setExpandedBatchId(null);
-        setStatus("ready");
-      } catch (error) {
-        setStatus("error");
-        setMessage(String(error));
-        await loadAppState()
-          .then((state) => setBatches(state.batches))
-          .catch(() => undefined);
-      }
-    },
-    [
-      setBatches,
-      setExpandedBatchId,
-      setMessage,
-      setPreviewBatchId,
-      setStatus,
-    ],
-  );
-
-  useEffect(() => {
-    if (processingRef.current || runningTask || queuedTasks.length === 0) {
-      return;
-    }
-
-    const [nextTask, ...remaining] = queuedTasks;
-    processingRef.current = true;
-    setQueuedTasks(remaining);
-    setRunningTask(nextTask);
-
-    void executeTask(nextTask).finally(() => {
-      processingRef.current = false;
-      setRunningTask(null);
-    });
-  }, [executeTask, queuedTasks, runningTask]);
 
   return {
     aspectRatio: activeOptions.aspectRatio,
     batchCount: activeOptions.batchCount,
     imageSize: activeOptions.imageSize,
     quality: activeOptions.quality,
-    queuedCount: queuedTasks.length,
-    runningTask,
     temperature: activeOptions.temperature,
     thinkingLevel: activeOptions.thinkingLevel,
     topP: activeOptions.topP,
     unlimited: activeOptions.unlimited,
     runGeneration,
-    stopGeneration,
     addReferenceImagePaths,
     applyImportedOptions,
     referenceImages,

@@ -9,6 +9,7 @@ import type {
   NanoBananaApiPlatform,
   OpenAiApiPlatform,
   PromptPreviewPlacement,
+  SeedanceApiPlatform,
 } from "../types";
 import {
   GPT_IMAGE_PLATFORM_MODELS,
@@ -25,6 +26,8 @@ import { Field, ToggleSwitch } from "./common";
 export function SettingsPanel({
   apiKey,
   apiKeySaved,
+  arkApiKey,
+  arkApiKeySaved,
   openaiApiKey,
   openaiApiKeySaved,
   openrouterApiKey,
@@ -34,11 +37,13 @@ export function SettingsPanel({
   configStatus,
   settings,
   setApiKey,
+  setArkApiKey,
   setOpenaiApiKey,
   setOpenrouterApiKey,
   setSettings,
   setXaiApiKey,
   onSaveKey,
+  onSaveArkKey,
   onSaveOpenaiKey,
   onSaveOpenrouterKey,
   onSaveSettings,
@@ -46,6 +51,8 @@ export function SettingsPanel({
 }: {
   apiKey: string;
   apiKeySaved: boolean;
+  arkApiKey: string;
+  arkApiKeySaved: boolean;
   openaiApiKey: string;
   openaiApiKeySaved: boolean;
   openrouterApiKey: string;
@@ -55,11 +62,13 @@ export function SettingsPanel({
   configStatus: ConfigStatus | null;
   settings: AppSettings;
   setApiKey: (value: string) => void;
+  setArkApiKey: (value: string) => void;
   setOpenaiApiKey: (value: string) => void;
   setOpenrouterApiKey: (value: string) => void;
   setSettings: (settings: AppSettings) => void;
   setXaiApiKey: (value: string) => void;
   onSaveKey: () => void;
+  onSaveArkKey: () => void;
   onSaveOpenaiKey: () => void;
   onSaveOpenrouterKey: () => void;
   onSaveSettings: (settings: AppSettings) => void;
@@ -124,6 +133,7 @@ export function SettingsPanel({
               ok={configStatus.hasOpenaiApiKey}
             />
             <ConfigBadge label="xAI API key" ok={configStatus.hasXaiApiKey} />
+            <ConfigBadge label="Ark API key" ok={configStatus.hasArkApiKey} />
             <ConfigBadge
               label="OpenRouter API key"
               ok={configStatus.hasOpenrouterApiKey}
@@ -409,6 +419,87 @@ export function SettingsPanel({
             }
             timeoutSeconds={settings.xaiTimeoutSeconds}
           />
+          <fieldset className="provider-settings">
+            <legend>Seedance Video</legend>
+            <Field label="API Platform">
+              <select
+                value={settings.seedanceApiPlatform}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    seedanceApiPlatform: event.target.value as SeedanceApiPlatform,
+                  })
+                }
+              >
+                <option value="ark">Volcengine Ark</option>
+                <option value="higgsfield">Higgsfield CLI</option>
+              </select>
+            </Field>
+            <Field label="Default Video Model">
+              <select
+                value={settings.seedanceDefaultModel}
+                onChange={(event) =>
+                  setSettings({ ...settings, seedanceDefaultModel: event.target.value })
+                }
+              >
+                <option value="doubao-seedance-2-0-260128">Seedance 2.0</option>
+                <option value="doubao-seedance-2-0-fast-260128">Seedance 2.0 Fast</option>
+                <option value="doubao-seedance-2-0-mini-260615">Seedance 2.0 Mini</option>
+              </select>
+            </Field>
+            {settings.seedanceApiPlatform === "ark" ? (
+              <>
+                <Field label="API Key">
+                  <div className="template-row">
+                    <input
+                      placeholder={
+                        arkApiKeySaved
+                          ? "Stored in ~/.sozocraft/config.toml"
+                          : "Volcengine Ark API key"
+                      }
+                      type="password"
+                      value={arkApiKey}
+                      onChange={(event) => setArkApiKey(event.target.value)}
+                    />
+                    <button className="secondary-button" onClick={onSaveArkKey} type="button">
+                      <KeyRound size={15} />
+                      Save Key
+                    </button>
+                  </div>
+                </Field>
+                <div className="provider-settings-grid">
+                  <Field label="Base URL">
+                    <input
+                      placeholder="https://ark.cn-beijing.volces.com/api/v3"
+                      value={settings.arkBaseUrl ?? ""}
+                      onChange={(event) =>
+                        setSettings({ ...settings, arkBaseUrl: event.target.value || null })
+                      }
+                    />
+                  </Field>
+                  <Field label="Timeout">
+                    <input
+                      min={10}
+                      type="number"
+                      value={settings.arkTimeoutSeconds}
+                      onChange={(event) =>
+                        setSettings({ ...settings, arkTimeoutSeconds: Number(event.target.value) })
+                      }
+                    />
+                  </Field>
+                </div>
+                <ToggleSwitch
+                  checked={settings.arkProxyEnabled}
+                  label="Use proxy"
+                  onChange={(value) => setSettings({ ...settings, arkProxyEnabled: value })}
+                />
+              </>
+            ) : (
+              <p className="provider-settings-note">
+                Uses the configured Higgsfield CLI account and billing workspace.
+              </p>
+            )}
+          </fieldset>
           <fieldset className="provider-settings">
             <legend>Higgsfield CLI</legend>
             <Field label="CLI Path">

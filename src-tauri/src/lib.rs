@@ -1,26 +1,34 @@
 mod app_state;
+mod ark_assets;
 mod error_log;
 mod file_access;
 mod filename_template;
 mod gemini;
 mod gemini_models;
+mod google_veo;
 mod higgsfield;
+mod higgsfield_video;
 mod image_meta;
 mod local_config;
 mod models;
 mod openai_image;
 mod prompt_library;
 mod reference_image_cache;
+mod seedance_video;
+mod video_generation;
 mod xai_image;
+mod xai_video;
 
 use app_state::{load_state, save_state};
+use ark_assets::{ArkAsset, CreateArkAssetRequest};
 use chrono::{Local, Utc};
 use error_log::GenerationErrorLog;
 use filename_template::resolve_output_path;
 use gemini::GeminiClient;
 use higgsfield::HiggsfieldStatus;
 use models::{
-    AppSettings, AppState, GenerationBatch, GenerationRequest, GenerationStatus, OutputImage,
+    AppSettings, AppState, GenerationBatch, GenerationMediaType, GenerationRequest,
+    GenerationStatus, OutputImage, VideoGenerationRequest,
 };
 use openai_image::OpenAiImageClient;
 use prompt_library::{
@@ -29,7 +37,7 @@ use prompt_library::{
 };
 use serde::Serialize;
 use std::{collections::HashMap, fs, path::PathBuf, sync::Mutex};
-use tauri::State as TauriState;
+use tauri::{Manager, State as TauriState};
 use tokio::sync::watch;
 use uuid::Uuid;
 use xai_image::XaiImageClient;
@@ -47,6 +55,8 @@ struct ConfigStatus {
     has_openai_api_key: bool,
     has_openrouter_api_key: bool,
     has_xai_api_key: bool,
+    has_ark_api_key: bool,
+    has_ark_asset_credentials: bool,
     has_proxy: bool,
 }
 
@@ -58,6 +68,8 @@ fn get_config_status() -> ConfigStatus {
         has_openai_api_key: local_config::has_openai_api_key(),
         has_openrouter_api_key: local_config::has_openrouter_api_key(),
         has_xai_api_key: local_config::has_xai_api_key(),
+        has_ark_api_key: local_config::has_ark_api_key(),
+        has_ark_asset_credentials: local_config::has_ark_asset_credentials(),
         has_proxy: local_config::has_proxy_configured(),
     }
 }
@@ -221,6 +233,19 @@ fn set_xai_api_key(api_key: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+fn set_ark_api_key(api_key: String) -> Result<bool, String> {
+    local_config::set_ark_api_key(&api_key).map_err(|err| err.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn set_ark_asset_credentials(access_key: String, secret_key: String) -> Result<bool, String> {
+    local_config::set_ark_asset_credentials(&access_key, &secret_key)
+        .map_err(|err| err.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
 fn has_gemini_api_key() -> bool {
     local_config::has_gemini_api_key()
 }
@@ -238,6 +263,28 @@ fn has_openrouter_api_key() -> bool {
 #[tauri::command]
 fn has_xai_api_key() -> bool {
     local_config::has_xai_api_key()
+}
+
+#[tauri::command]
+fn has_ark_api_key() -> bool {
+    local_config::has_ark_api_key()
+}
+
+#[tauri::command]
+fn has_ark_asset_credentials() -> bool {
+    local_config::has_ark_asset_credentials()
+}
+
+#[tauri::command]
+async fn list_ark_assets() -> Result<Vec<ArkAsset>, String> {
+    ark_assets::client_from_local_config()?.list_assets().await
+}
+
+#[tauri::command]
+async fn create_ark_asset(request: CreateArkAssetRequest) -> Result<ArkAsset, String> {
+    ark_assets::client_from_local_config()?
+        .create_asset(request)
+        .await
 }
 
 #[tauri::command]
@@ -297,6 +344,49 @@ async fn generate_images(
     result
 }
 
+#[tauri::command]
+async fn generate_video(
+    runtime: TauriState<'_, GenerationRuntime>,
+    mut request: VideoGenerationRequest,
+) -> Result<GenerationBatch, String> {
+    let task_id = request
+        .task_id
+        .clone()
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    request.task_id = Some(task_id.clone());
+    let (sender, receiver) = watch::channel(false);
+    {
+        let mut cancellations = runtime
+            .cancellations
+            .lock()
+            .map_err(|_| "Generation cancellation state is unavailable.".to_string())?;
+        cancellations.insert(task_id.clone(), sender);
+    }
+
+    let result = video_generation::generate(request, receiver).await;
+    if let Ok(mut cancellations) = runtime.cancellations.lock() {
+        cancellations.remove(&task_id);
+    }
+    result
+}
+
+#[tauri::command]
+fn prepare_video_preview(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    let state = load_state().map_err(|error| error.to_string())?;
+    let generated_video_paths = state
+        .batches
+        .iter()
+        .flat_map(|batch| &batch.videos)
+        .map(|video| video.path.clone())
+        .collect::<Vec<_>>();
+    let canonical = file_access::validate_generated_video_preview(&path, &generated_video_paths)?;
+
+    app.asset_protocol_scope()
+        .allow_file(&canonical)
+        .map_err(|error| format!("Failed to allow generated video preview: {error}"))?;
+    Ok(canonical.to_string_lossy().to_string())
+}
+
 async fn generate_images_inner(
     mut request: GenerationRequest,
     mut cancellation: watch::Receiver<bool>,
@@ -318,11 +408,14 @@ async fn generate_images_inner(
 
     let mut batch = GenerationBatch {
         id: batch_id.clone(),
+        media_type: GenerationMediaType::Image,
         provider: request.provider.clone(),
         model: request.model.clone(),
         prompt_snapshot: prompt_snapshot.clone(),
         status: GenerationStatus::Running,
         images: Vec::new(),
+        videos: Vec::new(),
+        provider_request_id: None,
         created_at,
         completed_at: None,
         error: None,
@@ -788,15 +881,23 @@ pub fn run() {
             set_openai_api_key,
             set_openrouter_api_key,
             set_xai_api_key,
+            set_ark_api_key,
+            set_ark_asset_credentials,
             has_gemini_api_key,
             has_openai_api_key,
             has_openrouter_api_key,
             has_xai_api_key,
+            has_ark_api_key,
+            has_ark_asset_credentials,
+            list_ark_assets,
+            create_ark_asset,
             read_image_data_url,
             read_text_file,
             read_image_text_metadata,
             cancel_generation_task,
             generate_images,
+            generate_video,
+            prepare_video_preview,
             get_config_status,
             check_higgsfield_status
         ])

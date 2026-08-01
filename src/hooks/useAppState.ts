@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   getConfigStatus,
+  hasArkApiKey,
   hasGeminiApiKey,
   hasOpenaiApiKey,
   hasOpenrouterApiKey,
@@ -8,6 +9,7 @@ import {
   loadAppState,
   saveAppSettings,
   setGeminiApiKey,
+  setArkApiKey as persistArkApiKey,
   setOpenaiApiKey as persistOpenaiApiKey,
   setOpenrouterApiKey as persistOpenrouterApiKey,
   setXaiApiKey as persistXaiApiKey,
@@ -23,10 +25,12 @@ export function useAppState() {
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [openrouterApiKey, setOpenrouterApiKey] = useState("");
   const [xaiApiKey, setXaiApiKey] = useState("");
+  const [arkApiKey, setArkApiKey] = useState("");
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [openaiApiKeySaved, setOpenaiApiKeySaved] = useState(false);
   const [openrouterApiKeySaved, setOpenrouterApiKeySaved] = useState(false);
   const [xaiApiKeySaved, setXaiApiKeySaved] = useState(false);
+  const [arkApiKeySaved, setArkApiKeySaved] = useState(false);
   const [batches, setBatches] = useState<GenerationBatch[]>([]);
   const [status, setStatus] = useState<AppStatus>("ready");
   const [message, setMessage] = useState("Ready");
@@ -58,6 +62,9 @@ export function useAppState() {
     void hasXaiApiKey()
       .then(setXaiApiKeySaved)
       .catch(() => setXaiApiKeySaved(false));
+    void hasArkApiKey()
+      .then(setArkApiKeySaved)
+      .catch(() => setArkApiKeySaved(false));
 
     void getConfigStatus()
       .then(setConfigStatus)
@@ -134,9 +141,29 @@ export function useAppState() {
     }
   }, [xaiApiKey]);
 
+  const saveArkKey = useCallback(async () => {
+    try {
+      await persistArkApiKey(arkApiKey);
+      setArkApiKey("");
+      setArkApiKeySaved(arkApiKey.trim().length > 0);
+      setStatus("ready");
+      setMessage(
+        arkApiKey.trim().length > 0
+          ? "Volcengine Ark API key saved"
+          : "Volcengine Ark API key cleared",
+      );
+      void getConfigStatus().then(setConfigStatus).catch(() => undefined);
+    } catch (error) {
+      setStatus("error");
+      setMessage(String(error));
+    }
+  }, [arkApiKey]);
+
   return {
     apiKey,
     apiKeySaved,
+    arkApiKey,
+    arkApiKeySaved,
     openaiApiKey,
     openaiApiKeySaved,
     openrouterApiKey,
@@ -151,10 +178,12 @@ export function useAppState() {
     settings,
     status,
     saveKey,
+    saveArkKey,
     saveOpenaiKey,
     saveOpenrouterKey,
     saveXaiKey,
     setApiKey,
+    setArkApiKey,
     setOpenaiApiKey,
     setOpenrouterApiKey,
     setXaiApiKey,

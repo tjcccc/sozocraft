@@ -1,5 +1,77 @@
 # DEVLOG
 
+## 2026-08-01
+
+- Bumped app/package/crate version metadata to `0.21.0` for the first complete
+  common-API video-generation checkpoint. Direct Volcengine Ark, xAI, and
+  Google Gemini API routes cover the current Seedance, Grok Imagine, and Veo
+  workflows; Higgsfield CLI video routing remains experimental pending broader
+  end-to-end Standard/Fast/Mini and recovery-path validation.
+- Fixed Higgsfield video job creation parsing for the CLI's top-level one-item
+  UUID array response. The created job now enters normal polling/download instead
+  of being recorded as an unidentifiable failed request.
+- Added Higgsfield CLI as a selectable Seedance video platform. Standard, Fast,
+  and Mini map to the official CLI job types/modes; text, Start, End, and local
+  Reference inputs use asynchronous CLI jobs, bounded HTTPS MP4 downloads, and
+  the existing local history/metadata pipeline.
+- Replaced Seedance's disabled Settings model display with a persisted Default
+  Video Model selector for Seedance 2.0, Fast, and Mini. The default initializes
+  the main video panel and applies to both Ark and Higgsfield routing.
+- Added Seedance 2.0 Fast and Seedance 2.0 Mini to the Ark video model selector,
+  with model-aware 4–15 second duration and 480p/720p resolution limits while
+  retaining 1080p on the flagship Seedance 2.0 model.
+- Added Ark Assets API management for Seedance with separate local AK/SK
+  credentials, Volcengine HMAC-SHA256 request signing, strict public-HTTPS URL
+  import, default AIGC group creation/reuse, asset-ID return, Active asset
+  selection, and validated `asset://asset-…` reference requests. The UI keeps
+  local image upload separate because Ark imports assets from URLs rather than
+  accepting local bytes.
+- Hid Ark asset credentials and the Seedance asset picker because Volcengine
+  currently requires enterprise verification to activate virtual identity
+  assets; retained the native implementation for future entitled accounts.
+- Send Veo's documented `personGeneration` value explicitly: `allow_all` for
+  text-to-video and `allow_adult` for every workflow containing input images.
+- Replaced the shared video single-image toggle with accessible per-thumbnail
+  Reference/Start/End role menus across providers. Added strict Seedance and Veo
+  start/end-frame request support, automatic valid role pairing, and Start/End
+  badges while leaving ordinary references unlabelled.
+- Fixed Google Veo starting-frame and reference-image requests to use the
+  `bytesBase64Encoded` wire shape emitted by Google's Gen AI SDK; the live API
+  rejects the `inlineData` shape shown in the REST guide.
+- Surface Google Veo Responsible AI filtering reasons in failed video results
+  and retain the sanitized provider response in the local error log.
+- Added Google Veo 3.1 video generation through the existing Gemini API key,
+  including text, starting-image, and up-to-three-reference workflows,
+  provider-specific 4/6/8-second rules, 720p/1080p/4K output, async polling,
+  allowlisted download validation, and native-audio messaging.
+- Added Volcengine Ark Seedance 2.0 video generation with separate local Ark
+  credentials, text/starting-image/up-to-nine-reference workflows, 5–15 second
+  output, provider ratios and resolutions, generated-audio control, async task
+  polling, and allowlisted MP4 downloads.
+- Added provider-specific Video state and capability mapping with tab order
+  Seedance, Grok Imagine, Google Veo while keeping Grok initially selected for
+  compatibility with existing setups.
+
+- Added the first video-generation vertical slice using xAI Grok Imagine Video,
+  with text-to-video duration, aspect-ratio, and 480p/720p controls that reuse
+  the existing prompt library and editor.
+- Added Grok Imagine image-to-video with one official starting-image slot,
+  shared upload/preview/removal UI, native file drops, validated inline image
+  data, and metadata that records the input mode without retaining image bytes.
+- Added one automatic video Input Images workflow: zero images selects text,
+  one defaults to a starting frame with a contextual Reference override, and
+  two to seven select reference-to-video. Reference mode caps duration at 10
+  seconds, sends xAI's `reference_images` payload, and records non-secret input
+  metadata.
+- Added one shared frontend queue for image and video tasks, asynchronous xAI
+  job polling, explicit local-only Stop semantics, local MP4 download, separate
+  image/video history, and native video playback.
+- Added backward-compatible media-aware batch persistence, adjacent video JSON
+  metadata, bounded and host-validated xAI downloads, and exact-file Tauri asset
+  protocol scoping for MP4 previews.
+- Added focused frontend queue/request tests and Rust validation, response
+  parsing, MP4, metadata-sanitization, and preview-boundary tests.
+
 ## 2026-05-14
 
 - Fixed provider settings base URL handling so legacy OpenRouter URLs are moved out of the OpenAI field and Grok Imagine shows a default xAI API placeholder.

@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Image as ImageIcon,
   Loader2,
+  Video,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -138,7 +139,12 @@ export function ModeSwitch({
         <ImageIcon size={14} />
         Image
       </button>
-      <button disabled className={mode === "video" ? "active" : ""}>
+      <button
+        className={mode === "video" ? "active" : ""}
+        disabled={disabled}
+        onClick={() => setMode("video")}
+      >
+        <Video size={14} />
         Video
       </button>
     </div>

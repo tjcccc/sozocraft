@@ -7,6 +7,7 @@ import { ImageLightbox, type LightboxImage, type LightboxState } from "./compone
 import { OutputColumn } from "./components/OutputColumn";
 import { PromptColumn } from "./components/PromptColumn";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { VideoGenerationPanel } from "./components/VideoGenerationPanel";
 import {
   ColumnResizer,
   ModeSwitch,
@@ -15,10 +16,13 @@ import {
 } from "./components/common";
 import { useAppState } from "./hooks/useAppState";
 import { useGeneration } from "./hooks/useGeneration";
+import { useGenerationQueue } from "./hooks/useGenerationQueue";
 import { useHistoryDate } from "./hooks/useHistoryDate";
 import { useImagePreviews } from "./hooks/useImagePreviews";
 import { useModelOptions } from "./hooks/useModelOptions";
 import { usePromptLibrary } from "./hooks/usePromptLibrary";
+import { useVideoGeneration } from "./hooks/useVideoGeneration";
+import { useVideoPreviews } from "./hooks/useVideoPreviews";
 import {
   getProviderConfig,
   getProviderModelDisplayName,
@@ -58,6 +62,8 @@ export function App() {
   const {
     apiKey,
     apiKeySaved,
+    arkApiKey,
+    arkApiKeySaved,
     batches,
     configStatus,
     currentPromptId,
@@ -68,10 +74,12 @@ export function App() {
     openrouterApiKeySaved,
     prompt,
     saveKey,
+    saveArkKey,
     saveOpenaiKey,
     saveOpenrouterKey,
     saveXaiKey,
     setApiKey,
+    setArkApiKey,
     setOpenaiApiKey,
     setOpenrouterApiKey,
     setBatches,
@@ -104,23 +112,30 @@ export function App() {
   });
   const importPromptSource = promptLibrary.importPromptSource;
 
-  const { filteredBatches, historyDate, setHistoryDate } = useHistoryDate(batches);
+  const { filteredBatches, historyDate, setHistoryDate } = useHistoryDate(batches, mode);
   useEffect(() => {
     setExpandedBatchId(null);
-  }, [historyDate]);
+  }, [historyDate, mode]);
+  useEffect(() => {
+    setPreviewBatchId(null);
+  }, [mode]);
 
   const expandedBatch = useMemo(
     () => batches.find((batch) => batch.id === expandedBatchId),
     [batches, expandedBatchId],
   );
   const previewBatch = useMemo(
-    () => (previewBatchId ? batches.find((batch) => batch.id === previewBatchId) : undefined),
-    [batches, previewBatchId],
+    () =>
+      previewBatchId
+        ? batches.find((batch) => batch.id === previewBatchId && batch.mediaType === mode)
+        : undefined,
+    [batches, mode, previewBatchId],
   );
   const { failedImagePaths, imageDataUrls } = useImagePreviews({
     expandedBatch,
     previewBatch,
   });
+  const { failedVideoPaths, videoUrls } = useVideoPreviews({ expandedBatch, previewBatch });
   const getCurrentPrompt = useCallback(async () => {
     if (!settings) {
       return promptLibrary.renderedPrompt;
@@ -141,16 +156,26 @@ export function App() {
     settings,
   ]);
   const getPromptSnapshot = useCallback(() => promptRef.current, []);
-  const generation = useGeneration({
-    getPrompt: getCurrentPrompt,
-    getPromptSnapshot,
+  const generationQueue = useGenerationQueue({
     setBatches,
     setExpandedBatchId,
     setMessage,
     setPreviewBatchId,
     setStatus,
+  });
+  const generation = useGeneration({
+    enqueueTask: generationQueue.enqueueTask,
+    getPrompt: getCurrentPrompt,
+    getPromptSnapshot,
     settings,
   });
+  const videoGeneration = useVideoGeneration({
+    enqueueTask: generationQueue.enqueueTask,
+    getPrompt: getCurrentPrompt,
+    getPromptSnapshot,
+    settings,
+  });
+  const addVideoInputImagePaths = videoGeneration.addInputImagePaths;
   const { addReferenceImagePaths, applyImportedOptions } = generation;
 
   useModelOptions({
@@ -278,23 +303,27 @@ export function App() {
   }, [promptLibrary.renderedPrompt, setMessage, setStatus]);
 
   const handleRun = useCallback(() => {
-    const wasRunning = Boolean(generation.runningTask);
-    void generation.runGeneration();
+    const wasRunning = Boolean(generationQueue.runningTask);
+    void (mode === "video" ? videoGeneration.runGeneration() : generation.runGeneration());
     if (wasRunning) {
       setToolbarHint("Task added to queue");
       window.setTimeout(() => setToolbarHint(null), 1800);
     }
-  }, [generation]);
+  }, [generation, generationQueue.runningTask, mode, videoGeneration]);
 
   const handleStop = useCallback(() => {
-    if (!generation.runningTask) {
+    if (!generationQueue.runningTask) {
       return;
     }
-    const totalActiveTasks = 1 + generation.queuedCount;
-    setToolbarHint(`Cancelled task 1/${totalActiveTasks}`);
+    const totalActiveTasks = 1 + generationQueue.queuedCount;
+    setToolbarHint(
+      generationQueue.runningTask.mediaType === "video"
+        ? "Stopped local monitoring; xAI may continue"
+        : `Cancelled task 1/${totalActiveTasks}`,
+    );
     window.setTimeout(() => setToolbarHint(null), 1800);
-    void generation.stopGeneration();
-  }, [generation]);
+    void generationQueue.stopGeneration();
+  }, [generationQueue]);
 
   const saveSettings = useCallback(
     (nextSettings: AppSettings) => {
@@ -423,12 +452,19 @@ export function App() {
         }
 
         if (zone === "generation") {
-          const added = await addReferenceImagePaths(paths);
+          const added =
+            mode === "video"
+              ? await addVideoInputImagePaths(paths)
+              : await addReferenceImagePaths(paths);
           setStatus(added > 0 ? "ready" : "error");
           setMessage(
             added > 0
-              ? `Added ${added} reference image${added === 1 ? "" : "s"}`
-              : "No supported reference images were dropped.",
+              ? mode === "video"
+                ? `Added ${added} video input image${added === 1 ? "" : "s"}`
+                : `Added ${added} reference image${added === 1 ? "" : "s"}`
+              : mode === "video"
+                ? "No supported video input images were added. Check the selected input mode and its limit."
+                : "No supported reference images were dropped.",
           );
           return;
         }
@@ -452,8 +488,10 @@ export function App() {
     },
     [
       addReferenceImagePaths,
+      addVideoInputImagePaths,
       importPromptFromImageMetadata,
       importPromptTextFile,
+      mode,
       setMessage,
       setStatus,
     ],
@@ -505,9 +543,10 @@ export function App() {
   }, [handleNativeFileDrop, insertPromptIncludeFromNativeDrop]);
 
   const showEditorOnly = !!settings?.promptEditorOnly && !showSettings;
-  const completedTasks = batches.filter((batch) => batch.status === "completed").length;
-  const failedTasks = batches.filter((batch) => batch.status === "failed").length;
-  const cancelledTasks = batches.filter((batch) => batch.status === "cancelled").length;
+  const modeBatches = batches.filter((batch) => batch.mediaType === mode);
+  const completedTasks = modeBatches.filter((batch) => batch.status === "completed").length;
+  const failedTasks = modeBatches.filter((batch) => batch.status === "failed").length;
+  const cancelledTasks = modeBatches.filter((batch) => batch.status === "cancelled").length;
 
   if (!settings) {
     return (
@@ -536,7 +575,7 @@ export function App() {
               </button>
               <button
                 className="secondary-button"
-                disabled={showSettings || !generation.runningTask}
+                disabled={showSettings || !generationQueue.runningTask}
                 onClick={handleStop}
               >
                 <Square size={14} />
@@ -567,6 +606,8 @@ export function App() {
         <SettingsPanel
           apiKey={apiKey}
           apiKeySaved={apiKeySaved}
+          arkApiKey={arkApiKey}
+          arkApiKeySaved={arkApiKeySaved}
           openaiApiKey={openaiApiKey}
           openaiApiKeySaved={openaiApiKeySaved}
           openrouterApiKey={openrouterApiKey}
@@ -576,11 +617,13 @@ export function App() {
           configStatus={configStatus}
           settings={settings}
           setApiKey={setApiKey}
+          setArkApiKey={setArkApiKey}
           setOpenaiApiKey={setOpenaiApiKey}
           setOpenrouterApiKey={setOpenrouterApiKey}
           setSettings={setSettings}
           setXaiApiKey={setXaiApiKey}
           onSaveKey={() => void saveKey()}
+          onSaveArkKey={() => void saveArkKey()}
           onSaveOpenaiKey={() => void saveOpenaiKey()}
           onSaveOpenrouterKey={() => void saveOpenrouterKey()}
           onSaveSettings={saveSettings}
@@ -692,13 +735,21 @@ export function App() {
             label="Resize prompt and generation columns"
             onPointerDown={(event) => startColumnResize(0, event)}
           />
-          <GenerationPanel
-            settings={settings}
-            setSettings={setSettings}
-            fileDropActive={activeFileDropZone === "generation"}
-            onPreviewImages={openLightbox}
-            {...generation}
-          />
+          {mode === "image" ? (
+            <GenerationPanel
+              settings={settings}
+              setSettings={setSettings}
+              fileDropActive={activeFileDropZone === "generation"}
+              onPreviewImages={openLightbox}
+              {...generation}
+            />
+          ) : (
+            <VideoGenerationPanel
+              fileDropActive={activeFileDropZone === "generation"}
+              onPreviewImages={openLightbox}
+              {...videoGeneration}
+            />
+          )}
           <ColumnResizer
             active={resizingDivider === 1}
             label="Resize generation and output columns"
@@ -708,13 +759,17 @@ export function App() {
             batches={filteredBatches}
             errorMessage={status === "error" ? message : null}
             expandedBatchId={expandedBatchId}
-            fileDropActive={activeFileDropZone === "output"}
+            fileDropActive={mode === "image" && activeFileDropZone === "output"}
             failedImagePaths={failedImagePaths}
+            failedVideoPaths={failedVideoPaths}
             historyDate={historyDate}
             imageDataUrls={imageDataUrls}
+            mediaType={mode}
             previewBatch={previewBatch}
             setExpandedBatchId={setExpandedBatchId}
             setHistoryDate={setHistoryDate}
+            setPreviewBatchId={setPreviewBatchId}
+            videoUrls={videoUrls}
             onPreviewImages={openLightbox}
           />
         </section>
@@ -733,13 +788,21 @@ export function App() {
         {!settings.promptEditorOnly || showSettings ? (
           <>
             <div className="status-info">
-              <span>{providerPlatformDisplayName(settings)}</span>
+              <span>
+                {mode === "video"
+                  ? videoGeneration.providerDisplayName
+                  : providerPlatformDisplayName(settings)}
+              </span>
               <span>/</span>
-              <span>{getProviderModelDisplayName(settings.defaultProvider, settings.defaultModel)}</span>
+              <span>
+                {mode === "video"
+                  ? videoGeneration.modelDisplayName
+                  : getProviderModelDisplayName(settings.defaultProvider, settings.defaultModel)}
+              </span>
             </div>
             <div className="status-counts">
-              <span>Queue: {generation.queuedCount}</span>
-              <span>Running: {generation.runningTask ? 1 : 0}</span>
+              <span>Queue: {generationQueue.queuedCount}</span>
+              <span>Running: {generationQueue.runningTask ? 1 : 0}</span>
               <span>Completed: {completedTasks}</span>
               <span>Failed: {failedTasks}</span>
               <span>Cancelled: {cancelledTasks}</span>

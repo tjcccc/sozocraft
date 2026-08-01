@@ -456,6 +456,7 @@ mod tests {
             name: "ref.png".to_string(),
             mime_type: "image/png".to_string(),
             data: "abc123".to_string(),
+            asset_id: None,
         }]);
 
         let body = build_request_body(&request);

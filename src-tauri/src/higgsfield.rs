@@ -30,9 +30,9 @@ pub struct HiggsfieldImageResponse {
 }
 
 #[derive(Debug, Clone)]
-struct CliOutput {
-    stdout: String,
-    stderr: String,
+pub(crate) struct CliOutput {
+    pub(crate) stdout: String,
+    pub(crate) stderr: String,
 }
 
 #[derive(Debug, Default)]
@@ -402,7 +402,7 @@ fn is_retryable_cli_create_error(error: &str) -> bool {
     error.contains("cannot reach https://") && error.contains("cloudfront.net")
 }
 
-async fn run_cli(
+pub(crate) async fn run_cli(
     cli_path: &str,
     args: &[&str],
     timeout: Duration,
@@ -579,7 +579,7 @@ async fn download_url_with_curl(url: &str, timeout: Duration) -> Result<Vec<u8>,
     Ok(output.stdout)
 }
 
-fn parse_json_output(stdout: &str) -> Option<Value> {
+pub(crate) fn parse_json_output(stdout: &str) -> Option<Value> {
     let trimmed = stdout.trim();
     if trimmed.is_empty() {
         return None;
@@ -593,13 +593,13 @@ fn parse_json_output(stdout: &str) -> Option<Value> {
     })
 }
 
-fn collect_result_urls(value: &Value) -> Vec<String> {
+pub(crate) fn collect_result_urls(value: &Value) -> Vec<String> {
     let mut urls = Vec::new();
     collect_result_urls_inner(value, None, &mut urls);
     urls
 }
 
-fn job_id_from_metadata(value: &Value) -> Option<String> {
+pub(crate) fn job_id_from_metadata(value: &Value) -> Option<String> {
     match value {
         Value::Object(map) => ["id", "job_id", "jobId"]
             .iter()
@@ -721,7 +721,7 @@ fn no_result_url_error(metadata: &Value) -> String {
     }
 }
 
-fn find_scalar_key(value: &Value, keys: &[&str]) -> Option<String> {
+pub(crate) fn find_scalar_key(value: &Value, keys: &[&str]) -> Option<String> {
     match value {
         Value::Object(map) => {
             for key in keys {
@@ -764,7 +764,7 @@ fn is_http_url(value: &str) -> bool {
     value.starts_with("https://") || value.starts_with("http://")
 }
 
-fn normalized_cli_path(cli_path: Option<String>) -> String {
+pub(crate) fn normalized_cli_path(cli_path: Option<String>) -> String {
     cli_path
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())

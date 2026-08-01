@@ -6,13 +6,18 @@
 - `src/components/` contains UI panels and shared primitives.
 - `src/hooks/` contains reusable state/effect workflows:
   - `useAppState` loads and saves app settings/state.
-- `useGeneration` owns generation option state and run orchestration.
+  - `useGeneration` owns image option state and image request construction.
+  - `useVideoGeneration` owns per-provider video state and video request construction.
+  - `useGenerationQueue` serializes image and video tasks through one queue and cancellation path.
   - `useHistoryDate` filters batches by selected history date.
   - `useImagePreviews` loads saved image files into data URLs.
+  - `useVideoPreviews` prepares exact history-backed MP4 paths for native playback.
   - `useModelOptions` clamps generation options to the selected model.
 - `src/models/geminiImageModels.ts` is the frontend Gemini image model capability catalog.
 - `src/models/imageProviders.ts` is the frontend provider catalog for Nano Banana,
   GPT-Image, and Grok Imagine.
+- `src/models/videoProviders.ts` is the capability catalog for Seedance, Grok
+  Imagine, and Google Veo.
 - `src/utils/` contains pure formatting, validation, and numeric helpers.
 
 ## Backend
@@ -26,6 +31,18 @@
   payloads.
 - `src-tauri/src/xai_image.rs` builds xAI Grok Imagine generation requests and
   parses base64 image responses.
+- `src-tauri/src/xai_video.rs` starts and polls xAI Grok Imagine video jobs,
+  validates result URLs, and downloads bounded MP4 output.
+- `src-tauri/src/google_veo.rs` maps Gemini API Veo long-running operations and
+  validates Google-hosted output downloads.
+- `src-tauri/src/seedance_video.rs` maps Volcengine Ark Seedance content tasks
+  and validates Volcengine-hosted output downloads.
+- `src-tauri/src/higgsfield_video.rs` maps the shared Seedance UI models to
+  Higgsfield CLI job types, materializes validated local media inputs for CLI
+  auto-upload, polls jobs, and downloads bounded HTTPS MP4 results.
+- `src-tauri/src/video_generation.rs` owns text-, image-, and reference-to-video
+  job orchestration, local MP4 and JSON metadata persistence, terminal history
+  state, and failure logging.
 - `src-tauri/src/image_meta.rs` handles PNG conversion and metadata embedding.
 - `src-tauri/src/local_config.rs` manages `~/.sozocraft/config.toml`.
 - `src-tauri/src/app_state.rs` manages local app state under the platform data directory.
@@ -34,7 +51,8 @@
 
 ## Data Contract
 
-- Generated outputs are saved as PNG files.
+- Generated image outputs are saved as PNG files. Generated video outputs are
+  saved as MP4 files with adjacent `.mp4.json` metadata.
 - PNG metadata stores `prompt` and `sozocraft` as uncompressed UTF-8 `iTXt` chunks so non-Latin prompt text round-trips without mojibake.
 - The `sozocraft` JSON chunk includes `schemaVersion`, `promptSnapshot`, `renderedPrompt`, provider/model/options, ids, timestamps, and response metadata.
 - Until PromptCraft DSL rendering exists, `promptSnapshot` and `renderedPrompt` carry the same prompt text.
@@ -44,11 +62,19 @@
   data.
 - Prompt generation sends the rendered prompt to providers and stores the full
   markdown source as `promptSnapshot`.
+- Persisted generation batches carry an `image` or `video` media discriminator;
+  missing discriminators in pre-video state files default to `image`.
 
 ## Boundaries
 
 - Frontend option clamping improves UX, but backend request building is the source of safety for API payloads.
-- Reference images are selected in the frontend, stored as browser data URLs/base64 payloads for the current run, and sent to the backend as inline image data.
+- Image-generation references and role-assigned video reference, starting, and
+  ending images are selected in the frontend, stored as browser data URLs/base64
+  payloads for the current run, and sent to the backend as inline image data.
+- Video input mode is derived from per-image roles: no images is text, any
+  Start assignment is image-to-video, a Start/End pair is frame-to-video, and
+  otherwise the images are references. Frontend transitions keep provider role
+  combinations valid; Rust validates the same boundary authoritatively.
 - Reference images are enabled for Nano Banana, GPT-Image, and Grok Imagine.
   GPT-Image reference-image runs use OpenAI-compatible multipart
   `/images/edits` requests for OpenAI Image API endpoints and chat
@@ -56,4 +82,25 @@
   xAI's JSON `/v1/images/edits` endpoint with data URI image objects and no mask
   support.
 - Keep frontend and backend Gemini model capability catalogs synchronized when the official API changes.
+- Video result URLs must use HTTPS on the selected provider's allowlisted hosts;
+  downloads are size- and MP4-signature-checked, and temporary URLs are removed
+  from persisted metadata.
+- Grok Imagine image-to-video accepts one validated PNG, JPEG, or WebP starting
+  image under xAI's singular `image` field. Reference-to-video accepts one to
+  seven validated images under `reference_images`, caps duration at 10 seconds,
+  and cannot be mixed with the starting-image mode.
+- Google Veo uses the existing Gemini credential and supports 4/6/8 seconds at
+  720p, eight seconds at 1080p/4K or with up to three references, and always-on
+  native audio. Requests explicitly use `personGeneration: allow_all` for text
+  input and `allow_adult` for workflows containing images.
+- Seedance routes through either a separate local Ark credential or the
+  authenticated Higgsfield CLI. Both routes accept one starting frame, a
+  start/end-frame pair, or up to nine references and expose the same shared
+  duration, ratio, resolution, and generated-audio controls. Higgsfield local
+  media paths are auto-uploaded by the CLI; Soul IDs are not accepted by the
+  current Seedance CLI schemas. The direct Ark route is supported; the
+  Higgsfield video adapter remains experimental until Standard, Fast, Mini, and
+  interrupted-job recovery receive broader end-to-end validation.
+- The asset protocol starts with an empty scope. A preview command validates an
+  exact regular MP4 against saved generation history before allowing that file.
 - Avoid adding global state libraries, generated schemas, or routing until the app has a concrete need.
