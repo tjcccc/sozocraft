@@ -3,7 +3,14 @@ use base64::{engine::general_purpose, Engine as _};
 use reqwest::{Client, Proxy};
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::{fs, path::PathBuf, process::Stdio, time::Duration};
+use std::{
+    env,
+    ffi::OsString,
+    fs,
+    path::{Path, PathBuf},
+    process::Stdio,
+    time::Duration,
+};
 use tokio::process::Command;
 use uuid::Uuid;
 
@@ -436,13 +443,17 @@ pub(crate) async fn run_cli(
     timeout: Duration,
     proxy_url: Option<&str>,
 ) -> Result<CliOutput, String> {
-    validate_cli_path(cli_path)?;
-    let mut command = Command::new(cli_path);
+    let resolved_cli_path = resolve_cli_executable(cli_path);
+    validate_cli_path(&resolved_cli_path)?;
+    let mut command = Command::new(&resolved_cli_path);
     command
         .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
+    if let Some(path) = cli_process_path(&resolved_cli_path) {
+        command.env("PATH", path);
+    }
     if let Some(proxy_url) = clean_option(proxy_url) {
         command
             .env("HTTP_PROXY", proxy_url)
@@ -454,7 +465,7 @@ pub(crate) async fn run_cli(
     }
     let child = command.spawn().map_err(|err| {
         if err.kind() == std::io::ErrorKind::NotFound {
-            format!("Higgsfield CLI not found at `{cli_path}`.")
+            format!("Higgsfield CLI not found at `{resolved_cli_path}`.")
         } else {
             format!("Failed to start Higgsfield CLI: {err}")
         }
@@ -812,10 +823,113 @@ fn is_http_url(value: &str) -> bool {
 }
 
 pub(crate) fn normalized_cli_path(cli_path: Option<String>) -> String {
-    cli_path
+    let configured = cli_path
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "higgsfield".to_string())
+        .unwrap_or_else(|| "higgsfield".to_string());
+    resolve_cli_executable(&configured)
+}
+
+fn resolve_cli_executable(cli_path: &str) -> String {
+    resolve_cli_executable_in_dirs(cli_path, &cli_search_dirs(cli_path))
+}
+
+fn resolve_cli_executable_in_dirs(cli_path: &str, search_dirs: &[PathBuf]) -> String {
+    let path = Path::new(cli_path);
+    if path.components().count() > 1 {
+        return cli_path.to_string();
+    }
+    search_dirs
+        .iter()
+        .map(|directory| directory.join(cli_path))
+        .find(|candidate| is_executable_file(candidate))
+        .map(|candidate| candidate.to_string_lossy().to_string())
+        .unwrap_or_else(|| cli_path.to_string())
+}
+
+fn cli_process_path(cli_path: &str) -> Option<OsString> {
+    env::join_paths(cli_search_dirs(cli_path)).ok()
+}
+
+fn cli_search_dirs(cli_path: &str) -> Vec<PathBuf> {
+    let mut directories = Vec::new();
+    if let Some(parent) = Path::new(cli_path)
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+    {
+        push_unique_path(&mut directories, parent.to_path_buf());
+    }
+    if let Some(path) = env::var_os("PATH") {
+        for directory in env::split_paths(&path) {
+            push_unique_path(&mut directories, directory);
+        }
+    }
+    if let Some(home) = dirs::home_dir() {
+        for relative in [
+            ".local/bin",
+            ".cargo/bin",
+            ".volta/bin",
+            ".asdf/shims",
+            ".local/share/mise/shims",
+            "Library/pnpm",
+        ] {
+            push_unique_path(&mut directories, home.join(relative));
+        }
+        append_versioned_bin_dirs(&mut directories, &home.join(".nvm/versions/node"), "bin");
+        append_versioned_bin_dirs(
+            &mut directories,
+            &home.join(".local/share/fnm/node-versions"),
+            "installation/bin",
+        );
+    }
+    for directory in ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"] {
+        push_unique_path(&mut directories, PathBuf::from(directory));
+    }
+    directories
+}
+
+fn append_versioned_bin_dirs(directories: &mut Vec<PathBuf>, root: &Path, suffix: &str) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    let mut version_dirs = entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            entry
+                .file_type()
+                .ok()
+                .filter(|kind| kind.is_dir())
+                .map(|_| entry.path())
+        })
+        .collect::<Vec<_>>();
+    version_dirs.sort_by(|left, right| right.file_name().cmp(&left.file_name()));
+    for directory in version_dirs {
+        push_unique_path(directories, directory.join(suffix));
+    }
+}
+
+fn push_unique_path(directories: &mut Vec<PathBuf>, directory: PathBuf) {
+    if !directories.contains(&directory) {
+        directories.push(directory);
+    }
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    let Ok(metadata) = fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
 }
 
 fn validate_cli_path(cli_path: &str) -> Result<(), String> {
@@ -870,7 +984,7 @@ mod tests {
     use super::{
         build_generate_args, collect_fallback_urls_from_text, collect_result_urls,
         is_retryable_cli_create_error, job_id_from_metadata, no_result_url_error,
-        validate_cli_path, validate_request_options,
+        resolve_cli_executable_in_dirs, validate_cli_path, validate_request_options,
     };
     use crate::models::{GenerationOptions, GenerationRequest};
     use serde_json::json;
@@ -944,6 +1058,33 @@ mod tests {
         assert!(validate_cli_path("higgsfield").is_ok());
         assert!(validate_cli_path("/opt/homebrew/bin/higgsfield").is_ok());
         assert!(validate_cli_path("/bin/sh").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolves_bare_cli_from_gui_safe_search_directories() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root =
+            std::env::temp_dir().join(format!("sozocraft-higgsfield-cli-{}", uuid::Uuid::new_v4()));
+        let bin = root.join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let executable = bin.join("higgsfield");
+        std::fs::write(&executable, "#!/bin/sh\nexit 0\n").unwrap();
+        let mut permissions = std::fs::metadata(&executable).unwrap().permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&executable, permissions).unwrap();
+
+        assert_eq!(
+            resolve_cli_executable_in_dirs("higgsfield", std::slice::from_ref(&bin)),
+            executable.to_string_lossy()
+        );
+        assert_eq!(
+            resolve_cli_executable_in_dirs("missing-higgsfield", &[bin]),
+            "missing-higgsfield"
+        );
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

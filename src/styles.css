@@ -2208,6 +2208,13 @@ button {
     grid-column: 1 / -1;
 }
 
+.provider-settings-note {
+    margin: 0;
+    color: #7a8496;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
 .provider-status-grid {
     display: flex;
     min-width: 0;

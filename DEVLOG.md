@@ -2,6 +2,13 @@
 
 ## 2026-08-02
 
+- Bumped app/package/crate version metadata to `0.22.2` for the bundled-app
+  Higgsfield CLI discovery fix and Seedance settings hint polish.
+- Resolve a bare Higgsfield CLI name from common macOS user-tool locations,
+  including NVM/FNM installations, and give child processes the resolved CLI
+  directory in their scoped `PATH` so signed or bundled GUI builds can launch
+  the Node-based CLI. Also reduced the Seedance Higgsfield account hint to the
+  standard secondary-help size.
 - Bumped app/package/crate version metadata to `0.22.1` for the appearance-aware
   brand icon and corrected native Dock icon checkpoint.
 - Replaced the SozoCraft brand and bundle icons with the new structured-prompt
