@@ -38,7 +38,8 @@ import type {
 import { clamp } from "./utils/math";
 import { fileNameFromPath, isSupportedImagePath } from "./utils/referenceImages";
 import { textareaIndexFromPoint } from "./utils/textareaPosition";
-import sozocraftIcon from "./assets/sozocraft-icon.png";
+import sozocraftIconDark from "./assets/sozocraft-icon-dark.svg";
+import sozocraftIconLight from "./assets/sozocraft-icon-light.svg";
 import type { AppSettings } from "./types";
 
 const MIN_COLUMN_WIDTHS = [24, 24, 28];
@@ -562,7 +563,10 @@ export function App() {
       <header className="toolbar">
         <div className="toolbar-left">
           <div className="brand">
-            <img className="brand-mark" src={sozocraftIcon} alt="" aria-hidden="true" />
+            <picture className="brand-mark" aria-hidden="true">
+              <source media="(prefers-color-scheme: dark)" srcSet={sozocraftIconDark} />
+              <img src={sozocraftIconLight} alt="" />
+            </picture>
             <strong>SōzōCraft</strong>
           </div>
         </div>

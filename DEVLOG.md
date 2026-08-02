@@ -2,6 +2,13 @@
 
 ## 2026-08-02
 
+- Bumped app/package/crate version metadata to `0.22.1` for the appearance-aware
+  brand icon and corrected native Dock icon checkpoint.
+- Replaced the SozoCraft brand and bundle icons with the new structured-prompt
+  artwork. The toolbar selects light or dark SVG artwork from the system color
+  scheme and applies its rounded-square mask in CSS. Native bundle assets use a
+  padded, rounded source so the Dock renders the icon at the standard visual
+  size instead of as a full-bleed square.
 - Canonicalized existing prompt-library roots before indexing so symlinked
   prompt directories no longer alternate stored path forms and rewrite
   `prompts.sqlite` whenever the app opens the selected prompt.

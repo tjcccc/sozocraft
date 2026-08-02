@@ -53,6 +53,8 @@ The current design uses:
   field is disabled with the toggle off; when left empty, its placeholder
   explains that the General Proxy URL is used as the fallback.
 - Use icon buttons for compact toolbar/tool actions when the icon is familiar.
+- The toolbar brand mark uses the light/dark SozoCraft SVG selected by the
+  system color scheme and applies its rounded square mask in CSS.
 - Keep text labels on primary run/save actions.
 - Provider tabs should be active only when the backend can generate through that
   provider. Keep provider-specific controls hidden when the active provider does

@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Sozocraft dark app icon</title>
+  <desc id="desc">An unmasked square dark app-icon source with structured prompt lines, an S-shaped divider, and an abstract nighttime image and video field.</desc>
+
+  <defs>
+    <clipPath id="icon-clip">
+      <rect width="1024" height="1024"/>
+    </clipPath>
+
+    <clipPath id="media-clip">
+      <path
+        d="M750 0
+           C620 70 486 174 438 264
+           C391 378 458 455 526 532
+           C597 613 605 700 544 782
+           C493 851 390 940 260 1024
+           H1024V0Z"/>
+    </clipPath>
+
+    <linearGradient id="night-sky" x1="0.08" y1="0.02" x2="0.9" y2="0.96">
+      <stop offset="0" stop-color="#0b1425"/>
+      <stop offset="0.5" stop-color="#172845"/>
+      <stop offset="0.76" stop-color="#303858"/>
+      <stop offset="1" stop-color="#55475f"/>
+    </linearGradient>
+
+    <linearGradient id="dark-panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#121821"/>
+      <stop offset="1" stop-color="#202a37"/>
+    </linearGradient>
+
+    <linearGradient id="divider" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#657993"/>
+      <stop offset="1" stop-color="#40536b"/>
+    </linearGradient>
+
+    <linearGradient id="light-ink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eef3fa"/>
+      <stop offset="1" stop-color="#bdcadb"/>
+    </linearGradient>
+
+    <linearGradient id="mountain-mid" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#526b9d"/>
+      <stop offset="1" stop-color="#3e4e7b"/>
+    </linearGradient>
+
+    <linearGradient id="mountain-front" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#304873"/>
+      <stop offset="1" stop-color="#243553"/>
+    </linearGradient>
+
+    <radialGradient id="moon" cx="0.36" cy="0.32" r="0.72">
+      <stop offset="0" stop-color="#fffdf3"/>
+      <stop offset="1" stop-color="#cbd8e9"/>
+    </radialGradient>
+  </defs>
+
+  <g clip-path="url(#icon-clip)">
+    <rect width="1024" height="1024" fill="url(#night-sky)"/>
+
+    <path
+      d="M0 0H750
+         C620 70 486 174 438 264
+         C391 378 458 455 526 532
+         C597 613 605 700 544 782
+         C493 851 390 940 260 1024
+         H0Z"
+      fill="url(#dark-panel)"/>
+
+    <g clip-path="url(#media-clip)">
+      <circle cx="870" cy="145" r="35" fill="url(#moon)" opacity="0.92"/>
+      <path d="M596 670L744 575L913 679L1024 626V1024H304Z" fill="url(#mountain-mid)"/>
+      <path d="M286 856L536 739L759 855L1024 707V1024H260Z" fill="url(#mountain-front)"/>
+      <path d="M263 924L478 824L699 948L857 862L1024 932V1024H246Z" fill="#1d2c46" opacity="0.88"/>
+    </g>
+
+    <path
+      d="M790 -40
+         C776 -25 762 -10 750 0
+         C620 70 486 174 438 264
+         C391 378 458 455 526 532
+         C597 613 605 700 544 782
+         C493 851 390 940 260 1024"
+      fill="none"
+      stroke="url(#divider)"
+      stroke-width="52"
+      stroke-linecap="round"
+      stroke-linejoin="round"/>
+
+    <path
+      d="M800 -40
+         C786 -25 772 -8 760 7
+         C633 78 499 182 457 270
+         C413 375 478 446 544 521
+         C620 607 627 704 562 792
+         C512 858 408 948 277 1024"
+      fill="none"
+      stroke="#aebdd0"
+      stroke-width="3.5"
+      stroke-linecap="round"
+      opacity="0.84"/>
+
+    <g fill="url(#light-ink)">
+      <rect x="154" y="322" width="224" height="34" rx="17"/>
+      <rect x="154" y="476" width="224" height="34" rx="17"/>
+      <rect x="154" y="630" width="224" height="34" rx="17"/>
+    </g>
+
+    <path
+      d="M670 289
+         C663 284 654 289 654 300
+         V414
+         C654 426 664 431 674 424
+         L760 365
+         C769 359 769 349 760 343Z"
+      transform="translate(24 0)"
+      fill="url(#light-ink)"
+      stroke="#f6f8fb"
+      stroke-width="2"/>
+  </g>
+</svg>
