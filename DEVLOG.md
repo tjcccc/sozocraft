@@ -2,6 +2,17 @@
 
 ## 2026-08-02
 
+- Bumped app/package/crate version metadata to `0.23.0` for the system dark
+  theme and appearance-aware macOS Dock icon checkpoint.
+- Documented separate debug and optimized release macOS application build
+  commands, output locations, and the remaining signing/notarization step.
+- Added a system-synchronized dark application theme covering the workspace,
+  prompt editor, generation controls, output history, settings, provider marks,
+  status states, and native form controls while preserving the existing light
+  appearance.
+- Added a native macOS appearance listener that selects the matching light or
+  dark Dock icon at app startup and whenever the system theme changes while
+  SozoCraft is running.
 - Bumped app/package/crate version metadata to `0.22.2` for the bundled-app
   Higgsfield CLI discovery fix and Seedance settings hint polish.
 - Resolve a bare Higgsfield CLI name from common macOS user-tool locations,

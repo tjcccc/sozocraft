@@ -48,6 +48,8 @@
   state, and failure logging.
 - `src-tauri/src/image_meta.rs` handles PNG conversion and metadata embedding.
 - `src-tauri/src/local_config.rs` manages `~/.sozocraft/config.toml`.
+- `src-tauri/src/macos_app_icon.rs` keeps the running macOS Dock icon synchronized
+  with the current system light or dark appearance.
 - `src-tauri/src/app_state.rs` manages local app state under the platform data directory.
 - `src-tauri/src/prompt_library.rs` manages markdown prompt files, prompt
   rendering, and the local SQLite prompt index.

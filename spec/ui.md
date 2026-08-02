@@ -16,7 +16,7 @@ The current design uses:
 - top toolbar for app identity, run controls, mode switch, and settings
 - settings opens as a full-page tool view in place of the workspace
 - bottom status bar for run state and aggregate counts
-- light neutral surface with subtle blue accents
+- system-synchronized light and deep blue-gray dark surfaces with subtle blue accents
 - restrained panels with persistent borders and small-radius controls
 
 ## Layout Conventions
@@ -55,6 +55,10 @@ The current design uses:
 - Use icon buttons for compact toolbar/tool actions when the icon is familiar.
 - The toolbar brand mark uses the light/dark SozoCraft SVG selected by the
   system color scheme and applies its rounded square mask in CSS.
+- The complete application follows the macOS light/dark appearance through
+  `prefers-color-scheme`; dark mode retains the same information hierarchy,
+  uses blue-gray surfaces instead of pure black, and lightens monochrome
+  provider marks for contrast.
 - Keep text labels on primary run/save actions.
 - Provider tabs should be active only when the backend can generate through that
   provider. Keep provider-specific controls hidden when the active provider does
@@ -97,10 +101,12 @@ The current design uses:
 
 - Use the existing system sans-serif stack.
 - Keep compact panel headings around the current scale; do not introduce hero-sized type inside tool surfaces.
-- Maintain the current neutral background and blue action/accent palette unless a broader redesign is requested.
+- Maintain the neutral background and blue action/accent palette in both system
+  appearances unless a broader redesign is requested.
 
 ## Open Decisions
 
 - No mobile layout is currently defined; the desktop shell has a minimum 1100px width.
-- No formal design tokens exist yet beyond the CSS values in `src/styles.css`.
+- Theme values remain centralized in the light rules and the system dark-mode
+  override in `src/styles.css`; no runtime theme preference is persisted yet.
 - PromptCraft DSL-specific UI states are placeholders until the DSL renderer exists.

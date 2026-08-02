@@ -1,7 +1,7 @@
 {
   "version": 1,
   "projnaviVersion": "0.5.0",
-  "generatedAt": "2026-08-02T04:26:40.362Z",
+  "generatedAt": "2026-08-02T14:47:30.145Z",
   "root": ".",
   "files": {
     "AGENTS.md": {
@@ -10,17 +10,17 @@
       "category": "docs"
     },
     "DEVLOG.md": {
-      "hash": "9f6f3efd37fbe9f0ddf6f9a2903baf78dbbc793359a8bbc3e1ec16510e0adfac",
-      "size": 32583,
+      "hash": "e8d8fc2fa9db73e7b5870d7eebde3eca8a6975160236f791009edfc06ee6b2ee",
+      "size": 33292,
       "category": "docs"
     },
     "docs/architecture.md": {
-      "hash": "35e3ef7b8f4778c4e452bfb25e1d72f263479e0f8e65935864950eb8326ff378",
-      "size": 7883,
+      "hash": "ea167ff58722bc3dca53a3169614bf46faefa8caa1e961cd5ba916d1cee9c93b",
+      "size": 8018,
       "category": "docs"
     },
     "package.json": {
-      "hash": "d88030ea7d031319adf3dd575c5d0925ff24e1316603e99f11e11908302ab613",
+      "hash": "f11056d3f42d82afcc596eee9f90c678c1f15a26e0310db2da4b963eafcc6572",
       "size": 1032,
       "category": "config"
     },
@@ -35,13 +35,13 @@
       "category": "config"
     },
     "README.md": {
-      "hash": "fa9b447181b2d1d492cc3eef178f21859e705e354b4ba2c4de415fbffd1d8b9f",
-      "size": 20122,
+      "hash": "f90700ed22a6f395f062b28e904b79c431748c66e257ee90f246ec4e9ca6976c",
+      "size": 20629,
       "category": "docs"
     },
     "spec/ui.md": {
-      "hash": "6b56b425626a679cad16ca2c555f1fae1c64fdb35b2f0483d5f7ab692c3565d7",
-      "size": 5865,
+      "hash": "ee03ae1536daa823388d3620622917818652cb3cdbe0aea00cea8c53165e714e",
+      "size": 6255,
       "category": "docs"
     },
     "src-tauri/capabilities/default.json": {
@@ -50,7 +50,7 @@
       "category": "source"
     },
     "src-tauri/tauri.conf.json": {
-      "hash": "354b0511c6c0665fa8cd4fad7403eb9f9a3afaabd8c7837c614217875006fb06",
+      "hash": "7666db7ed4e39b58244361d073be916bca69460863c96ba1f6be8153438de34e",
       "size": 1347,
       "category": "source"
     },
@@ -70,8 +70,8 @@
       "category": "source"
     },
     "src/components/GenerationPanel.tsx": {
-      "hash": "cf97d77a8e8403da2d05276e0bba8b9f4fa5575889d6391734999acc5ac19130",
-      "size": 10225,
+      "hash": "346988673b505d2323c4d896e07863c6b1153681ec25054b25d1ff1b30bd0e03",
+      "size": 10353,
       "category": "source"
     },
     "src/components/ImageLightbox.tsx": {
@@ -120,8 +120,8 @@
       "category": "test"
     },
     "src/components/VideoGenerationPanel.tsx": {
-      "hash": "db203b046e795463f9b9b0eca3f85a60c31e14899b699c3a4d6811019c4eff74",
-      "size": 7497,
+      "hash": "e618ab8934d03aba48654563209325cd9c2d219f2a83cedbe9890d92362a6829",
+      "size": 7522,
       "category": "source"
     },
     "src/hooks/useAppState.ts": {
@@ -313,15 +313,15 @@
       ]
     },
     "docs/architecture.md": {
-      "hash": "35e3ef7b8f4778c4e452bfb25e1d72f263479e0f8e65935864950eb8326ff378",
-      "size": 7883,
+      "hash": "ea167ff58722bc3dca53a3169614bf46faefa8caa1e961cd5ba916d1cee9c93b",
+      "size": 8018,
       "category": "docs",
       "claimIds": [
         "risk.tauri-boundary"
       ]
     },
     "package.json": {
-      "hash": "d88030ea7d031319adf3dd575c5d0925ff24e1316603e99f11e11908302ab613",
+      "hash": "f11056d3f42d82afcc596eee9f90c678c1f15a26e0310db2da4b963eafcc6572",
       "size": 1032,
       "category": "config",
       "claimIds": [
@@ -329,8 +329,8 @@
       ]
     },
     "README.md": {
-      "hash": "fa9b447181b2d1d492cc3eef178f21859e705e354b4ba2c4de415fbffd1d8b9f",
-      "size": 20122,
+      "hash": "f90700ed22a6f395f062b28e904b79c431748c66e257ee90f246ec4e9ca6976c",
+      "size": 20629,
       "category": "docs",
       "claimIds": [
         "module.prompt-library"
@@ -359,8 +359,8 @@
       "claimIds": []
     },
     "src-tauri/src/lib.rs": {
-      "hash": "cdf1c3ffe5320df7ae564070f807bb4d0e811546b025071b9358b5dcbfc789ba",
-      "size": 35467,
+      "hash": "81ab2bc6e7b47f22e9a71fb4d87972eb01ce3ee9fdbe8e5ac0a9a5745e73f179",
+      "size": 36419,
       "category": "evidence",
       "claimIds": [
         "flow.generation",

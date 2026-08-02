@@ -116,7 +116,11 @@ export function GenerationPanel(props: {
               title={config.label}
               type="button"
             >
-              <img alt="" className="provider-tab-icon" src={PROVIDER_ICON_URLS[provider]} />
+              <img
+                alt=""
+                className={`provider-tab-icon${provider === "nano-banana" ? "" : " monochrome-provider-icon"}`}
+                src={PROVIDER_ICON_URLS[provider]}
+              />
               <span className="provider-tab-label">{config.label}</span>
             </button>
           );

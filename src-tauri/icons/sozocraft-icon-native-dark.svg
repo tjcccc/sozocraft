@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="native-icon-mask">
+      <rect x="102" y="102" width="820" height="820" rx="184" ry="184"/>
+    </clipPath>
+  </defs>
+  <image
+    x="102"
+    y="102"
+    width="820"
+    height="820"
+    preserveAspectRatio="xMidYMid slice"
+    clip-path="url(#native-icon-mask)"
+    href="../../src/assets/sozocraft-icon-dark.svg"
+    xlink:href="../../src/assets/sozocraft-icon-dark.svg"/>
+</svg>

@@ -3486,13 +3486,16 @@ dependencies = [
 
 [[package]]
 name = "sozocraft"
-version = "0.22.2"
+version = "0.23.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
  "dirs",
  "hmac",
  "image",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "reqwest 0.12.28",
  "rusqlite",
  "sanitize-filename",

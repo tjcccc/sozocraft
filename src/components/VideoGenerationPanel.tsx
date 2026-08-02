@@ -201,7 +201,7 @@ export function VideoGenerationPanel({
 
 function ProviderTabIcon({ provider }: { provider: VideoProviderId }) {
   if (provider === "grok-imagine") {
-    return <img alt="" className="provider-tab-icon" src={grokIconUrl} />;
+    return <img alt="" className="provider-tab-icon monochrome-provider-icon" src={grokIconUrl} />;
   }
   const Icon = provider === "seedance" ? Film : Sparkles;
   return <Icon aria-hidden="true" className="provider-tab-icon" />;

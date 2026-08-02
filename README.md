@@ -61,11 +61,33 @@ Run the desktop app:
 pnpm tauri:dev
 ```
 
-Build a macOS `.app` bundle:
+Build a debug macOS `.app` bundle for local testing:
 
 ```bash
 pnpm tauri:build:app
 ```
+
+The debug bundle is written to:
+
+```text
+src-tauri/target/debug/bundle/macos/SozoCraft.app
+```
+
+Build an optimized release macOS `.app` bundle:
+
+```bash
+pnpm tauri build --bundles app
+```
+
+The release bundle is written to:
+
+```text
+src-tauri/target/release/bundle/macos/SozoCraft.app
+```
+
+The release command creates the production-optimized application binary. Code
+signing and Apple notarization are separate packaging requirements when the app
+will be distributed to other Macs.
 
 Frontend-only development:
 

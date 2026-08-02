@@ -11,6 +11,8 @@ mod higgsfield_output;
 mod higgsfield_video;
 mod image_meta;
 mod local_config;
+#[cfg(target_os = "macos")]
+mod macos_app_icon;
 mod models;
 mod openai_image;
 mod prompt_library;
@@ -952,7 +954,7 @@ fn short_id(id: &str) -> String {
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .manage(GenerationRuntime::default())
         .invoke_handler(tauri::generate_handler![
             load_app_state,
@@ -994,6 +996,29 @@ pub fn run() {
             get_config_status,
             check_higgsfield_status
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running SozoCraft");
+        .build(tauri::generate_context!())
+        .expect("error while building SozoCraft");
+
+    app.run(|app_handle, event| {
+        #[cfg(target_os = "macos")]
+        match event {
+            tauri::RunEvent::Ready => {
+                let theme = app_handle
+                    .get_webview_window("main")
+                    .and_then(|window| window.theme().ok())
+                    .unwrap_or(tauri::Theme::Light);
+                macos_app_icon::set_dock_icon(theme)
+                    .unwrap_or_else(|error| eprintln!("Failed to set macOS Dock icon: {error}"));
+            }
+            tauri::RunEvent::WindowEvent {
+                label,
+                event: tauri::WindowEvent::ThemeChanged(theme),
+                ..
+            } if label == "main" => {
+                macos_app_icon::set_dock_icon(theme)
+                    .unwrap_or_else(|error| eprintln!("Failed to update macOS Dock icon: {error}"));
+            }
+            _ => {}
+        }
+    });
 }

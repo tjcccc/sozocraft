@@ -2492,6 +2492,413 @@ button:disabled {
     }
 }
 
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+        color: #e7edf7;
+        background: #0d121a;
+    }
+
+    body {
+        background: #0d121a;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: #748197;
+    }
+
+    .search-box input {
+        color: #d8e1ee;
+        background: transparent;
+    }
+
+    input:disabled,
+    select:disabled {
+        color: #8491a5;
+        background: #1a2230;
+    }
+
+    .app-shell {
+        background:
+            linear-gradient(
+                180deg,
+                rgba(20, 27, 38, 0.96),
+                rgba(13, 18, 26, 0.98)
+            ),
+            #0d121a;
+    }
+
+    .toolbar,
+    .statusbar {
+        border-color: rgba(148, 163, 184, 0.18);
+        background: rgba(17, 24, 34, 0.84);
+    }
+
+    .panel,
+    .settings-panel {
+        border-color: rgba(148, 163, 184, 0.2);
+        background: rgba(23, 31, 43, 0.94);
+        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
+    }
+
+    .panel.file-drop-active,
+    .prompt-editor-area.file-drop-active {
+        border-color: rgba(110, 165, 255, 0.58);
+        box-shadow:
+            inset 0 0 0 1px rgba(110, 165, 255, 0.24),
+            0 18px 60px rgba(0, 0, 0, 0.22);
+    }
+
+    .panel-header,
+    .tabs,
+    .editor-topline,
+    .editor-search-panel,
+    .prompt-tags-input,
+    .preview-resizer,
+    .preview-resizer-vertical,
+    .settings-sidebar,
+    .seedance-assets-import,
+    .history-date-bar,
+    .history-entry,
+    .history-expand,
+    .batch-cancel-detail,
+    .batch-error-detail,
+    .mode-switch button + button {
+        border-color: rgba(148, 163, 184, 0.16);
+    }
+
+    .divider {
+        background: rgba(148, 163, 184, 0.24);
+    }
+
+    .preview-placement-select,
+    .preview-menu-popover,
+    .export-menu-popover,
+    .search-box,
+    .prompt-sort button,
+    .prompt-tag-rename-input,
+    .editor-search-input,
+    .editor-search-button,
+    .field input,
+    .field select,
+    .reference-add,
+    .seedance-assets-popover,
+    .seedance-assets-import input,
+    .history-row,
+    .history-thumb,
+    .history-video-button,
+    .provider-settings,
+    .secondary-button,
+    .icon-button,
+    .stepper input,
+    .mode-switch {
+        border-color: rgba(148, 163, 184, 0.22);
+        color: #d8e1ee;
+        background: #202938;
+    }
+
+    .prompt-library-resizer,
+    .prompt-editor-shell,
+    .prompt-editor-stack,
+    .prompt-tags-input,
+    .preview-resizer,
+    .preview-resizer-vertical {
+        background: #18212d;
+    }
+
+    .prompt-library-resizer {
+        border-color: rgba(148, 163, 184, 0.14);
+    }
+
+    .editor-search-panel,
+    .preview-box,
+    .video-duration-control,
+    .seedance-asset-row,
+    .history-toggle-bar,
+    .provider-status-grid,
+    .config-status {
+        border-color: rgba(148, 163, 184, 0.18);
+        background: #19222f;
+    }
+
+    .settings-sidebar,
+    .settings-section,
+    .history-expand {
+        background: #151d28;
+    }
+
+    .settings-section,
+    .provider-settings,
+    .provider-status-grid,
+    .config-status,
+    .history-section,
+    .history-thumb,
+    .history-video-button,
+    .video-duration-control,
+    .reference-thumb,
+    .video-image-role-menu {
+        border-color: rgba(148, 163, 184, 0.2);
+    }
+
+    .settings-sidebar {
+        border-color: rgba(148, 163, 184, 0.16);
+    }
+
+    .history-toggle-bar:hover,
+    .history-date-bar {
+        background: #212b39;
+    }
+
+    .reference-thumb,
+    .video-placeholder,
+    .thumb-state {
+        background: #273242;
+    }
+
+    .video-image-role-menu {
+        background: rgba(29, 38, 52, 0.98);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+    }
+
+    .preview-menu-popover,
+    .export-menu-popover,
+    .seedance-assets-popover {
+        box-shadow: 0 12px 34px rgba(0, 0, 0, 0.36);
+    }
+
+    .toggle-track {
+        background: #465269;
+    }
+
+    .toggle-thumb,
+    .field .video-duration-control input[type="range"]::-webkit-slider-thumb,
+    .field .video-duration-control input[type="range"]::-moz-range-thumb {
+        border-color: rgba(148, 163, 184, 0.42);
+        background: #eef3fa;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.42);
+    }
+
+    .field .video-duration-control input[type="range"]::-webkit-slider-runnable-track,
+    .field .video-duration-control input[type="range"]::-moz-range-track {
+        background: linear-gradient(
+            to right,
+            #79a9f7 0 var(--video-duration-progress),
+            #465269 var(--video-duration-progress) 100%
+        );
+    }
+
+    .prompt-title-input,
+    .prompt-textarea,
+    .prompt-highlight,
+    .dsl-highlight-enabled.is-composing .prompt-textarea,
+    .video-duration-control output,
+    .batch-info-bar strong,
+    .seedance-assets-heading strong,
+    .seedance-assets-import > strong,
+    .history-title,
+    .settings-section h2,
+    .provider-settings legend,
+    .config-status-value {
+        color: #e7edf7;
+    }
+
+    .dsl-highlight-enabled .prompt-textarea {
+        caret-color: #e7edf7;
+    }
+
+    .preview-placement-select,
+    .toggle-switch,
+    .preview-menu-popover button,
+    .prompt-sort button,
+    .prompt-list-item,
+    .editor-search-input,
+    .prompt-save-state,
+    .prompt-tags-input,
+    .preview-heading,
+    .tabs button,
+    .field,
+    .reference-label,
+    .reference-add span,
+    .reference-asset-placeholder span,
+    .seedance-asset-row,
+    .batch-info-bar,
+    .image-tile footer,
+    .video-tile footer,
+    .history-toggle-bar,
+    .history-date-bar,
+    .date-nav-btn,
+    .history-row,
+    .history-video-button,
+    .settings-sidebar a,
+    .provider-status-grid,
+    .config-status,
+    .secondary-button,
+    .stepper,
+    .statusbar,
+    .mode-switch button,
+    .loading {
+        color: #aeb9ca;
+    }
+
+    .prompt-empty,
+    .prompt-tag-rename,
+    .prompt-list-delete,
+    .prompt-list-tags,
+    .dsl-comment,
+    .video-stop-note,
+    .video-duration-limits,
+    .seedance-assets-heading span,
+    .seedance-assets-import p,
+    .seedance-asset-row code,
+    .seedance-asset-row small,
+    .seedance-assets-empty,
+    .video-image-role-menu > span,
+    .history-empty,
+    .history-video-button small,
+    .provider-settings-note,
+    .settings-placeholder,
+    .config-status-label,
+    .field-hint,
+    .status-text.cancelled {
+        color: #8491a5;
+    }
+
+    .editor-search-count,
+    .video-provider-note,
+    .reference-add,
+    .image-placeholder,
+    .video-placeholder,
+    .batch-cancel-detail,
+    .thumb-state {
+        color: #98a5b8;
+    }
+
+    .prompt-tag-row,
+    .editor-search-button,
+    .seedance-asset-row strong,
+    .video-image-role-menu button,
+    .icon-button {
+        color: #c7d1df;
+    }
+
+    .tabs button.active,
+    .preview-menu-popover button:hover,
+    .preview-menu-popover button.active,
+    .prompt-sort button.active,
+    .prompt-list-item.active,
+    .prompt-tag-rename:hover,
+    .editor-search-button.active,
+    .settings-sidebar a:hover,
+    .mode-switch button.active,
+    .video-image-role-menu button:hover:not(:disabled),
+    .video-image-role-menu button[aria-checked="true"],
+    .dsl-keyword {
+        color: #78aaff;
+    }
+
+    .tabs button.active {
+        border-bottom-color: #5793ff;
+    }
+
+    .preview-menu-popover button:hover,
+    .preview-menu-popover button.active,
+    .prompt-sort button.active,
+    .prompt-list-item.active,
+    .settings-sidebar a:hover,
+    .mode-switch button.active,
+    .video-image-role-menu button:hover:not(:disabled),
+    .video-image-role-menu button[aria-checked="true"] {
+        background: rgba(74, 137, 244, 0.16);
+    }
+
+    .prompt-list-item.active .prompt-list-tags {
+        color: #8eb4ee;
+    }
+
+    .prompt-tag-row:hover,
+    .prompt-tag-row:focus-within,
+    .date-nav-btn:hover:not(:disabled) {
+        background: rgba(148, 163, 184, 0.1);
+    }
+
+    .dsl-assignment,
+    .dsl-include,
+    .dsl-variable {
+        color: #62c88b;
+    }
+
+    .reference-add.drop-active,
+    .seedance-asset-row:not(:disabled):hover {
+        border-color: rgba(110, 165, 255, 0.5);
+        color: #8bb7ff;
+        background: rgba(74, 137, 244, 0.14);
+    }
+
+    .reference-asset-placeholder {
+        color: #8bb7ff;
+        background: linear-gradient(145deg, #1c2e48, #273458);
+    }
+
+    .preview-error,
+    .seedance-assets-error,
+    .batch-error-detail {
+        border-color: rgba(255, 125, 117, 0.3);
+        color: #ff9b94;
+        background: #3a2022;
+    }
+
+    .batch-error-detail pre {
+        color: #ffaaa3;
+    }
+
+    .video-placeholder.missing,
+    .thumb-state.missing {
+        color: #f2aa74;
+        background: #35271e;
+    }
+
+    .toolbar-hint,
+    .config-status-badge.ok {
+        color: #65d998;
+        background: #173728;
+    }
+
+    .toolbar-hint {
+        border-color: rgba(101, 217, 152, 0.24);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
+    }
+
+    .config-status-badge.missing {
+        color: #ffaaa3;
+        background: #402326;
+    }
+
+    .status-pill.ready,
+    .status-text.completed,
+    .seedance-asset-row small.active {
+        color: #57d38a;
+    }
+
+    .status-pill.running,
+    .status-text.running {
+        color: #78aaff;
+    }
+
+    .status-pill.error,
+    .status-text.failed {
+        color: #ff8e87;
+    }
+
+    .monochrome-provider-icon {
+        filter: invert(90%) sepia(10%) saturate(330%) hue-rotate(177deg) brightness(103%);
+    }
+
+    * {
+        scrollbar-color: #596579 transparent;
+    }
+}
+
 @media (max-width: 1200px) {
     .prompt-body {
         grid-template-columns: 180px 8px minmax(0, 1fr) !important;
