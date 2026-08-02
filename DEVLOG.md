@@ -1,5 +1,34 @@
 # DEVLOG
 
+## 2026-08-02
+
+- Canonicalized existing prompt-library roots before indexing so symlinked
+  prompt directories no longer alternate stored path forms and rewrite
+  `prompts.sqlite` whenever the app opens the selected prompt.
+- Bumped app/package/crate version metadata to `0.22.0` for the Higgsfield CLI
+  video, secondary output archive, proxy controls, and persistent archive
+  numbering checkpoint.
+- Added dedicated Higgsfield proxy controls with a General Proxy URL fallback,
+  scoped CLI child-process environment variables, and explicit proxying for
+  image/video downloads and the curl fallback.
+- Changed secondary Higgsfield `{id}` numbering to scan matching files in the
+  rendered template/date scope and continue after the highest existing serial,
+  so an existing `004` produces `005` across app launches and media types.
+- Added a default-off secondary Higgsfield output archive in General Settings.
+  Successful Higgsfield CLI image/video jobs can now keep both the normal
+  SozoCraft output and an atomic raw-provider copy, with sanitized
+  `{higgsfield_filename}` naming, configurable `{id:N}` width, path-containment
+  validation, and non-fatal archive diagnostics in metadata and the error log.
+- Recover Higgsfield video creates when the CLI reports an ambiguous transport
+  failure such as `request failed (no response received)`: SozoCraft now queries
+  recent video jobs without resubmitting, requires one exact job-type,
+  timestamp, prompt, option, and media-count match, then resumes normal polling
+  and local MP4 download.
+- Disable Stop for every active Higgsfield CLI image or video task because the
+  CLI exposes no cancellation command, and replace the generic video
+  local-monitoring note with a Higgsfield-specific explanation.
+- Match the Generate audio label weight to the other video field labels.
+
 ## 2026-08-01
 
 - Bumped app/package/crate version metadata to `0.21.0` for the first complete

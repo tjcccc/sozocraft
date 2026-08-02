@@ -115,6 +115,16 @@ struct ArkConfig {
 struct HiggsfieldConfig {
     #[serde(default)]
     cli_path: Option<String>,
+    #[serde(default)]
+    proxy_enabled: Option<bool>,
+    #[serde(default)]
+    proxy_url: Option<String>,
+    #[serde(default)]
+    output_enabled: Option<bool>,
+    #[serde(default)]
+    output_directory: Option<String>,
+    #[serde(default)]
+    output_template: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -203,6 +213,20 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .template
             .filter(|value| !value.trim().is_empty())
             .unwrap_or(defaults.output_template),
+        higgsfield_output_enabled: config
+            .higgsfield
+            .output_enabled
+            .unwrap_or(defaults.higgsfield_output_enabled),
+        higgsfield_output_directory: config
+            .higgsfield
+            .output_directory
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(defaults.higgsfield_output_directory),
+        higgsfield_output_template: config
+            .higgsfield
+            .output_template
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(defaults.higgsfield_output_template),
         prompt_directory: config
             .prompts
             .directory
@@ -252,6 +276,12 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .cli_path
             .filter(|value| !value.trim().is_empty())
             .or(defaults.higgsfield_cli_path),
+        higgsfield_proxy_enabled: config
+            .higgsfield
+            .proxy_enabled
+            .unwrap_or(defaults.higgsfield_proxy_enabled),
+        higgsfield_proxy_url: normalize_optional(config.higgsfield.proxy_url)
+            .or(defaults.higgsfield_proxy_url),
         optional_base_url,
         openai_base_url,
         openrouter_base_url,
@@ -323,6 +353,11 @@ pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
     config.xai.base_url = normalize_optional(settings.xai_base_url.clone());
     config.ark.base_url = normalize_optional(settings.ark_base_url.clone());
     config.higgsfield.cli_path = normalize_optional(settings.higgsfield_cli_path.clone());
+    config.higgsfield.proxy_enabled = Some(settings.higgsfield_proxy_enabled);
+    config.higgsfield.proxy_url = normalize_optional(settings.higgsfield_proxy_url.clone());
+    config.higgsfield.output_enabled = Some(settings.higgsfield_output_enabled);
+    config.higgsfield.output_directory = Some(settings.higgsfield_output_directory.clone());
+    config.higgsfield.output_template = Some(settings.higgsfield_output_template.clone());
     config.gemini.proxy_url = normalize_optional(settings.proxy_url.clone());
     config.gemini.proxy_enabled = Some(settings.gemini_proxy_enabled);
     config.openai.proxy_enabled = Some(settings.openai_proxy_enabled);

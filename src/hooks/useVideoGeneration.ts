@@ -331,6 +331,9 @@ export function useVideoGeneration({
     modelDisplayName: modelConfig.productName,
     resolution: providerState.resolution,
     runGeneration,
+    stopAvailable: !(
+      provider === "seedance" && settings?.seedanceApiPlatform === "higgsfield"
+    ),
     setAspectRatio: (value: string) => updateProviderState({ aspectRatio: value }),
     setDuration: (value: number) => updateProviderState({ duration: value }),
     setGenerateAudio: (value: boolean) => updateProviderState({ generateAudio: value }),

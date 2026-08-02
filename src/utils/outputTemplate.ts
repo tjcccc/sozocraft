@@ -12,7 +12,10 @@ const SUPPORTED_DATE_TOKENS = new Set([
   "ss",
 ]);
 
-export function validateOutputTemplate(template: string): string[] {
+export function validateOutputTemplate(
+  template: string,
+  options: { higgsfield?: boolean } = {},
+): string[] {
   const issues: string[] = [];
   if (!template.trim()) {
     issues.push("Template cannot be empty.");
@@ -28,10 +31,20 @@ export function validateOutputTemplate(template: string): string[] {
     "datetime",
     ...SUPPORTED_DATE_TOKENS,
   ]);
+  if (options.higgsfield) {
+    known.add("higgsfield_filename");
+  }
   let match;
   while ((match = tokenRegex.exec(template)) !== null) {
     const token = match[1];
     if (token.startsWith("datetime:")) {
+      continue;
+    }
+    if (/^id:\d+$/.test(token)) {
+      const width = Number(token.slice("id:".length));
+      if (width < 1 || width > 12) {
+        issues.push(`{${token}} — ID width must be between 1 and 12.`);
+      }
       continue;
     }
     if (!known.has(token)) {

@@ -1,6 +1,6 @@
 use crate::{local_config, models::GenerationRequest};
 use base64::{engine::general_purpose, Engine as _};
-use reqwest::Client;
+use reqwest::{Client, Proxy};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{fs, path::PathBuf, process::Stdio, time::Duration};
@@ -21,6 +21,7 @@ pub struct HiggsfieldStatus {
 #[derive(Debug, Clone)]
 pub struct HiggsfieldGeneratedImage {
     pub bytes: Vec<u8>,
+    pub source_filename: String,
 }
 
 #[derive(Debug, Clone)]
@@ -208,18 +209,33 @@ pub async fn generate_image(
         return Err(no_result_url_error(&metadata));
     }
 
-    let client = Client::builder()
+    let mut client_builder = Client::builder()
         .timeout(Duration::from_secs(timeout_seconds.max(30)))
         .connect_timeout(Duration::from_secs(30))
         .http1_only()
-        .user_agent("SozoCraft Higgsfield downloader")
+        .user_agent("SozoCraft Higgsfield downloader");
+    if let Some(value) = proxy_url.as_deref() {
+        client_builder =
+            client_builder.proxy(Proxy::all(value.trim()).map_err(|error| error.to_string())?);
+    }
+    let client = client_builder
         .build()
         .map_err(|err| format!("Failed to create Higgsfield result downloader: {err}"))?;
     let mut images = Vec::new();
     let mut download_errors = Vec::new();
     for url in &urls {
-        match download_url(&client, url).await {
-            Ok(bytes) => images.push(HiggsfieldGeneratedImage { bytes }),
+        match download_url(&client, url, proxy_url.as_deref()).await {
+            Ok(bytes) => {
+                let source_filename = crate::higgsfield_output::source_filename_from_url(url)
+                    .filter(|value| PathBuf::from(value).extension().is_some())
+                    .unwrap_or_else(|| {
+                        format!("hf_{}.{}", Uuid::new_v4(), image_extension(&bytes))
+                    });
+                images.push(HiggsfieldGeneratedImage {
+                    bytes,
+                    source_filename,
+                });
+            }
             Err(err) => download_errors.push(format!("{url}: {err}")),
         }
     }
@@ -244,6 +260,18 @@ pub async fn generate_image(
             "raw": metadata,
         }),
     })
+}
+
+fn image_extension(bytes: &[u8]) -> &'static str {
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        "png"
+    } else if bytes.starts_with(b"\xff\xd8\xff") {
+        "jpg"
+    } else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        "webp"
+    } else {
+        "bin"
+    }
 }
 
 fn build_generate_args(
@@ -498,7 +526,11 @@ fn extension_for_mime(mime_type: &str) -> &'static str {
     }
 }
 
-async fn download_url(client: &Client, url: &str) -> Result<Vec<u8>, String> {
+async fn download_url(
+    client: &Client,
+    url: &str,
+    proxy_url: Option<&str>,
+) -> Result<Vec<u8>, String> {
     let mut errors = Vec::new();
     for attempt in 1..=HIGGSFIELD_DOWNLOAD_ATTEMPTS {
         match download_url_once(client, url).await {
@@ -512,7 +544,7 @@ async fn download_url(client: &Client, url: &str) -> Result<Vec<u8>, String> {
         }
     }
 
-    match download_url_with_curl(url, Duration::from_secs(180)).await {
+    match download_url_with_curl(url, Duration::from_secs(180), proxy_url).await {
         Ok(bytes) => Ok(bytes),
         Err(err) => {
             errors.push(format!("curl fallback: {err}"));
@@ -538,8 +570,13 @@ async fn download_url_once(client: &Client, url: &str) -> Result<Vec<u8>, String
         .map_err(|err| format!("invalid response body: {err}"))
 }
 
-async fn download_url_with_curl(url: &str, timeout: Duration) -> Result<Vec<u8>, String> {
-    let child = Command::new("curl")
+async fn download_url_with_curl(
+    url: &str,
+    timeout: Duration,
+    proxy_url: Option<&str>,
+) -> Result<Vec<u8>, String> {
+    let mut command = Command::new("curl");
+    command
         .args([
             "--location",
             "--fail",
@@ -557,7 +594,17 @@ async fn download_url_with_curl(url: &str, timeout: Duration) -> Result<Vec<u8>,
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .kill_on_drop(true)
+        .kill_on_drop(true);
+    if let Some(proxy_url) = clean_option(proxy_url) {
+        command
+            .env("HTTP_PROXY", proxy_url)
+            .env("HTTPS_PROXY", proxy_url)
+            .env("ALL_PROXY", proxy_url)
+            .env("http_proxy", proxy_url)
+            .env("https_proxy", proxy_url)
+            .env("all_proxy", proxy_url);
+    }
+    let child = command
         .spawn()
         .map_err(|err| format!("failed to start curl fallback: {err}"))?;
 

@@ -151,6 +151,11 @@ timeout_seconds = 180
 
 [higgsfield]
 cli_path = "higgsfield"
+proxy_enabled = true
+proxy_url = "http://127.0.0.1:7890"
+output_enabled = false
+output_directory = "/Users/you/Pictures/Higgsfield"
+output_template = "{yyMMdd} {id:3} {higgsfield_filename}"
 
 [output]
 directory = "/Users/you/Pictures/SozoCraft"
@@ -367,6 +372,11 @@ The direct Ark, xAI, and Gemini API video routes form the supported common-API
 checkpoint. Higgsfield Seedance video routing is currently experimental: the
 Standard path and CLI job/result handling have initial coverage, while broader
 end-to-end Standard/Fast/Mini and recovery-path testing remains.
+If Higgsfield accepts a video create but its CLI loses the response, SozoCraft
+does not retry the paid create. It searches recent video jobs and resumes only
+when one newly created job exactly matches the request signature. Stop is
+disabled for every running Higgsfield CLI image or video job because the CLI has
+no cancellation command.
 [Higgsfield CLI](https://github.com/higgsfield-ai/cli) documents the command
 workflow and [its model schemas](https://github.com/higgsfield-ai/cli/blob/main/MODELS.md)
 document the Seedance media inputs. Soul IDs are currently image-model inputs,
@@ -443,11 +453,35 @@ Supported variables:
 - `{model}`
 - `{datetime}` or `{datetime:yyyyMMdd_HHmmss}`
 - date folder tokens such as `{yyMMdd}` and `{yyyyMMdd}`
-- `{id}`
+- `{id}` or a custom numeric width such as `{id:2}` or `{id:4}`
 - `{batch_id}`
 - `{extension}`
 
 Provider and model values are sanitized for filesystem safety. For Gemini generation, filename aliases use `gemini` as provider and names such as `nano-banana-2` as model. `{id}` is the batch-local image order, for example `001`. Existing files are not overwritten; SozoCraft appends a numeric suffix when needed.
+
+General Settings also offers an optional Higgsfield Output archive. When enabled,
+successful Higgsfield CLI image and video jobs keep their normal SozoCraft output
+and write a second copy in the configured Higgsfield directory. Image archives
+preserve the raw provider bytes before SozoCraft converts them to PNG; video
+archives preserve the downloaded MP4. Its template supports the variables above
+plus `{higgsfield_filename}`, which is the sanitized basename supplied by
+Higgsfield, for example:
+
+```text
+{yyMMdd} {id:3} {higgsfield_filename}
+```
+
+The secondary directory must be absolute and its template cannot escape that
+directory. A secondary-copy failure is logged and recorded in output metadata but
+does not turn an otherwise successful generation into a failure.
+For templates containing `{id}` or `{id:N}`, SozoCraft scans matching files in
+the rendered date/folder scope and continues after the highest existing serial;
+for example, an existing `004` makes the next archive use `005`.
+
+The Higgsfield CLI settings include their own Use proxy toggle and optional
+Proxy URL. When enabled with an empty dedicated URL, Higgsfield falls back to
+the General Proxy URL. The effective proxy is applied only to Higgsfield child
+processes and result download clients; it is not exported into the parent shell.
 
 ## Validation
 

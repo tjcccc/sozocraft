@@ -312,13 +312,13 @@ export function App() {
   }, [generation, generationQueue.runningTask, mode, videoGeneration]);
 
   const handleStop = useCallback(() => {
-    if (!generationQueue.runningTask) {
+    if (!generationQueue.runningTask || !generationQueue.canStopRunningTask) {
       return;
     }
     const totalActiveTasks = 1 + generationQueue.queuedCount;
     setToolbarHint(
       generationQueue.runningTask.mediaType === "video"
-        ? "Stopped local monitoring; xAI may continue"
+        ? "Stopped local monitoring; provider may continue"
         : `Cancelled task 1/${totalActiveTasks}`,
     );
     window.setTimeout(() => setToolbarHint(null), 1800);
@@ -575,8 +575,13 @@ export function App() {
               </button>
               <button
                 className="secondary-button"
-                disabled={showSettings || !generationQueue.runningTask}
+                disabled={showSettings || !generationQueue.canStopRunningTask}
                 onClick={handleStop}
+                title={
+                  generationQueue.runningTask && !generationQueue.canStopRunningTask
+                    ? "Higgsfield CLI jobs cannot be stopped from SozoCraft."
+                    : undefined
+                }
               >
                 <Square size={14} />
                 Stop

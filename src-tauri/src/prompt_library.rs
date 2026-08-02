@@ -1087,14 +1087,15 @@ fn content_hash(value: &str) -> String {
 }
 
 fn prompt_root(prompt_directory: &str) -> PathBuf {
-    if prompt_directory.trim().is_empty() {
+    let configured = if prompt_directory.trim().is_empty() {
         dirs::home_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join(".sozocraft")
             .join("prompts")
     } else {
         PathBuf::from(prompt_directory)
-    }
+    };
+    configured.canonicalize().unwrap_or(configured)
 }
 
 fn normalize_prompt_name(name: &str) -> String {
@@ -1475,6 +1476,54 @@ prompt = {
             )
             .unwrap();
 
+        assert_eq!(last_indexed_at, "sentinel");
+
+        fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn opening_prompt_through_symlinked_root_does_not_rewrite_row() {
+        use std::os::unix::fs::symlink;
+
+        let temp_root =
+            std::env::temp_dir().join(format!("sozocraft-prompt-symlink-{}", Uuid::new_v4()));
+        let actual_root = temp_root.join("actual-prompts");
+        let linked_root = temp_root.join("linked-prompts");
+        fs::create_dir_all(&actual_root).unwrap();
+        symlink(&actual_root, &linked_root).unwrap();
+
+        let id = Uuid::new_v4().to_string();
+        fs::write(
+            actual_root.join(format!("{id}.md")),
+            "prompt = {\nStable symlinked body.\n}",
+        )
+        .unwrap();
+
+        let root = prompt_root(linked_root.to_str().unwrap());
+        let path = root.join(format!("{id}.md"));
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        index_file(&conn, &root, &path).unwrap();
+        conn.execute(
+            "UPDATE prompts SET last_indexed_at = 'sentinel' WHERE id = ?1",
+            params![id],
+        )
+        .unwrap();
+
+        let opened_path = path_for_id(&conn, &root, &id).unwrap();
+        index_file(&conn, &root, &opened_path).unwrap();
+        let (stored_root, stored_path, last_indexed_at): (String, String, String) = conn
+            .query_row(
+                "SELECT root, path, last_indexed_at FROM prompts WHERE id = ?1",
+                params![id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+
+        assert_eq!(root, actual_root.canonicalize().unwrap());
+        assert_eq!(stored_root, root.to_string_lossy());
+        assert_eq!(stored_path, opened_path.to_string_lossy());
         assert_eq!(last_indexed_at, "sentinel");
 
         fs::remove_dir_all(temp_root).unwrap();

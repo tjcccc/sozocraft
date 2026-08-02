@@ -8,7 +8,7 @@ import {
   saveAppSettings,
 } from "../api";
 import type { AppSettings, GenerationBatch } from "../types";
-import { useGenerationQueue } from "./useGenerationQueue";
+import { canStopTask, useGenerationQueue } from "./useGenerationQueue";
 
 vi.mock("../api", () => ({
   cancelGenerationTask: vi.fn(),
@@ -23,6 +23,9 @@ const settings: AppSettings = {
   defaultModel: "grok-imagine-image-quality",
   outputDirectory: "/tmp/sozocraft",
   outputTemplate: "{provider}_{model}_{id}.{extension}",
+  higgsfieldOutputEnabled: false,
+  higgsfieldOutputDirectory: "/tmp/higgsfield",
+  higgsfieldOutputTemplate: "{yyMMdd} {id:3} {higgsfield_filename}",
   promptDirectory: "/tmp/prompts",
   promptDslEnabled: true,
   promptEditorOnly: false,
@@ -36,6 +39,8 @@ const settings: AppSettings = {
   seedanceApiPlatform: "ark",
   seedanceDefaultModel: "doubao-seedance-2-0-260128",
   arkProxyEnabled: false,
+  higgsfieldProxyEnabled: true,
+  higgsfieldProxyUrl: null,
   timeoutSeconds: 180,
   geminiTimeoutSeconds: 180,
   openaiTimeoutSeconds: 180,
@@ -105,6 +110,41 @@ describe("shared generation queue", () => {
     expect(update?.([])).toEqual([videoBatch]);
   });
 
+  it("disables Stop for every Higgsfield-backed provider", () => {
+    const request = {
+      taskId: "72c61fd4-5f57-4d0f-935f-a63bf45208e2",
+      model: "test-model",
+      prompt: "Prompt",
+      batchCount: 1,
+      outputTemplate: "{id}.{extension}",
+      options: {},
+    };
+    expect(canStopTask({
+      id: "nano",
+      mediaType: "image",
+      settings: { ...settings, nanoBananaApiPlatform: "higgsfield" },
+      request: { ...request, provider: "nano-banana" },
+    })).toBe(false);
+    expect(canStopTask({
+      id: "gpt",
+      mediaType: "image",
+      settings: { ...settings, openaiApiPlatform: "higgsfield" },
+      request: { ...request, provider: "gpt-image" },
+    })).toBe(false);
+    expect(canStopTask({
+      id: "grok",
+      mediaType: "image",
+      settings: { ...settings, grokApiPlatform: "higgsfield" },
+      request: { ...request, provider: "grok-imagine" },
+    })).toBe(false);
+    expect(canStopTask({
+      id: "direct",
+      mediaType: "image",
+      settings,
+      request: { ...request, provider: "grok-imagine" },
+    })).toBe(true);
+  });
+
   it("routes Stop to the active task id", async () => {
     let resolveVideo: ((batch: GenerationBatch) => void) | undefined;
     vi.mocked(generateVideo).mockImplementation(
@@ -141,6 +181,45 @@ describe("shared generation queue", () => {
     await waitFor(() => expect(result.current.runningTask?.id).toBe(taskId));
     await act(async () => result.current.stopGeneration());
     expect(cancelGenerationTask).toHaveBeenCalledWith(taskId);
+
+    await act(async () => resolveVideo?.(videoBatch));
+  });
+
+  it("disables Stop for Higgsfield Seedance video tasks", async () => {
+    let resolveVideo: ((batch: GenerationBatch) => void) | undefined;
+    vi.mocked(generateVideo).mockImplementation(
+      () => new Promise((resolve) => { resolveVideo = resolve; }),
+    );
+    const { result } = renderHook(() =>
+      useGenerationQueue({
+        setBatches: vi.fn(),
+        setExpandedBatchId: vi.fn(),
+        setMessage: vi.fn(),
+        setPreviewBatchId: vi.fn(),
+        setStatus: vi.fn(),
+      }),
+    );
+    const taskId = "5f1ba084-00f8-495e-af44-c9017168b371";
+
+    act(() => {
+      result.current.enqueueTask({
+        id: taskId,
+        mediaType: "video",
+        settings: { ...settings, seedanceApiPlatform: "higgsfield" },
+        request: {
+          taskId,
+          provider: "seedance",
+          model: "doubao-seedance-2-0-260128",
+          prompt: "Prompt",
+          inputMode: "text",
+          options: { duration: 5, aspectRatio: "16:9", resolution: "480p" },
+        },
+      });
+    });
+    await waitFor(() => expect(result.current.runningTask?.id).toBe(taskId));
+    expect(result.current.canStopRunningTask).toBe(false);
+    await act(async () => result.current.stopGeneration());
+    expect(cancelGenerationTask).not.toHaveBeenCalled();
 
     await act(async () => resolveVideo?.(videoBatch));
   });

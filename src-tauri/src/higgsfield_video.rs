@@ -7,6 +7,7 @@ use crate::{
     models::{ReferenceImageInput, VideoGenerationRequest},
 };
 use base64::{engine::general_purpose, Engine as _};
+use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use reqwest::{redirect, Client, Proxy, Url};
 use serde_json::{json, Value};
 use std::{
@@ -19,6 +20,9 @@ use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
 const MAX_VIDEO_BYTES: usize = 1024 * 1024 * 1024;
+const CREATE_RECOVERY_ATTEMPTS: u8 = 3;
+const CREATE_RECOVERY_CLOCK_SKEW_SECONDS: i64 = 30;
+const CREATE_RECOVERY_LIST_SIZE: &str = "20";
 
 #[derive(Debug, Clone)]
 pub struct HiggsfieldVideoClient {
@@ -89,14 +93,34 @@ impl HiggsfieldVideoClient {
     pub async fn start(&self, request: &VideoGenerationRequest) -> Result<String, String> {
         let input_files = materialize_inputs(request)?;
         let args = build_create_args(request, &input_files)?;
+        let (job_type, mode) = job_type_and_mode(&request.model)?;
+        let started_at = Utc::now();
         let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
-        let output = run_cli(
+        let output = match run_cli(
             &self.cli_path,
             &arg_refs,
             Duration::from_secs(self.timeout_seconds.max(30) + 60),
             self.proxy_url.as_deref(),
         )
-        .await?;
+        .await
+        {
+            Ok(output) => output,
+            Err(error) if is_ambiguous_create_error(&error) => {
+                return match self
+                    .recover_created_job(request, job_type, mode, started_at)
+                    .await
+                {
+                    Ok(Some(job_id)) => Ok(job_id),
+                    Ok(None) => Err(format!(
+                        "{error} The request may have reached Higgsfield, but SozoCraft could not uniquely identify a matching recent job. Check Higgsfield History before retrying."
+                    )),
+                    Err(recovery_error) => Err(format!(
+                        "{error} The request may have reached Higgsfield, and the recovery check failed: {recovery_error}"
+                    )),
+                };
+            }
+            Err(error) => return Err(error),
+        };
         let metadata = parse_json_output(&output.stdout)
             .unwrap_or_else(|| json!({ "stdout": output.stdout, "stderr": output.stderr }));
         let job_id = video_job_id_from_metadata(&metadata).ok_or_else(|| {
@@ -107,6 +131,89 @@ impl HiggsfieldVideoClient {
         })?;
         validate_job_id(&job_id)?;
         Ok(job_id)
+    }
+
+    async fn recover_created_job(
+        &self,
+        request: &VideoGenerationRequest,
+        job_type: &str,
+        mode: Option<&str>,
+        started_at: DateTime<Utc>,
+    ) -> Result<Option<String>, String> {
+        let mut last_error = None;
+        let mut queried_history = false;
+
+        for attempt in 0..CREATE_RECOVERY_ATTEMPTS {
+            if attempt > 0 {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+            }
+            let list_output = match run_cli(
+                &self.cli_path,
+                &[
+                    "generate",
+                    "list",
+                    "--video",
+                    "--size",
+                    CREATE_RECOVERY_LIST_SIZE,
+                    "--json",
+                    "--no-color",
+                ],
+                Duration::from_secs(30),
+                self.proxy_url.as_deref(),
+            )
+            .await
+            {
+                Ok(output) => output,
+                Err(error) => {
+                    last_error = Some(error);
+                    continue;
+                }
+            };
+            queried_history = true;
+            let Some(list) = parse_json_output(&list_output.stdout) else {
+                last_error = Some("Higgsfield returned invalid JSON for recent jobs.".to_string());
+                continue;
+            };
+            let candidate_ids = recent_job_ids(&list, job_type, started_at, Utc::now());
+            let mut matches = Vec::new();
+
+            for candidate_id in candidate_ids.into_iter().take(5) {
+                let detail_output = match run_cli(
+                    &self.cli_path,
+                    &["generate", "get", &candidate_id, "--json", "--no-color"],
+                    Duration::from_secs(30),
+                    self.proxy_url.as_deref(),
+                )
+                .await
+                {
+                    Ok(output) => output,
+                    Err(error) => {
+                        last_error = Some(error);
+                        continue;
+                    }
+                };
+                let Some(detail) = parse_json_output(&detail_output.stdout) else {
+                    continue;
+                };
+                if job_matches_request(&detail, request, job_type, mode) {
+                    matches.push(candidate_id);
+                }
+            }
+
+            if matches.len() == 1 {
+                return Ok(matches.pop());
+            }
+            if matches.len() > 1 {
+                return Ok(None);
+            }
+        }
+
+        if !queried_history {
+            return Err(
+                last_error.unwrap_or_else(|| "Higgsfield recent-job lookup failed.".to_string())
+            );
+        }
+        Ok(None)
     }
 
     pub async fn poll(&self, job_id: &str) -> Result<HiggsfieldVideoPollResponse, String> {
@@ -239,17 +346,7 @@ fn build_create_args(
     request: &VideoGenerationRequest,
     inputs: &TempInputFiles,
 ) -> Result<Vec<String>, String> {
-    let (job_type, mode) = match request.model.as_str() {
-        "doubao-seedance-2-0-260128" => ("seedance_2_0", Some("std")),
-        "doubao-seedance-2-0-fast-260128" => ("seedance_2_0", Some("fast")),
-        "doubao-seedance-2-0-mini-260615" => ("seedance_2_0_mini", None),
-        _ => {
-            return Err(format!(
-                "Unsupported Higgsfield Seedance model: {}",
-                request.model
-            ))
-        }
-    };
+    let (job_type, mode) = job_type_and_mode(&request.model)?;
     let mut args = vec![
         "generate".to_string(),
         "create".to_string(),
@@ -301,6 +398,88 @@ fn build_create_args(
     }
     args.extend(["--json".to_string(), "--no-color".to_string()]);
     Ok(args)
+}
+
+fn job_type_and_mode(model: &str) -> Result<(&'static str, Option<&'static str>), String> {
+    Ok(match model {
+        "doubao-seedance-2-0-260128" => ("seedance_2_0", Some("std")),
+        "doubao-seedance-2-0-fast-260128" => ("seedance_2_0", Some("fast")),
+        "doubao-seedance-2-0-mini-260615" => ("seedance_2_0_mini", None),
+        _ => return Err(format!("Unsupported Higgsfield Seedance model: {model}")),
+    })
+}
+
+fn is_ambiguous_create_error(error: &str) -> bool {
+    let error = error.to_ascii_lowercase();
+    error.contains("request failed (no response received)")
+        || error.contains("higgsfield cli command timed out")
+}
+
+fn recent_job_ids(
+    value: &Value,
+    job_type: &str,
+    started_at: DateTime<Utc>,
+    now: DateTime<Utc>,
+) -> Vec<String> {
+    let items = value
+        .as_array()
+        .or_else(|| value.get("jobs").and_then(Value::as_array))
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let earliest = started_at - ChronoDuration::seconds(CREATE_RECOVERY_CLOCK_SKEW_SECONDS);
+    let latest = now + ChronoDuration::seconds(CREATE_RECOVERY_CLOCK_SKEW_SECONDS);
+
+    items
+        .iter()
+        .filter(|item| item.get("job_type").and_then(Value::as_str) == Some(job_type))
+        .filter_map(|item| {
+            let created_at = DateTime::parse_from_rfc3339(item.get("created_at")?.as_str()?)
+                .ok()?
+                .with_timezone(&Utc);
+            if created_at < earliest || created_at > latest {
+                return None;
+            }
+            let id = item.get("id")?.as_str()?.trim().to_string();
+            validate_job_id(&id).ok()?;
+            Some(id)
+        })
+        .collect()
+}
+
+fn job_matches_request(
+    value: &Value,
+    request: &VideoGenerationRequest,
+    job_type: &str,
+    mode: Option<&str>,
+) -> bool {
+    if value.get("job_type").and_then(Value::as_str) != Some(job_type) {
+        return false;
+    }
+    let Some(params) = value.get("params") else {
+        return false;
+    };
+    let expected_media_count = usize::from(request.starting_image.is_some())
+        + usize::from(request.ending_image.is_some())
+        + request
+            .reference_images
+            .as_deref()
+            .map_or(0, |images| images.len());
+    let media_count = params
+        .get("medias")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+
+    params.get("prompt").and_then(Value::as_str).map(str::trim) == Some(request.prompt.trim())
+        && params.get("aspect_ratio").and_then(Value::as_str)
+            == Some(request.options.aspect_ratio.as_str())
+        && params.get("duration").and_then(Value::as_u64)
+            == Some(u64::from(request.options.duration))
+        && params.get("resolution").and_then(Value::as_str)
+            == Some(request.options.resolution.as_str())
+        && params.get("generate_audio").and_then(Value::as_bool)
+            == Some(request.options.generate_audio.unwrap_or(true))
+        && mode.is_none_or(|expected| params.get("mode").and_then(Value::as_str) == Some(expected))
+        && media_count == expected_media_count
 }
 
 fn input_path(inputs: &TempInputFiles, index: usize) -> Result<&Path, String> {
@@ -462,11 +641,13 @@ fn without_result_urls(mut value: Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_create_args, is_safe_result_url, video_job_id_from_metadata, TempInputFiles,
+        build_create_args, is_ambiguous_create_error, is_safe_result_url, job_matches_request,
+        recent_job_ids, video_job_id_from_metadata, TempInputFiles,
     };
     use crate::models::{
         VideoGenerationOptions, VideoGenerationRequest, VideoInputMode, VideoProvider,
     };
+    use chrono::{TimeZone, Utc};
     use reqwest::Url;
     use serde_json::json;
 
@@ -535,5 +716,77 @@ mod tests {
             video_job_id_from_metadata(&json!(["first", "second"])),
             None
         );
+    }
+
+    #[test]
+    fn recognizes_ambiguous_create_transport_errors() {
+        assert!(is_ambiguous_create_error(
+            "Higgsfield CLI error: Error: request failed (no response received)"
+        ));
+        assert!(is_ambiguous_create_error(
+            "Higgsfield CLI command timed out."
+        ));
+        assert!(!is_ambiguous_create_error(
+            "Higgsfield CLI error: invalid aspect ratio"
+        ));
+    }
+
+    #[test]
+    fn selects_only_recent_jobs_with_the_expected_type() {
+        let started_at = Utc.with_ymd_and_hms(2026, 8, 2, 1, 16, 0).unwrap();
+        let now = Utc.with_ymd_and_hms(2026, 8, 2, 1, 16, 10).unwrap();
+        let ids = recent_job_ids(
+            &json!([
+                {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "job_type": "seedance_2_0",
+                    "created_at": "2026-08-02T01:10:00Z"
+                },
+                {
+                    "id": "22222222-2222-4222-8222-222222222222",
+                    "job_type": "nano_banana_pro",
+                    "created_at": "2026-08-02T01:16:05Z"
+                },
+                {
+                    "id": "33333333-3333-4333-8333-333333333333",
+                    "job_type": "seedance_2_0",
+                    "created_at": "2026-08-02T01:16:05Z"
+                }
+            ]),
+            "seedance_2_0",
+            started_at,
+            now,
+        );
+        assert_eq!(ids, ["33333333-3333-4333-8333-333333333333"]);
+    }
+
+    #[test]
+    fn matches_recovered_job_by_full_request_signature() {
+        let request = request("doubao-seedance-2-0-260128");
+        let mut detail = json!({
+            "job_type": "seedance_2_0",
+            "params": {
+                "prompt": "A cinematic walk",
+                "aspect_ratio": "16:9",
+                "duration": 5,
+                "resolution": "720p",
+                "generate_audio": true,
+                "mode": "std",
+                "medias": []
+            }
+        });
+        assert!(job_matches_request(
+            &detail,
+            &request,
+            "seedance_2_0",
+            Some("std")
+        ));
+        detail["params"]["prompt"] = json!("A different request");
+        assert!(!job_matches_request(
+            &detail,
+            &request,
+            "seedance_2_0",
+            Some("std")
+        ));
     }
 }

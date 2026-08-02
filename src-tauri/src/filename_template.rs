@@ -9,6 +9,10 @@ pub enum FilenameTemplateError {
     EmptyFilename,
     #[error("Output path has no parent directory.")]
     NoParent,
+    #[error("Higgsfield output directory must be an absolute path.")]
+    HiggsfieldDirectoryNotAbsolute,
+    #[error("Higgsfield filename template must be relative and cannot contain '..'.")]
+    UnsafeHiggsfieldTemplate,
 }
 
 pub fn resolve_output_path<Tz>(
@@ -49,6 +53,127 @@ where
     unique_path(candidate)
 }
 
+pub fn resolve_higgsfield_output_path<Tz>(
+    output_dir: &str,
+    template: &str,
+    provider: &str,
+    model: &str,
+    id: &str,
+    batch_id: &str,
+    source_filename: &str,
+    datetime: DateTime<Tz>,
+) -> Result<PathBuf, FilenameTemplateError>
+where
+    Tz: TimeZone,
+    Tz::Offset: Display,
+{
+    let output_root = Path::new(output_dir);
+    if !output_root.is_absolute() {
+        return Err(FilenameTemplateError::HiggsfieldDirectoryNotAbsolute);
+    }
+    let template_path = Path::new(template);
+    if template_path.is_absolute()
+        || template_path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+    {
+        return Err(FilenameTemplateError::UnsafeHiggsfieldTemplate);
+    }
+
+    let source_filename = Path::new(source_filename)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .map(safe_segment)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "higgsfield_output".to_string());
+    let extension = Path::new(&source_filename)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    let has_source_filename_token = template.contains("{higgsfield_filename}");
+    let template = template.replace("{higgsfield_filename}", &source_filename);
+    let rendered = render_template(
+        &template, provider, model, id, batch_id, extension, datetime,
+    );
+    if rendered.trim().is_empty() {
+        return Err(FilenameTemplateError::EmptyFilename);
+    }
+
+    let mut candidate = output_root.join(rendered);
+    if !template.contains("{extension}") && !has_source_filename_token && !extension.is_empty() {
+        let filename = candidate
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("higgsfield_output");
+        candidate = candidate.with_file_name(format!("{filename}.{extension}"));
+    }
+    if !candidate.starts_with(output_root) {
+        return Err(FilenameTemplateError::UnsafeHiggsfieldTemplate);
+    }
+    unique_path(candidate)
+}
+
+pub fn higgsfield_serial_pattern<Tz>(
+    output_dir: &str,
+    template: &str,
+    provider: &str,
+    model: &str,
+    batch_id: &str,
+    datetime: DateTime<Tz>,
+) -> Result<Option<PathBuf>, FilenameTemplateError>
+where
+    Tz: TimeZone,
+    Tz::Offset: Display,
+{
+    const ID_MARKER: &str = "SOZOCRAFTSERIALID";
+    const SOURCE_MARKER: &str = "SOZOCRAFTSOURCEFILE";
+
+    let output_root = Path::new(output_dir);
+    if !output_root.is_absolute() {
+        return Err(FilenameTemplateError::HiggsfieldDirectoryNotAbsolute);
+    }
+    let template_path = Path::new(template);
+    if template_path.is_absolute()
+        || template_path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+    {
+        return Err(FilenameTemplateError::UnsafeHiggsfieldTemplate);
+    }
+
+    let (mut pattern, replaced_id) = replace_id_tokens(template.to_string(), ID_MARKER);
+    if !replaced_id {
+        return Ok(None);
+    }
+    let has_source_filename = pattern.contains("{higgsfield_filename}");
+    let has_extension = pattern.contains("{extension}");
+    pattern = pattern.replace("{higgsfield_filename}", SOURCE_MARKER);
+    pattern = pattern.replace("{extension}", SOURCE_MARKER);
+    pattern = render_template(&pattern, provider, model, "", batch_id, "", datetime);
+    let mut path = output_root.join(pattern);
+    if !has_source_filename && !has_extension {
+        let filename = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("higgsfield_output");
+        path = path.with_file_name(format!("{filename}{SOURCE_MARKER}"));
+    }
+    if !path.starts_with(output_root) {
+        return Err(FilenameTemplateError::UnsafeHiggsfieldTemplate);
+    }
+    Ok(Some(path))
+}
+
 fn render_template<Tz>(
     template: &str,
     provider: &str,
@@ -65,6 +190,7 @@ where
     let mut rendered = template.to_string();
     rendered = rendered.replace("{provider}", &safe_segment(provider));
     rendered = rendered.replace("{model}", &safe_segment(model));
+    rendered = replace_id_width_tokens(rendered, id);
     rendered = rendered.replace("{id}", &safe_segment(id));
     rendered = rendered.replace("{batch_id}", &safe_segment(batch_id));
     rendered = rendered.replace("{extension}", &safe_segment(extension));
@@ -102,6 +228,61 @@ where
         }
     }
     rendered
+}
+
+fn replace_id_width_tokens(mut rendered: String, id: &str) -> String {
+    let mut search_from = 0;
+    while let Some(relative_start) = rendered[search_from..].find("{id:") {
+        let start = search_from + relative_start;
+        let Some(relative_end) = rendered[start..].find('}') else {
+            break;
+        };
+        let end = start + relative_end;
+        let width_text = &rendered[start + "{id:".len()..end];
+        let replacement = width_text
+            .parse::<usize>()
+            .ok()
+            .filter(|width| (1..=12).contains(width))
+            .and_then(|width| {
+                id.parse::<u64>()
+                    .ok()
+                    .map(|number| format!("{number:0width$}"))
+            });
+        if let Some(replacement) = replacement {
+            rendered.replace_range(start..=end, &replacement);
+            search_from = start + replacement.len();
+        } else {
+            search_from = end + 1;
+        }
+    }
+    rendered
+}
+
+fn replace_id_tokens(mut rendered: String, replacement: &str) -> (String, bool) {
+    let mut replaced = false;
+    let mut search_from = 0;
+    while let Some(relative_start) = rendered[search_from..].find("{id") {
+        let start = search_from + relative_start;
+        let Some(relative_end) = rendered[start..].find('}') else {
+            break;
+        };
+        let end = start + relative_end;
+        let token = &rendered[start..=end];
+        let valid = token == "{id}"
+            || token
+                .strip_prefix("{id:")
+                .and_then(|value| value.strip_suffix('}'))
+                .and_then(|value| value.parse::<usize>().ok())
+                .is_some_and(|width| (1..=12).contains(&width));
+        if valid {
+            rendered.replace_range(start..=end, replacement);
+            search_from = start + replacement.len();
+            replaced = true;
+        } else {
+            search_from = end + 1;
+        }
+    }
+    (rendered, replaced)
 }
 
 fn convert_datetime_format(format: &str) -> String {
@@ -224,6 +405,84 @@ mod tests {
             "expected .webp suffix, got: {rendered}"
         );
         assert!(rendered.contains("gemini_nano-banana-2_20260426_090807_001.webp"));
+    }
+
+    #[test]
+    fn formats_numeric_ids_with_requested_width() {
+        let date = Utc.with_ymd_and_hms(2026, 8, 2, 10, 9, 8).unwrap();
+        let path = resolve_output_path(
+            "/tmp/out",
+            "{id}_{id:2}_{id:4}.{extension}",
+            "higgsfield",
+            "seedance-2",
+            "001",
+            "batch",
+            "mp4",
+            date,
+        )
+        .unwrap();
+
+        assert!(path.to_string_lossy().ends_with("001_01_0001.mp4"));
+    }
+
+    #[test]
+    fn resolves_higgsfield_original_filename_inside_archive_root() {
+        let date = Utc.with_ymd_and_hms(2026, 8, 2, 10, 9, 8).unwrap();
+        let path = resolve_higgsfield_output_path(
+            "/tmp/higgsfield",
+            "{yyMMdd} {id:4} {higgsfield_filename}",
+            "higgsfield",
+            "seedance-2",
+            "001",
+            "batch",
+            "hf_20260802_014525_99f8.mp4",
+            date,
+        )
+        .unwrap();
+
+        assert!(path
+            .to_string_lossy()
+            .ends_with("260802 0001 hf_20260802_014525_99f8.mp4"));
+    }
+
+    #[test]
+    fn renders_higgsfield_serial_scan_pattern() {
+        let date = Utc.with_ymd_and_hms(2026, 8, 2, 10, 9, 8).unwrap();
+        let pattern = higgsfield_serial_pattern(
+            "/tmp/higgsfield",
+            "{yyMMdd}_{id:3}_{higgsfield_filename}",
+            "higgsfield",
+            "seedance-2",
+            "batch",
+            date,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert!(pattern
+            .to_string_lossy()
+            .ends_with("260802_SOZOCRAFTSERIALID_SOZOCRAFTSOURCEFILE"));
+    }
+
+    #[test]
+    fn rejects_higgsfield_templates_that_escape_archive_root() {
+        let date = Utc.with_ymd_and_hms(2026, 8, 2, 10, 9, 8).unwrap();
+        let error = resolve_higgsfield_output_path(
+            "/tmp/higgsfield",
+            "../{higgsfield_filename}",
+            "higgsfield",
+            "seedance-2",
+            "001",
+            "batch",
+            "hf.mp4",
+            date,
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            FilenameTemplateError::UnsafeHiggsfieldTemplate
+        ));
     }
 
     #[test]

@@ -44,6 +44,12 @@ pub struct AppSettings {
     pub output_directory: String,
     #[serde(default = "default_output_template")]
     pub output_template: String,
+    #[serde(default)]
+    pub higgsfield_output_enabled: bool,
+    #[serde(default = "default_higgsfield_output_directory")]
+    pub higgsfield_output_directory: String,
+    #[serde(default = "default_higgsfield_output_template")]
+    pub higgsfield_output_template: String,
     #[serde(default = "default_prompt_directory")]
     pub prompt_directory: String,
     #[serde(default = "default_prompt_dsl_enabled")]
@@ -72,6 +78,10 @@ pub struct AppSettings {
     pub ark_proxy_enabled: bool,
     #[serde(default)]
     pub higgsfield_cli_path: Option<String>,
+    #[serde(default = "default_proxy_enabled")]
+    pub higgsfield_proxy_enabled: bool,
+    #[serde(default)]
+    pub higgsfield_proxy_url: Option<String>,
     #[serde(default)]
     pub optional_base_url: Option<String>,
     #[serde(default)]
@@ -118,6 +128,18 @@ fn default_output_directory() -> String {
         .join("SozoCraft")
         .to_string_lossy()
         .to_string()
+}
+
+fn default_higgsfield_output_directory() -> String {
+    dirs::picture_dir()
+        .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))
+        .join("Higgsfield")
+        .to_string_lossy()
+        .to_string()
+}
+
+fn default_higgsfield_output_template() -> String {
+    "{yyMMdd} {id:3} {higgsfield_filename}".to_string()
 }
 
 fn default_prompt_directory() -> String {
@@ -169,6 +191,9 @@ impl Default for AppSettings {
             output_directory: default_output_directory(),
             output_template: "{provider}_{model}_{datetime:yyyyMMdd_HHmmss}_{id}.{extension}"
                 .to_string(),
+            higgsfield_output_enabled: false,
+            higgsfield_output_directory: default_higgsfield_output_directory(),
+            higgsfield_output_template: default_higgsfield_output_template(),
             prompt_directory: default_prompt_directory(),
             prompt_dsl_enabled: true,
             prompt_editor_only: false,
@@ -183,6 +208,8 @@ impl Default for AppSettings {
             seedance_default_model: default_seedance_video_model(),
             ark_proxy_enabled: false,
             higgsfield_cli_path: None,
+            higgsfield_proxy_enabled: true,
+            higgsfield_proxy_url: None,
             optional_base_url: None,
             openai_base_url: None,
             openrouter_base_url: None,
@@ -195,6 +222,24 @@ impl Default for AppSettings {
             xai_timeout_seconds: 180,
             ark_timeout_seconds: 180,
         }
+    }
+}
+
+impl AppSettings {
+    pub fn effective_higgsfield_proxy_url(&self) -> Option<&str> {
+        if !self.higgsfield_proxy_enabled {
+            return None;
+        }
+        self.higgsfield_proxy_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .or_else(|| {
+                self.proxy_url
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+            })
     }
 }
 
@@ -723,8 +768,8 @@ pub enum GenerationStatus {
 #[cfg(test)]
 mod video_tests {
     use super::{
-        GenerationBatch, GenerationMediaType, ReferenceImageInput, VideoGenerationOptions,
-        VideoGenerationRequest, VideoInputMode, VideoProvider,
+        AppSettings, GenerationBatch, GenerationMediaType, ReferenceImageInput,
+        VideoGenerationOptions, VideoGenerationRequest, VideoInputMode, VideoProvider,
     };
     use base64::{engine::general_purpose, Engine as _};
     use serde_json::json;
@@ -747,6 +792,25 @@ mod video_tests {
                 generate_audio: None,
             },
         }
+    }
+
+    #[test]
+    fn higgsfield_proxy_prefers_override_then_general_fallback() {
+        let mut settings = AppSettings::default();
+        settings.proxy_url = Some("http://general:7890".to_string());
+        assert_eq!(
+            settings.effective_higgsfield_proxy_url(),
+            Some("http://general:7890")
+        );
+
+        settings.higgsfield_proxy_url = Some(" http://higgsfield:7890 ".to_string());
+        assert_eq!(
+            settings.effective_higgsfield_proxy_url(),
+            Some("http://higgsfield:7890")
+        );
+
+        settings.higgsfield_proxy_enabled = false;
+        assert_eq!(settings.effective_higgsfield_proxy_url(), None);
     }
 
     #[test]

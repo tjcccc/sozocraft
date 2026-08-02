@@ -35,6 +35,7 @@ function renderPanel(
     setModel: vi.fn(),
     setProvider: vi.fn(),
     setResolution: vi.fn(),
+    stopAvailable: true,
     ...overrides,
   };
   render(<VideoGenerationPanel {...props} />);
@@ -93,6 +94,13 @@ describe("video generation controls", () => {
     expect(screen.queryByRole("option", { name: "1080p" })).toBeNull();
     await user.selectOptions(screen.getByLabelText("Model"), "doubao-seedance-2-0-fast-260128");
     expect(props.setModel).toHaveBeenCalledWith("doubao-seedance-2-0-fast-260128");
+  });
+
+  it("explains that Stop is unavailable for Higgsfield CLI jobs", () => {
+    renderPanel("seedance", { stopAvailable: false });
+    expect(screen.getByText(
+      "Stop is unavailable for Higgsfield CLI jobs; they continue until Higgsfield completes them.",
+    )).toBeTruthy();
   });
 
   it("uses per-image roles and enforces Veo's reference duration", async () => {

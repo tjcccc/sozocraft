@@ -44,6 +44,14 @@ The current design uses:
 ## Controls
 
 - Use native form controls for settings and generation options unless a richer control is needed.
+- General Settings keeps the primary Output Directory and Filename Template,
+  followed by a default-off Higgsfield Output toggle. Its dependent directory
+  and filename-template fields are disabled while the toggle is off. The
+  Higgsfield template supports `{higgsfield_filename}` and `{id:N}` alongside
+  the shared output tokens.
+- The Higgsfield CLI provider fieldset includes Use proxy and Proxy URL. The URL
+  field is disabled with the toggle off; when left empty, its placeholder
+  explains that the General Proxy URL is used as the fallback.
 - Use icon buttons for compact toolbar/tool actions when the icon is familiar.
 - Keep text labels on primary run/save actions.
 - Provider tabs should be active only when the backend can generate through that
@@ -79,7 +87,9 @@ The current design uses:
   accounts. The native asset client remains available for a future entitled
   workflow; ordinary uploaded Seedance references remain visible.
 - Video Stop messaging must state that it stops local monitoring and may not
-  cancel the paid provider job.
+  cancel the paid provider job. Disable Stop for every active Higgsfield CLI
+  image or video task because the CLI exposes no cancellation command, and
+  explain that the remote job continues to completion.
 
 ## Typography And Color
 

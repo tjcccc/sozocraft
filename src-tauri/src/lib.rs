@@ -7,6 +7,7 @@ mod gemini;
 mod gemini_models;
 mod google_veo;
 mod higgsfield;
+mod higgsfield_output;
 mod higgsfield_video;
 mod image_meta;
 mod local_config;
@@ -466,7 +467,7 @@ async fn generate_images_inner(
                             .base_url
                             .as_deref()
                             .or(effective_base_url(&request.provider, &settings)),
-                        proxy_url: provider_proxy_ref(&request.provider, &settings),
+                        proxy_url: proxy_log_ref(generation_proxy_ref(&request, &settings)),
                         timeout_seconds: provider_timeout(&request.provider, &settings),
                         reference_image_count: error_log::reference_image_count(&item_request),
                         response_metadata: Some(error_log::no_image_metadata(&response.metadata)),
@@ -484,7 +485,7 @@ async fn generate_images_inner(
                     let file_id = format!("{:03}", batch.images.len() + 1);
 
                     let image_bytes = if image_meta::is_png(&image.bytes) {
-                        image.bytes
+                        image.bytes.clone()
                     } else {
                         match image_meta::to_png(&image.bytes) {
                             Ok(png) => png,
@@ -495,6 +496,59 @@ async fn generate_images_inner(
                                 continue;
                             }
                         }
+                    };
+
+                    let higgsfield_output = if is_higgsfield_provider(&request, &settings)
+                        && settings.higgsfield_output_enabled
+                    {
+                        let source_filename = image
+                            .source_filename
+                            .as_deref()
+                            .unwrap_or("higgsfield_output.png");
+                        match higgsfield_output::archive_bytes(
+                            &settings,
+                            filename_provider(&request, &settings),
+                            filename_model(&request.model),
+                            &file_id,
+                            &short_id(&batch_id),
+                            source_filename,
+                            filename_datetime,
+                            &image.bytes,
+                        )
+                        .await
+                        {
+                            Ok(Some(path)) => Some(serde_json::json!({
+                                "sourceFilename": source_filename,
+                                "path": path.to_string_lossy(),
+                            })),
+                            Ok(None) => None,
+                            Err(message) => {
+                                error_log::log_generation_error(&GenerationErrorLog {
+                                    timestamp: Utc::now(),
+                                    batch_id: &batch_id,
+                                    provider: &request.provider,
+                                    model: &request.model,
+                                    attempt: index + 1,
+                                    kind: "higgsfield_output_failed",
+                                    message: &message,
+                                    base_url: None,
+                                    proxy_url: proxy_log_ref(generation_proxy_ref(
+                                        &request, &settings,
+                                    )),
+                                    timeout_seconds: provider_timeout(&request.provider, &settings),
+                                    reference_image_count: error_log::reference_image_count(
+                                        &item_request,
+                                    ),
+                                    response_metadata: None,
+                                });
+                                Some(serde_json::json!({
+                                    "sourceFilename": source_filename,
+                                    "warning": message,
+                                }))
+                            }
+                        }
+                    } else {
+                        None
                     };
 
                     let path = resolve_output_path(
@@ -542,6 +596,7 @@ async fn generate_images_inner(
                         "createdAt": image_created_at,
                         "batchCreatedAt": created_at,
                         "responseMetadata": response.metadata.clone(),
+                        "higgsfieldOutput": higgsfield_output,
                     });
                     let vc_str = serde_json::to_string(&vc_meta).unwrap_or_default();
                     let with_prompt =
@@ -573,9 +628,9 @@ async fn generate_images_inner(
                 let message = if is_higgsfield {
                     err.clone()
                 } else {
-                    let proxy_note = provider_proxy_ref(&request.provider, &settings)
+                    let proxy_note = generation_proxy_ref(&request, &settings)
                         .filter(|value| !value.trim().is_empty())
-                        .map(|value| format!("Proxy configured: {value}"))
+                        .map(|_| "Proxy configured.".to_string())
                         .unwrap_or_else(|| {
                             "No proxy active for this provider. Save Proxy URL in settings and enable provider proxy if needed.".to_string()
                         });
@@ -593,7 +648,7 @@ async fn generate_images_inner(
                         .base_url
                         .as_deref()
                         .or(effective_base_url(&request.provider, &settings)),
-                    proxy_url: provider_proxy_ref(&request.provider, &settings),
+                    proxy_url: proxy_log_ref(generation_proxy_ref(&request, &settings)),
                     timeout_seconds: provider_timeout(&request.provider, &settings),
                     reference_image_count: error_log::reference_image_count(&item_request),
                     response_metadata: None,
@@ -696,6 +751,31 @@ fn provider_proxy_ref<'a>(provider: &str, settings: &'a AppSettings) -> Option<&
     enabled.then_some(settings.proxy_url.as_deref()).flatten()
 }
 
+fn higgsfield_proxy(settings: &AppSettings) -> Option<String> {
+    settings
+        .effective_higgsfield_proxy_url()
+        .map(str::to_string)
+}
+
+fn higgsfield_proxy_ref(settings: &AppSettings) -> Option<&str> {
+    settings.effective_higgsfield_proxy_url()
+}
+
+fn generation_proxy_ref<'a>(
+    request: &GenerationRequest,
+    settings: &'a AppSettings,
+) -> Option<&'a str> {
+    if is_higgsfield_provider(request, settings) {
+        higgsfield_proxy_ref(settings)
+    } else {
+        provider_proxy_ref(&request.provider, settings)
+    }
+}
+
+fn proxy_log_ref(proxy_url: Option<&str>) -> Option<&'static str> {
+    proxy_url.map(|_| "<configured>")
+}
+
 fn is_higgsfield_provider(request: &GenerationRequest, settings: &AppSettings) -> bool {
     match request.provider.as_str() {
         "nano-banana" => settings.nano_banana_api_platform == "higgsfield",
@@ -724,6 +804,7 @@ fn generation_platform(request: &GenerationRequest, settings: &AppSettings) -> S
 #[derive(Debug, Clone)]
 struct ProviderGeneratedImage {
     bytes: Vec<u8>,
+    source_filename: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -741,14 +822,17 @@ async fn generate_with_provider(
             request,
             settings.higgsfield_cli_path.clone(),
             provider_timeout(&request.provider, settings),
-            provider_proxy(&request.provider, settings),
+            higgsfield_proxy(settings),
         )
         .await?;
         return Ok(ProviderResponse {
             images: response
                 .images
                 .into_iter()
-                .map(|image| ProviderGeneratedImage { bytes: image.bytes })
+                .map(|image| ProviderGeneratedImage {
+                    bytes: image.bytes,
+                    source_filename: Some(image.source_filename),
+                })
                 .collect(),
             metadata: response.metadata,
         });
@@ -774,7 +858,10 @@ async fn generate_with_provider(
                 images: response
                     .images
                     .into_iter()
-                    .map(|image| ProviderGeneratedImage { bytes: image.bytes })
+                    .map(|image| ProviderGeneratedImage {
+                        bytes: image.bytes,
+                        source_filename: None,
+                    })
                     .collect(),
                 metadata: response.metadata,
             })
@@ -812,7 +899,10 @@ async fn generate_with_provider(
                 images: response
                     .images
                     .into_iter()
-                    .map(|image| ProviderGeneratedImage { bytes: image.bytes })
+                    .map(|image| ProviderGeneratedImage {
+                        bytes: image.bytes,
+                        source_filename: None,
+                    })
                     .collect(),
                 metadata: response.metadata,
             })
@@ -836,7 +926,10 @@ async fn generate_with_provider(
                 images: response
                     .images
                     .into_iter()
-                    .map(|image| ProviderGeneratedImage { bytes: image.bytes })
+                    .map(|image| ProviderGeneratedImage {
+                        bytes: image.bytes,
+                        source_filename: None,
+                    })
                     .collect(),
                 metadata: response.metadata,
             })

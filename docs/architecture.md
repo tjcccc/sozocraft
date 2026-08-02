@@ -40,6 +40,9 @@
 - `src-tauri/src/higgsfield_video.rs` maps the shared Seedance UI models to
   Higgsfield CLI job types, materializes validated local media inputs for CLI
   auto-upload, polls jobs, and downloads bounded HTTPS MP4 results.
+- `src-tauri/src/higgsfield_output.rs` owns the optional atomic secondary archive
+  for raw Higgsfield image and video results, including original provider
+  filenames and archive-root path validation.
 - `src-tauri/src/video_generation.rs` owns text-, image-, and reference-to-video
   job orchestration, local MP4 and JSON metadata persistence, terminal history
   state, and failure logging.
@@ -53,6 +56,11 @@
 
 - Generated image outputs are saved as PNG files. Generated video outputs are
   saved as MP4 files with adjacent `.mp4.json` metadata.
+- When enabled, Higgsfield CLI results are also copied to a separate absolute
+  archive root. Images retain the unconverted provider bytes and videos retain
+  the downloaded MP4; archive failures are non-fatal and recorded in metadata
+  and the local error log. Archive `{id}` tokens continue from the highest
+  matching existing file in the active rendered template scope.
 - PNG metadata stores `prompt` and `sozocraft` as uncompressed UTF-8 `iTXt` chunks so non-Latin prompt text round-trips without mojibake.
 - The `sozocraft` JSON chunk includes `schemaVersion`, `promptSnapshot`, `renderedPrompt`, provider/model/options, ids, timestamps, and response metadata.
 - Until PromptCraft DSL rendering exists, `promptSnapshot` and `renderedPrompt` carry the same prompt text.
@@ -100,7 +108,13 @@
   media paths are auto-uploaded by the CLI; Soul IDs are not accepted by the
   current Seedance CLI schemas. The direct Ark route is supported; the
   Higgsfield video adapter remains experimental until Standard, Fast, Mini, and
-  interrupted-job recovery receive broader end-to-end validation.
+  interrupted-job recovery receive broader end-to-end validation. An ambiguous
+  create transport failure triggers a read-only recent-job lookup rather than a
+  paid retry; recovery requires one exact match across creation time, job type,
+  prompt, options, and media count.
+- Higgsfield has a dedicated proxy toggle and optional URL with a General Proxy
+  URL fallback. The effective value is scoped to CLI child-process proxy
+  environment variables and explicit image/video result-download clients.
 - The asset protocol starts with an empty scope. A preview command validates an
   exact regular MP4 against saved generation history before allowing that file.
 - Avoid adding global state libraries, generated schemas, or routing until the app has a concrete need.

@@ -34,6 +34,7 @@ export function VideoGenerationPanel({
   setModel,
   setProvider,
   setResolution,
+  stopAvailable,
 }: {
   allowedDurations: readonly number[];
   aspectRatio: string;
@@ -56,6 +57,7 @@ export function VideoGenerationPanel({
   setModel: (value: string) => void;
   setProvider: (value: VideoProviderId) => void;
   setResolution: (value: string) => void;
+  stopAvailable: boolean;
 }) {
   const minDuration = allowedDurations[0];
   const maxDuration = allowedDurations[allowedDurations.length - 1];
@@ -189,7 +191,9 @@ export function VideoGenerationPanel({
         <p className="video-provider-note">Veo generates synchronized audio automatically.</p>
       ) : null}
       <p className="video-stop-note">
-        Stop ends local monitoring only; the provider may continue processing and charging.
+        {stopAvailable
+          ? "Stop ends local monitoring only; the provider may continue processing and charging."
+          : "Stop is unavailable for Higgsfield CLI jobs; they continue until Higgsfield completes them."}
       </p>
     </section>
   );

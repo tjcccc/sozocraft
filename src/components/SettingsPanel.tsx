@@ -75,6 +75,10 @@ export function SettingsPanel({
   onSaveXaiKey: () => void;
 }) {
   const templateIssues = validateOutputTemplate(settings.outputTemplate);
+  const higgsfieldTemplateIssues = validateOutputTemplate(
+    settings.higgsfieldOutputTemplate,
+    { higgsfield: true },
+  );
   const didMountRef = useRef(false);
   const [higgsfieldStatus, setHiggsfieldStatus] = useState<HiggsfieldStatus | null>(null);
   const [checkingHiggsfield, setCheckingHiggsfield] = useState(false);
@@ -97,7 +101,10 @@ export function SettingsPanel({
     setCheckingHiggsfield(true);
     try {
       setHiggsfieldStatus(
-        await checkHiggsfieldStatus(settings.higgsfieldCliPath, settings.proxyUrl),
+        await checkHiggsfieldStatus(
+          settings.higgsfieldCliPath,
+          effectiveHiggsfieldProxyUrl(settings),
+        ),
       );
     } finally {
       setCheckingHiggsfield(false);
@@ -164,6 +171,46 @@ export function SettingsPanel({
             {templateIssues.length > 0 ? (
               <div className="template-issues">
                 {templateIssues.map((issue, index) => (
+                  <span className="template-issue" key={index}>
+                    {issue}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </Field>
+          <ToggleSwitch
+            checked={settings.higgsfieldOutputEnabled}
+            label="Higgsfield Output"
+            onChange={(checked) =>
+              setSettings({ ...settings, higgsfieldOutputEnabled: checked })
+            }
+          />
+          <Field label="Higgsfield Output Directory">
+            <input
+              disabled={!settings.higgsfieldOutputEnabled}
+              value={settings.higgsfieldOutputDirectory}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  higgsfieldOutputDirectory: event.target.value,
+                })
+              }
+            />
+          </Field>
+          <Field label="Higgsfield Filename Template">
+            <input
+              disabled={!settings.higgsfieldOutputEnabled}
+              value={settings.higgsfieldOutputTemplate}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  higgsfieldOutputTemplate: event.target.value,
+                })
+              }
+            />
+            {settings.higgsfieldOutputEnabled && higgsfieldTemplateIssues.length > 0 ? (
+              <div className="template-issues">
+                {higgsfieldTemplateIssues.map((issue, index) => (
                   <span className="template-issue" key={index}>
                     {issue}
                   </span>
@@ -525,6 +572,26 @@ export function SettingsPanel({
                 </button>
               </div>
             </Field>
+            <ToggleSwitch
+              checked={settings.higgsfieldProxyEnabled}
+              label="Use proxy"
+              onChange={(checked) =>
+                setSettings({ ...settings, higgsfieldProxyEnabled: checked })
+              }
+            />
+            <Field label="Proxy URL">
+              <input
+                disabled={!settings.higgsfieldProxyEnabled}
+                placeholder="Uses General Proxy URL when empty"
+                value={settings.higgsfieldProxyUrl ?? ""}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    higgsfieldProxyUrl: event.target.value || null,
+                  })
+                }
+              />
+            </Field>
             {higgsfieldStatus ? (
               <div className="provider-status-grid">
                 <ConfigBadge label="CLI" ok={higgsfieldStatus.installed} />
@@ -743,6 +810,13 @@ function splitGptImageBaseUrls(
     openaiBaseUrl: openaiBaseUrl ?? null,
     openrouterBaseUrl: openrouterBaseUrl ?? null,
   };
+}
+
+function effectiveHiggsfieldProxyUrl(settings: AppSettings) {
+  if (!settings.higgsfieldProxyEnabled) {
+    return null;
+  }
+  return settings.higgsfieldProxyUrl?.trim() || settings.proxyUrl?.trim() || null;
 }
 
 function looksLikeOpenRouterBaseUrl(value?: string | null): boolean {

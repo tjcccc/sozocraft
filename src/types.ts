@@ -31,6 +31,9 @@ export type AppSettings = {
   defaultModel: string;
   outputDirectory: string;
   outputTemplate: string;
+  higgsfieldOutputEnabled: boolean;
+  higgsfieldOutputDirectory: string;
+  higgsfieldOutputTemplate: string;
   promptDirectory: string;
   promptDslEnabled: boolean;
   promptEditorOnly: boolean;
@@ -45,6 +48,8 @@ export type AppSettings = {
   seedanceDefaultModel: string;
   arkProxyEnabled: boolean;
   higgsfieldCliPath?: string | null;
+  higgsfieldProxyEnabled: boolean;
+  higgsfieldProxyUrl?: string | null;
   optionalBaseUrl?: string | null;
   openaiBaseUrl?: string | null;
   openrouterBaseUrl?: string | null;

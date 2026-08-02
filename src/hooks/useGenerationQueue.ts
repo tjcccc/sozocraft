@@ -32,6 +32,24 @@ type QueuedVideoTask = {
 export type QueuedGenerationTask = QueuedImageTask | QueuedVideoTask;
 export type EnqueueGenerationTask = (task: QueuedGenerationTask) => void;
 
+export function usesHiggsfieldTask(task: QueuedGenerationTask) {
+  if (task.mediaType === "video") {
+    return task.request.provider === "seedance"
+      && task.settings.seedanceApiPlatform === "higgsfield";
+  }
+  if (task.request.provider === "nano-banana") {
+    return task.settings.nanoBananaApiPlatform === "higgsfield";
+  }
+  if (task.request.provider === "gpt-image") {
+    return task.settings.openaiApiPlatform === "higgsfield";
+  }
+  return task.settings.grokApiPlatform === "higgsfield";
+}
+
+export function canStopTask(task: QueuedGenerationTask | null) {
+  return Boolean(task && !usesHiggsfieldTask(task));
+}
+
 export function useGenerationQueue({
   setBatches,
   setExpandedBatchId,
@@ -48,6 +66,7 @@ export function useGenerationQueue({
   const [queuedTasks, setQueuedTasks] = useState<QueuedGenerationTask[]>([]);
   const [runningTask, setRunningTask] = useState<QueuedGenerationTask | null>(null);
   const processingRef = useRef(false);
+  const canStopRunningTask = canStopTask(runningTask);
 
   const enqueueTask = useCallback<EnqueueGenerationTask>(
     (task) => {
@@ -59,7 +78,7 @@ export function useGenerationQueue({
   );
 
   const stopGeneration = useCallback(async () => {
-    if (!runningTask) {
+    if (!runningTask || !canStopTask(runningTask)) {
       return;
     }
     setMessage(
@@ -91,7 +110,7 @@ export function useGenerationQueue({
         } else if (batch.status === "cancelled") {
           setMessage(
             batch.mediaType === "video"
-              ? "Stopped monitoring; xAI may still complete the job"
+              ? "Stopped monitoring; the provider may still complete the job"
               : "Task cancelled",
           );
         }
@@ -126,6 +145,7 @@ export function useGenerationQueue({
 
   return {
     enqueueTask,
+    canStopRunningTask,
     queuedCount: queuedTasks.length,
     runningTask,
     stopGeneration,

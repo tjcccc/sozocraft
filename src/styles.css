@@ -1036,6 +1036,10 @@ button {
     min-height: 34px;
 }
 
+.generation-toggle-row .toggle-switch {
+    font-weight: 400;
+}
+
 .video-stop-note {
     margin: 0 16px 16px;
     color: #8a93a3;

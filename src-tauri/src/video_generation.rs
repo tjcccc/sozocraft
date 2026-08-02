@@ -3,6 +3,7 @@ use crate::{
     error_log::{self, GenerationErrorLog},
     filename_template::resolve_output_path,
     google_veo::{GoogleVeoClient, GoogleVeoStatus},
+    higgsfield_output,
     higgsfield_video::{HiggsfieldVideoClient, HiggsfieldVideoStatus},
     local_config,
     models::{
@@ -49,6 +50,10 @@ struct ProviderRuntime {
 }
 
 impl ProviderClient {
+    fn is_higgsfield(&self) -> bool {
+        matches!(self, Self::Higgsfield(_))
+    }
+
     async fn start(&self, request: &VideoGenerationRequest) -> Result<String, String> {
         match self {
             Self::Seedance(client) => client.start(request).await,
@@ -312,6 +317,7 @@ pub async fn generate(
 
     let video_id = Uuid::new_v4().to_string();
     let created_video_at = Utc::now();
+    let filename_datetime = Local::now();
     let path = match resolve_output_path(
         &settings.output_directory,
         &settings.output_template,
@@ -320,7 +326,7 @@ pub async fn generate(
         "001",
         &short_id(&batch_id),
         "mp4",
-        Local::now(),
+        filename_datetime,
     ) {
         Ok(path) => path,
         Err(error) => {
@@ -370,6 +376,51 @@ pub async fn generate(
             Some(response_metadata),
         );
     }
+    let higgsfield_output = if client.is_higgsfield() && settings.higgsfield_output_enabled {
+        let source_filename = higgsfield_output::source_filename_from_url(&video_url)
+            .filter(|value| Path::new(value).extension().is_some())
+            .unwrap_or_else(|| format!("hf_{request_id}.mp4"));
+        match higgsfield_output::archive_file(
+            &settings,
+            client.filename_provider(),
+            &request.model,
+            "001",
+            &short_id(&batch_id),
+            &source_filename,
+            filename_datetime,
+            &partial_path,
+        )
+        .await
+        {
+            Ok(Some(path)) => Some(json!({
+                "sourceFilename": source_filename,
+                "path": path.to_string_lossy(),
+            })),
+            Ok(None) => None,
+            Err(message) => {
+                error_log::log_generation_error(&GenerationErrorLog {
+                    timestamp: Utc::now(),
+                    batch_id: &batch_id,
+                    provider: request.provider.id(),
+                    model: &request.model,
+                    attempt: 1,
+                    kind: "higgsfield_output_failed",
+                    message: &message,
+                    base_url: runtime.base_url.as_deref(),
+                    proxy_url: runtime.proxy_url.as_deref().map(|_| "<configured>"),
+                    timeout_seconds: runtime.timeout_seconds,
+                    reference_image_count: input_image_count,
+                    response_metadata: None,
+                });
+                Some(json!({
+                    "sourceFilename": source_filename,
+                    "warning": message,
+                }))
+            }
+        }
+    } else {
+        None
+    };
     let duration = provider_duration.unwrap_or(request.options.duration);
     let metadata = json!({
         "schemaVersion": 1,
@@ -402,6 +453,7 @@ pub async fn generate(
         "createdAt": created_video_at,
         "batchCreatedAt": created_at,
         "responseMetadata": response_metadata,
+        "higgsfieldOutput": higgsfield_output,
     });
 
     if let Err(error) =
@@ -451,7 +503,9 @@ fn provider_runtime(settings: &AppSettings, provider: VideoProvider) -> Provider
                 .then(|| settings.ark_base_url.clone())
                 .flatten(),
             proxy_url: if settings.seedance_api_platform == "higgsfield" {
-                settings.proxy_url.clone()
+                settings
+                    .effective_higgsfield_proxy_url()
+                    .map(str::to_string)
             } else {
                 settings
                     .ark_proxy_enabled
@@ -576,7 +630,7 @@ fn fail(
         kind,
         message: &message,
         base_url: runtime.base_url.as_deref(),
-        proxy_url: runtime.proxy_url.as_deref(),
+        proxy_url: runtime.proxy_url.as_deref().map(|_| "<configured>"),
         timeout_seconds: runtime.timeout_seconds,
         reference_image_count,
         response_metadata,
