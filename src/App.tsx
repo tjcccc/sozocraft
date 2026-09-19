@@ -892,7 +892,7 @@ function platformForMetadata(
     return settings.nanoBananaApiPlatform;
   }
   if (provider === "gpt-image") {
-    if (metadataPlatform === "higgsfield" || model === "gpt_image_2") {
+    if (metadataPlatform === "higgsfield" || model.startsWith("gpt_image_")) {
       return "higgsfield";
     }
     return model.startsWith("openai/") ? "openrouter" : "openai";

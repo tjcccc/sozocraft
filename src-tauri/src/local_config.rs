@@ -641,7 +641,8 @@ fn normalize_seedance_video_model(value: Option<String>, fallback: String) -> St
         Some(
             "doubao-seedance-2-0-260128"
             | "doubao-seedance-2-0-fast-260128"
-            | "doubao-seedance-2-0-mini-260615",
+            | "doubao-seedance-2-0-mini-260615"
+            | "doubao-seedance-2-5-260628",
         ) => value.unwrap().trim().to_string(),
         _ => fallback,
     }
@@ -657,7 +658,7 @@ fn default_nano_banana_model(platform: &str) -> String {
 fn default_gpt_image_model(platform: &str) -> String {
     match platform {
         "higgsfield" => "gpt_image_2".to_string(),
-        "openrouter" => "openai/gpt-5.4-image-2".to_string(),
+        "openrouter" => "openai/gpt-image-2".to_string(),
         _ => "gpt-image-2".to_string(),
     }
 }
@@ -665,7 +666,7 @@ fn default_gpt_image_model(platform: &str) -> String {
 fn default_grok_model(platform: &str) -> String {
     match platform {
         "higgsfield" => "grok_image".to_string(),
-        _ => "grok-imagine-image-quality".to_string(),
+        _ => "grok-imagine-image-2.0".to_string(),
     }
 }
 
@@ -684,9 +685,12 @@ fn normalize_nano_banana_model(platform: &str, model: String) -> String {
 
 fn normalize_gpt_image_model(platform: &str, model: String) -> String {
     match (platform, model.as_str()) {
-        ("higgsfield", "gpt_image_2") => model,
-        ("openrouter", "openai/gpt-5.4-image-2") => model,
-        ("openai", "gpt-image-2") => model,
+        ("higgsfield", "gpt_image_2" | "gpt_image_2_5_flare" | "gpt_image_2_5_sunburst") => model,
+        (
+            "openrouter",
+            "openai/gpt-image-2" | "openai/gpt-image-2.5-flare" | "openai/gpt-image-2.5-sunburst",
+        ) => model,
+        ("openai", "gpt-image-2" | "gpt-image-2.5-flare" | "gpt-image-2.5-sunburst") => model,
         _ => default_gpt_image_model(platform),
     }
 }
@@ -694,7 +698,7 @@ fn normalize_gpt_image_model(platform: &str, model: String) -> String {
 fn normalize_grok_model(platform: &str, model: String) -> String {
     match (platform, model.as_str()) {
         ("higgsfield", "grok_image") => model,
-        ("xai", "grok-imagine-image-quality" | "grok-imagine-image") => model,
+        ("xai", "grok-imagine-image-2.0") => model,
         _ => default_grok_model(platform),
     }
 }
@@ -702,6 +706,69 @@ fn normalize_grok_model(platform: &str, model: String) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn seedance_2_5_default_model_is_preserved() {
+        assert_eq!(
+            normalize_seedance_video_model(
+                Some("doubao-seedance-2-5-260628".to_string()),
+                "doubao-seedance-2-0-260128".to_string()
+            ),
+            "doubao-seedance-2-5-260628"
+        );
+    }
+
+    #[test]
+    fn image_model_defaults_preserve_new_variants_and_migrate_legacy_grok() {
+        assert_eq!(
+            normalize_gpt_image_model("openrouter", "openai/gpt-5.4-image-2".to_string()),
+            "openai/gpt-image-2"
+        );
+        for model in [
+            "gpt-image-2",
+            "gpt-image-2.5-flare",
+            "gpt-image-2.5-sunburst",
+        ] {
+            assert_eq!(
+                normalize_gpt_image_model("openai", model.to_string()),
+                model
+            );
+        }
+        for model in [
+            "openai/gpt-image-2",
+            "openai/gpt-image-2.5-flare",
+            "openai/gpt-image-2.5-sunburst",
+        ] {
+            assert_eq!(
+                normalize_gpt_image_model("openrouter", model.to_string()),
+                model
+            );
+        }
+        for model in [
+            "gpt_image_2",
+            "gpt_image_2_5_flare",
+            "gpt_image_2_5_sunburst",
+        ] {
+            assert_eq!(
+                normalize_gpt_image_model("higgsfield", model.to_string()),
+                model
+            );
+        }
+        for model in [
+            "grok-imagine-image",
+            "grok-imagine-image-quality",
+            "grok-imagine-image-2.0",
+        ] {
+            assert_eq!(
+                normalize_grok_model("xai", model.to_string()),
+                "grok-imagine-image-2.0"
+            );
+        }
+        assert_eq!(
+            normalize_grok_model("higgsfield", "grok_image".to_string()),
+            "grok_image"
+        );
+    }
 
     #[test]
     fn moves_openrouter_url_out_of_openai_base_url() {

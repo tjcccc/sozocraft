@@ -43,7 +43,7 @@ function renderPanel(
 }
 
 describe("video generation controls", () => {
-  it("orders providers as Seedance, Grok Imagine, and Google Veo", async () => {
+  it("orders providers as Seedance, Grok Imagine, and Google Video", async () => {
     const user = userEvent.setup();
     const setMode = vi.fn();
     render(<ModeSwitch mode="image" setMode={setMode} />);
@@ -53,11 +53,11 @@ describe("video generation controls", () => {
     expect(setMode).toHaveBeenCalledWith("video");
     expect(
       screen.getAllByRole("button").filter((button) =>
-        ["Seedance", "Grok Imagine", "Google Veo"].includes(button.getAttribute("aria-label") ?? ""),
+        ["Seedance", "Grok Imagine", "Google Video"].includes(button.getAttribute("aria-label") ?? ""),
       ).map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Seedance", "Grok Imagine", "Google Veo"]);
+    ).toEqual(["Seedance", "Grok Imagine", "Google Video"]);
 
-    await user.click(screen.getByRole("button", { name: "Google Veo" }));
+    await user.click(screen.getByRole("button", { name: "Google Video" }));
     expect(props.setProvider).toHaveBeenCalledWith("google-veo");
   });
 

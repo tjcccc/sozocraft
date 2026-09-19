@@ -5,6 +5,7 @@ mod file_access;
 mod filename_template;
 mod gemini;
 mod gemini_models;
+mod google_omni;
 mod google_veo;
 mod higgsfield;
 mod higgsfield_output;

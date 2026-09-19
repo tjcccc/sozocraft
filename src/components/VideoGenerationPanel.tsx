@@ -67,9 +67,8 @@ export function VideoGenerationPanel({
   const progress = maxDuration === minDuration
     ? 100
     : ((duration - minDuration) / (maxDuration - minDuration)) * 100;
-  const supportsEndFrame = provider !== "grok-imagine";
-  const frameRoleDisabled = inputImages.length > 2
-    || (provider === "grok-imagine" && inputImages.length > 1);
+  const supportsEndFrame = true;
+  const frameRoleDisabled = inputImages.length > 2;
   const roleOptions = [
     { label: "Reference", value: "reference" as const },
     {
@@ -158,7 +157,7 @@ export function VideoGenerationPanel({
         <Field label="Resolution">
           <select value={resolution} onChange={(event) => setResolution(event.target.value)}>
             {modelConfig.resolutions.map((value) => (
-              <option key={value} value={value}>{value}</option>
+              <option key={value} value={value}>{value}{model === "gemini-omni-1.1-flash" && ["1080p", "4k"].includes(value) ? " (upscaled)" : ""}</option>
             ))}
           </select>
         </Field>
@@ -188,7 +187,10 @@ export function VideoGenerationPanel({
         setImages={setInputImages}
       />
       {providerConfig.audioAlwaysGenerated ? (
-        <p className="video-provider-note">Veo generates synchronized audio automatically.</p>
+        <p className="video-provider-note">{modelConfig.productName} generates audio automatically.</p>
+      ) : null}
+      {model === "gemini-omni-1.1-flash" ? (
+        <p className="video-provider-note">Omni Stop takes effect after the initial generation request returns.</p>
       ) : null}
       <p className="video-stop-note">
         {stopAvailable

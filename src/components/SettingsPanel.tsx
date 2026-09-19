@@ -20,6 +20,7 @@ import {
   getProviderModels,
 } from "../models/imageProviders";
 import type { ImageProviderApiPlatform } from "../models/imageProviders";
+import { getVideoProviderConfig } from "../models/videoProviders";
 import { validateOutputTemplate } from "../utils/outputTemplate";
 import { Field, ToggleSwitch } from "./common";
 
@@ -117,6 +118,18 @@ export function SettingsPanel({
         <a href="#settings-general">General</a>
         <a href="#settings-prompts">Prompts</a>
         <a href="#settings-providers">Providers</a>
+        <nav className="settings-provider-nav" aria-label="Provider settings">
+          {IMAGE_PROVIDER_IDS.map((providerId) => (
+            <a key={providerId} href={`#settings-provider-${providerId}`}>
+              {getProviderConfig(providerId).label}
+            </a>
+          ))}
+          <a href="#settings-provider-seedance">Seedance Video</a>
+        </nav>
+        <a href="#settings-platforms">Platforms</a>
+        <nav className="settings-provider-nav" aria-label="Platform settings">
+          <a href="#settings-platform-higgsfield">Higgsfield CLI</a>
+        </nav>
       </aside>
 
       <div className="settings-content">
@@ -466,7 +479,7 @@ export function SettingsPanel({
             }
             timeoutSeconds={settings.xaiTimeoutSeconds}
           />
-          <fieldset className="provider-settings">
+          <fieldset className="provider-settings" id="settings-provider-seedance">
             <legend>Seedance Video</legend>
             <Field label="API Platform">
               <select
@@ -489,9 +502,9 @@ export function SettingsPanel({
                   setSettings({ ...settings, seedanceDefaultModel: event.target.value })
                 }
               >
-                <option value="doubao-seedance-2-0-260128">Seedance 2.0</option>
-                <option value="doubao-seedance-2-0-fast-260128">Seedance 2.0 Fast</option>
-                <option value="doubao-seedance-2-0-mini-260615">Seedance 2.0 Mini</option>
+                {getVideoProviderConfig("seedance").models.map((model) => (
+                  <option key={model.id} value={model.id}>{model.productName}</option>
+                ))}
               </select>
             </Field>
             {settings.seedanceApiPlatform === "ark" ? (
@@ -547,7 +560,10 @@ export function SettingsPanel({
               </p>
             )}
           </fieldset>
-          <fieldset className="provider-settings">
+        </div>
+        <div className="settings-section" id="settings-platforms">
+          <h2>Platforms</h2>
+          <fieldset className="provider-settings" id="settings-platform-higgsfield">
             <legend>Higgsfield CLI</legend>
             <Field label="CLI Path">
               <div className="template-row">
@@ -671,7 +687,7 @@ function ProviderSettings({
   const usesHiggsfield = apiPlatform === "higgsfield";
 
   return (
-    <fieldset className="provider-settings">
+    <fieldset className="provider-settings" id={`settings-provider-${providerId}`}>
       <legend>{provider.label}</legend>
       {apiPlatform && onApiPlatformChange && apiPlatformOptions ? (
         <Field label="Platform">

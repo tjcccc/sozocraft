@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getVideoDurations,
+  getVideoResolutions,
   getVideoModelConfig,
   getVideoProviderConfig,
 } from "../models/videoProviders";
@@ -20,6 +21,27 @@ const startingImage = {
 };
 
 describe("video provider request mapping", () => {
+  it("exposes Seedance 2.5 limits without changing Seedance 2.0", () => {
+    const model = getVideoModelConfig("seedance", "doubao-seedance-2-5-260628");
+    expect(model.productName).toBe("Seedance 2.5");
+    expect(model.resolutions).toEqual(["480p", "720p", "1080p"]);
+    expect(getVideoDurations("seedance", model.id, "reference", "1080p"))
+      .toEqual(Array.from({ length: 27 }, (_, index) => index + 4));
+    expect(getVideoProviderConfig("seedance", model.id).maxInputImages).toBe(30);
+    expect(getVideoProviderConfig("seedance", "doubao-seedance-2-0-260128").maxInputImages).toBe(9);
+  });
+
+  it("limits Grok 1080p to text and single-image modes and keeps Omni independent of Veo", () => {
+    const grok = getVideoModelConfig("grok-imagine");
+    expect(grok.id).toBe("grok-imagine-video-1.5");
+    expect(getVideoResolutions("grok-imagine", grok.id, "text")).toContain("1080p");
+    expect(getVideoResolutions("grok-imagine", grok.id, "frames")).not.toContain("1080p");
+    expect(getVideoResolutions("grok-imagine", grok.id, "reference")).not.toContain("1080p");
+    const omni = getVideoModelConfig("google-veo", "gemini-omni-1.1-flash");
+    expect(getVideoDurations("google-veo", omni.id, "reference", "4k")).toEqual([3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(getVideoProviderConfig("google-veo", omni.id).maxInputImages).toBe(6);
+  });
+
   it("derives input mode without a separate mode selector", () => {
     const endingImage = { ...startingImage, id: "ending-image-id", name: "ending.png" };
     expect(videoInputMode([], {})).toBe("text");
@@ -65,15 +87,15 @@ describe("video provider request mapping", () => {
       { [startingImage.id]: "reference", [endingImage.id]: "reference" },
       startingImage.id,
       "starting",
-    )).toEqual({ [startingImage.id]: "reference", [endingImage.id]: "reference" });
+    )).toEqual({ [startingImage.id]: "starting", [endingImage.id]: "ending" });
   });
 
   it("encodes the documented provider capabilities", () => {
     expect(getVideoProviderConfig("seedance").maxInputImages).toBe(9);
     expect(getVideoProviderConfig("grok-imagine").maxInputImages).toBe(7);
     expect(getVideoProviderConfig("google-veo").maxInputImages).toBe(3);
-    expect(getVideoDurations("grok-imagine", "grok-imagine-video", "reference", "720p")).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    expect(getVideoDurations("grok-imagine", "grok-imagine-video-1.5", "reference", "720p")).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
     ]);
     expect(getVideoDurations("google-veo", "veo-3.1-generate-preview", "text", "720p"))
       .toEqual([4, 6, 8]);

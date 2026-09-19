@@ -33,6 +33,10 @@
   parses base64 image responses.
 - `src-tauri/src/xai_video.rs` starts and polls xAI Grok Imagine video jobs,
   validates result URLs, and downloads bounded MP4 output.
+- `src-tauri/src/google_omni.rs` maps Gemini Omni Interactions URI delivery,
+  frame/reference roles, and file readiness, reusing the bounded Google MP4
+  downloader. Google Video routes by validated model ID while retaining the
+  persisted `google-veo` provider ID for compatibility.
 - `src-tauri/src/google_veo.rs` maps Gemini API Veo long-running operations and
   validates Google-hosted output downloads.
 - `src-tauri/src/seedance_video.rs` maps Volcengine Ark Seedance content tasks

@@ -4,6 +4,7 @@ import { saveCurrentPrompt } from "../api";
 import {
   VIDEO_PROVIDER_IDS,
   getVideoDurations,
+  getVideoResolutions,
   getVideoModelConfig,
   getVideoProviderConfig,
   nearestVideoDuration,
@@ -37,7 +38,7 @@ function initialProviderStates(): Record<VideoProviderId, ProviderState> {
       states[provider] = {
         aspectRatio: config.defaultAspectRatio,
         duration: model.defaultDuration,
-        generateAudio: provider === "seedance",
+        generateAudio: provider !== "google-veo",
         inputImages: [],
         inputImageRoles: {},
         model: model.id,
@@ -65,8 +66,8 @@ export function videoInputMode(
   return "reference";
 }
 
-function supportsEndFrame(provider: VideoProviderId) {
-  return provider !== "grok-imagine";
+function supportsEndFrame(_provider: VideoProviderId) {
+  return true;
 }
 
 export function reconcileInputImageRoles(
@@ -104,7 +105,6 @@ export function reconcileInputImageRoles(
   }
   if (
     nextImages.length > 2
-    || (provider === "grok-imagine" && nextImages.length > 1)
   ) {
     for (const image of nextImages) {
       roles[image.id] = "reference";
@@ -132,7 +132,7 @@ export function updateInputImageRole(
     return roles;
   }
   if (role === "starting") {
-    if (images.length > 2 || (provider === "grok-imagine" && images.length > 1)) {
+    if (images.length > 2) {
       return roles;
     }
     const nextRoles = { ...roles, [imageId]: "starting" as const };
@@ -168,10 +168,13 @@ export function useVideoGeneration({
 }) {
   const [provider, setProvider] = useState<VideoProviderId>("grok-imagine");
   const [providerStates, setProviderStates] = useState(initialProviderStates);
-  const providerConfig = getVideoProviderConfig(provider);
   const providerState = providerStates[provider];
-  const modelConfig = getVideoModelConfig(provider, providerState.model);
+  const providerConfig = getVideoProviderConfig(provider, providerState.model);
+  const baseModelConfig = getVideoModelConfig(provider, providerState.model);
   const inputMode = videoInputMode(providerState.inputImages, providerState.inputImageRoles);
+  const modelConfig = { ...baseModelConfig, resolutions: getVideoResolutions(provider, baseModelConfig.id, inputMode) };
+  const resolution = modelConfig.resolutions.includes(providerState.resolution)
+    ? providerState.resolution : modelConfig.resolutions[0];
   const allowedDurations = useMemo(
     () => getVideoDurations(provider, modelConfig.id, inputMode, providerState.resolution),
     [inputMode, modelConfig.id, provider, providerState.resolution],
@@ -199,11 +202,14 @@ export function useVideoGeneration({
       if (seedance.model === model.id) {
         return current;
       }
+      const inputImages = seedance.inputImages.slice(0, getVideoProviderConfig("seedance", model.id).maxInputImages);
       return {
         ...current,
         seedance: {
           ...seedance,
           model: model.id,
+          inputImages,
+          inputImageRoles: reconcileInputImageRoles("seedance", seedance.inputImages, inputImages, seedance.inputImageRoles),
           resolution: model.resolutions.includes(seedance.resolution)
             ? seedance.resolution
             : model.defaultResolution,
@@ -291,7 +297,7 @@ export function useVideoGeneration({
       promptSnapshot,
       provider,
       referenceImages: inputMode === "reference" ? providerState.inputImages : [],
-      resolution: providerState.resolution,
+      resolution,
       startingImage,
       endingImage,
       taskId,
@@ -307,6 +313,7 @@ export function useVideoGeneration({
     inputMode,
     provider,
     modelConfig.id,
+    resolution,
     providerState,
     settings,
   ]);
@@ -329,7 +336,7 @@ export function useVideoGeneration({
         ? "Higgsfield CLI"
         : providerConfig.platformLabel,
     modelDisplayName: modelConfig.productName,
-    resolution: providerState.resolution,
+    resolution,
     runGeneration,
     stopAvailable: !(
       provider === "seedance" && settings?.seedanceApiPlatform === "higgsfield"
@@ -341,12 +348,17 @@ export function useVideoGeneration({
     setInputImageRole,
     setModel: (value: string) => {
       const nextModel = getVideoModelConfig(provider, value);
-      updateProviderState((current) => ({
-        model: nextModel.id,
-        resolution: nextModel.resolutions.includes(current.resolution)
-          ? current.resolution
-          : nextModel.defaultResolution,
-      }));
+      updateProviderState((current) => {
+        const inputImages = current.inputImages.slice(0, getVideoProviderConfig(provider, nextModel.id).maxInputImages);
+        return {
+          model: nextModel.id,
+          inputImages,
+          inputImageRoles: reconcileInputImageRoles(provider, current.inputImages, inputImages, current.inputImageRoles),
+          resolution: nextModel.resolutions.includes(current.resolution)
+            ? current.resolution
+            : nextModel.defaultResolution,
+        };
+      });
     },
     setProvider,
     setResolution: (value: string) => updateProviderState({ resolution: value }),
@@ -423,7 +435,7 @@ export function buildVideoGenerationRequest({
       duration,
       aspectRatio,
       resolution,
-      ...(provider === "seedance" ? { generateAudio } : {}),
+      ...(provider !== "google-veo" ? { generateAudio } : {}),
     },
   };
 }

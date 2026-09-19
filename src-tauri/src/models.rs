@@ -321,9 +321,10 @@ impl VideoGenerationRequest {
                 "doubao-seedance-2-0-260128",
                 "doubao-seedance-2-0-fast-260128",
                 "doubao-seedance-2-0-mini-260615",
+                "doubao-seedance-2-5-260628",
             ],
-            VideoProvider::GrokImagine => &["grok-imagine-video"],
-            VideoProvider::GoogleVeo => &["veo-3.1-generate-preview"],
+            VideoProvider::GrokImagine => &["grok-imagine-video-1.5"],
+            VideoProvider::GoogleVeo => &["veo-3.1-generate-preview", "gemini-omni-1.1-flash"],
         };
         if !supported_models.contains(&self.model.as_str()) {
             return Err(format!(
@@ -348,6 +349,12 @@ impl VideoGenerationRequest {
         }
         self.options.validate(self.provider, &self.model)?;
 
+        if self.provider == VideoProvider::GrokImagine
+            && matches!(self.input_mode, VideoInputMode::Reference | VideoInputMode::Frames)
+            && self.options.resolution == "1080p"
+        {
+            return Err("Grok reference and frame-pair video supports at most 720p resolution.".to_string());
+        }
         let reference_images = self.reference_images.as_deref().unwrap_or_default();
         match self.input_mode {
             VideoInputMode::Text => {
@@ -373,11 +380,6 @@ impl VideoGenerationRequest {
                 validate_video_input_image(image, "starting", self.provider)?;
             }
             VideoInputMode::Frames => {
-                if self.provider == VideoProvider::GrokImagine {
-                    return Err(
-                        "Grok Imagine does not support start-and-end-frame video.".to_string()
-                    );
-                }
                 let Some(starting_image) = &self.starting_image else {
                     return Err(
                         "Start-and-end-frame video requires one starting image.".to_string()
@@ -401,7 +403,13 @@ impl VideoGenerationRequest {
                         "Reference-to-video cannot be combined with frame images.".to_string()
                     );
                 }
-                let max_images = max_video_reference_images(self.provider);
+                let max_images = if self.model == "doubao-seedance-2-5-260628" {
+                    30
+                } else if self.model == "gemini-omni-1.1-flash" {
+                    6
+                } else {
+                    max_video_reference_images(self.provider)
+                };
                 if reference_images.is_empty() || reference_images.len() > max_images {
                     return Err(format!(
                         "{} reference-to-video requires between 1 and {max_images} reference images.",
@@ -415,7 +423,7 @@ impl VideoGenerationRequest {
                         "Grok Imagine reference-to-video duration must be between 1 and {MAX_GROK_VIDEO_REFERENCE_DURATION} seconds."
                     ));
                 }
-                if self.provider == VideoProvider::GoogleVeo && self.options.duration != 8 {
+                if self.model == "veo-3.1-generate-preview" && self.options.duration != 8 {
                     return Err(
                         "Google Veo reference-to-video requires an 8-second duration.".to_string(),
                     );
@@ -444,14 +452,24 @@ impl VideoGenerationOptions {
         let (durations, aspect_ratios, resolutions): (&[u8], &[&str], &[&str]) = match provider {
             VideoProvider::Seedance => {
                 let resolutions: &[&str] = match model {
-                    "doubao-seedance-2-0-260128" => &["480p", "720p", "1080p"],
+                    "doubao-seedance-2-0-260128" | "doubao-seedance-2-5-260628" => {
+                        &["480p", "720p", "1080p"]
+                    }
                     "doubao-seedance-2-0-fast-260128" | "doubao-seedance-2-0-mini-260615" => {
                         &["480p", "720p"]
                     }
                     _ => &[],
                 };
+                let durations: &[u8] = if model == "doubao-seedance-2-5-260628" {
+                    &[
+                        4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+                        24, 25, 26, 27, 28, 29, 30,
+                    ]
+                } else {
+                    &[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+                };
                 (
-                    &[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+                    durations,
                     &["16:9", "9:16", "4:3", "3:4", "1:1", "21:9"],
                     resolutions,
                 )
@@ -459,7 +477,10 @@ impl VideoGenerationOptions {
             VideoProvider::GrokImagine => (
                 &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
                 &["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"],
-                &["480p", "720p"],
+                &["480p", "720p", "1080p"],
+            ),
+            VideoProvider::GoogleVeo if model == "gemini-omni-1.1-flash" => (
+                &[3, 4, 5, 6, 7, 8, 9, 10], &["16:9", "9:16"], &["360p", "720p", "1080p", "4k"],
             ),
             VideoProvider::GoogleVeo => (&[4, 6, 8], &["16:9", "9:16"], &["720p", "1080p", "4k"]),
         };
@@ -484,12 +505,12 @@ impl VideoGenerationOptions {
                 self.resolution
             ));
         }
-        if provider == VideoProvider::GoogleVeo && self.resolution != "720p" && self.duration != 8 {
+        if model == "veo-3.1-generate-preview" && self.resolution != "720p" && self.duration != 8 {
             return Err(
                 "Google Veo 1080p and 4K generation requires an 8-second duration.".to_string(),
             );
         }
-        if provider != VideoProvider::Seedance && self.generate_audio.is_some() {
+        if provider == VideoProvider::GoogleVeo && self.generate_audio.is_some() {
             return Err(format!(
                 "{} does not accept an audio-generation option.",
                 provider.id()
@@ -547,6 +568,35 @@ impl GenerationRequest {
                 max_reference_images_for_provider(&self.provider, &self.model)
             ));
         }
+        if let Some(quality) = self
+            .options
+            .quality
+            .as_deref()
+            .filter(|value| !value.is_empty())
+        {
+            let supported = match self.model.as_str() {
+                "gpt-image-2" | "openai/gpt-image-2" => {
+                    Some(&["auto", "low", "medium", "high"][..])
+                }
+                "gpt-image-2.5-flare"
+                | "gpt-image-2.5-sunburst"
+                | "openai/gpt-image-2.5-flare"
+                | "openai/gpt-image-2.5-sunburst" => {
+                    Some(&["auto", "low", "medium", "high", "xhigh", "max"][..])
+                }
+                "gpt_image_2_5_flare" | "gpt_image_2_5_sunburst" => {
+                    Some(&["low", "medium", "high", "xhigh", "max"][..])
+                }
+                "grok-imagine-image-2.0" => Some(&["auto", "low", "medium"][..]),
+                _ => None,
+            };
+            if supported.is_some_and(|values| !values.contains(&quality)) {
+                return Err(format!(
+                    "Unsupported quality for {}: {}",
+                    self.model, quality
+                ));
+            }
+        }
         if self.output_template.trim().is_empty() {
             return Err("Output filename template cannot be empty.".to_string());
         }
@@ -565,7 +615,7 @@ pub struct ReferenceImageInput {
 }
 
 const MAX_VIDEO_INPUT_IMAGE_BYTES: usize = 100 * 1024 * 1024;
-pub const MAX_GROK_VIDEO_REFERENCE_DURATION: u8 = 10;
+pub const MAX_GROK_VIDEO_REFERENCE_DURATION: u8 = 15;
 
 fn max_video_reference_images(provider: VideoProvider) -> usize {
     match provider {
@@ -641,13 +691,19 @@ pub(crate) fn validate_ark_asset_id(id: &str) -> Result<(), String> {
 pub const HIGGSFIELD_NANO_BANANA_MODELS: [&str; 3] =
     ["nano_banana_2", "nano_banana_flash", "nano_banana"];
 
-pub const OPENAI_IMAGE_MODELS: [&str; 3] = ["gpt-image-2", "openai/gpt-5.4-image-2", "gpt_image_2"];
-
-pub const XAI_IMAGE_MODELS: [&str; 3] = [
-    "grok-imagine-image-quality",
-    "grok-imagine-image",
-    "grok_image",
+pub const OPENAI_IMAGE_MODELS: [&str; 9] = [
+    "gpt-image-2",
+    "gpt-image-2.5-flare",
+    "gpt-image-2.5-sunburst",
+    "openai/gpt-image-2",
+    "openai/gpt-image-2.5-flare",
+    "openai/gpt-image-2.5-sunburst",
+    "gpt_image_2",
+    "gpt_image_2_5_flare",
+    "gpt_image_2_5_sunburst",
 ];
+
+pub const XAI_IMAGE_MODELS: [&str; 2] = ["grok-imagine-image-2.0", "grok_image"];
 
 fn supported_models(provider: &str) -> &'static [&'static str] {
     match provider {
@@ -778,7 +834,7 @@ mod video_tests {
         VideoGenerationRequest {
             task_id: Some(uuid::Uuid::new_v4().to_string()),
             provider: VideoProvider::GrokImagine,
-            model: "grok-imagine-video".to_string(),
+            model: "grok-imagine-video-1.5".to_string(),
             prompt: "A calm lake at sunrise".to_string(),
             prompt_snapshot: None,
             input_mode: VideoInputMode::Text,
@@ -821,7 +877,7 @@ mod video_tests {
     #[test]
     fn video_request_rejects_unsupported_model_and_options() {
         let mut value = request();
-        value.model = "grok-imagine-video-1.5".to_string();
+        value.model = "grok-imagine-video-unknown".to_string();
         assert!(value
             .validate()
             .unwrap_err()
@@ -832,8 +888,39 @@ mod video_tests {
         assert!(value.validate().unwrap_err().contains("duration"));
 
         let mut value = request();
-        value.options.resolution = "1080p".to_string();
+        value.options.resolution = "4k".to_string();
         assert!(value.validate().unwrap_err().contains("resolution"));
+    }
+
+    #[test]
+    fn grok_1_5_limits_reference_resolution_and_accepts_audio_control() {
+        let mut value = request();
+        value.options.resolution = "1080p".to_string();
+        value.options.generate_audio = Some(false);
+        assert!(value.validate().is_ok());
+        value.input_mode = VideoInputMode::Reference;
+        value.reference_images = Some(vec![valid_image("ref.png")]);
+        assert!(value.validate().unwrap_err().contains("720p"));
+        value.options.resolution = "720p".to_string();
+        value.options.duration = 15;
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn omni_enforces_its_own_limits_without_veo_duration_rules() {
+        let mut value = request();
+        value.provider = VideoProvider::GoogleVeo;
+        value.model = "gemini-omni-1.1-flash".to_string();
+        value.input_mode = VideoInputMode::Reference;
+        value.reference_images = Some((0..6).map(|_| valid_image("ref.png")).collect());
+        value.options.resolution = "4k".to_string();
+        value.options.duration = 3;
+        assert!(value.validate().is_ok());
+        value.options.duration = 11;
+        assert!(value.validate().unwrap_err().contains("duration"));
+        value.options.duration = 10;
+        value.reference_images.as_mut().unwrap().push(valid_image("extra.png"));
+        assert!(value.validate().unwrap_err().contains("between 1 and 6"));
     }
 
     #[test]
@@ -896,8 +983,10 @@ mod video_tests {
         assert!(value.validate().unwrap_err().contains("between 1 and 7"));
 
         value.reference_images = Some(vec![valid_image("reference.png")]);
-        value.options.duration = 11;
-        assert!(value.validate().unwrap_err().contains("between 1 and 10"));
+        value.options.duration = 15;
+        assert!(value.validate().is_ok());
+        value.options.duration = 16;
+        assert!(value.validate().unwrap_err().contains("duration"));
     }
 
     #[test]
@@ -908,6 +997,34 @@ mod video_tests {
         value.reference_images = Some(vec![valid_image("reference.png")]);
 
         assert!(value.validate().unwrap_err().contains("cannot be combined"));
+    }
+
+    #[test]
+    fn seedance_2_5_accepts_thirty_references_and_seconds_but_rejects_excess() {
+        let mut value = request();
+        value.provider = VideoProvider::Seedance;
+        value.model = "doubao-seedance-2-5-260628".to_string();
+        value.input_mode = VideoInputMode::Reference;
+        value.reference_images = Some(
+            (0..30)
+                .map(|index| valid_image(&format!("ref-{index}.png")))
+                .collect(),
+        );
+        value.options.duration = 30;
+        value.options.resolution = "1080p".to_string();
+        assert!(value.validate().is_ok());
+        value.options.duration = 31;
+        assert!(value.validate().is_err());
+        value.options.duration = 30;
+        value
+            .reference_images
+            .as_mut()
+            .unwrap()
+            .push(valid_image("extra.png"));
+        assert!(value.validate().is_err());
+        value.reference_images.as_mut().unwrap().pop();
+        value.model = "doubao-seedance-2-0-260128".to_string();
+        assert!(value.validate().is_err());
     }
 
     #[test]
@@ -989,7 +1106,7 @@ mod video_tests {
     }
 
     #[test]
-    fn seedance_and_veo_accept_start_and_end_frames_but_grok_rejects_them() {
+    fn providers_accept_start_and_end_frames() {
         let mut value = request();
         value.provider = VideoProvider::Seedance;
         value.model = "doubao-seedance-2-0-260128".to_string();
@@ -1007,10 +1124,10 @@ mod video_tests {
         assert!(value.validate().is_ok());
 
         value.provider = VideoProvider::GrokImagine;
-        value.model = "grok-imagine-video".to_string();
+        value.model = "grok-imagine-video-1.5".to_string();
         value.options.duration = 5;
         value.options.resolution = "480p".to_string();
-        assert!(value.validate().unwrap_err().contains("does not support"));
+        assert!(value.validate().is_ok());
     }
 
     #[test]

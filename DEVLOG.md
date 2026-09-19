@@ -1,5 +1,41 @@
 # DEVLOG
 
+## 2026-09-19
+
+- Fixed GPT-Image moderation to `low` for direct OpenAI generation/edits and
+  OpenRouter Image API requests, including both GPT Image 2.5 variants.
+
+- Upgraded xAI video to Grok Imagine Video 1.5 with audio control, start/end
+  frames, 15-second references, and mode-aware 1080p validation.
+- Added Gemini Omni Flash 1.1 alongside Veo in Google Video using Interactions
+  URI delivery, bounded response parsing, safe file IDs, and the existing Google
+  MP4 downloader. Supports text/images and frame roles; editing/video uploads
+  remain outside the current UI. Added capability, validation, and URI tests.
+
+- Added Seedance 2.5 to Ark and Higgsfield generation and Settings model pickers,
+  with 4–30-second clips, 480p/720p/1080p, up to 30 image references, and
+  start/end frames. Retained the existing 2.0 models and default; Higgsfield
+  selects text or omni-reference mode and checks the new media fields during
+  ambiguous-create recovery. Added capability, persistence, payload, and CLI tests.
+- Moved shared Higgsfield CLI settings into a separate Platforms section.
+
+- Added nested provider links in the Settings sidebar to jump directly to each
+  image provider and Seedance Video configuration.
+
+- Added GPT Image 2.5 Flare and Sunburst to OpenAI and Higgsfield image model
+  pickers, including extended quality controls and explicit CLI variant flags.
+  Retained GPT Image 2.
+- Switched OpenRouter GPT Image 2 to the direct `openai/gpt-image-2` model,
+  including migration of saved GPT-5.4 Image 2 selections.
+- Added OpenRouter Flare and Sunburst through its dedicated Image API, with
+  reference-image inputs, documented aspect-ratio/quality controls, persisted
+  model choices, and routing/payload regression coverage.
+- Replaced legacy xAI image models with Grok Imagine Image 2.0, migrated saved
+  model selections, and aligned quality and aspect ratios with current xAI docs.
+  Retained the unversioned Higgsfield Grok route; video models are unchanged.
+- Added regression coverage for model selection, configuration migration,
+  native model/quality validation, API payloads, and Higgsfield variant routing.
+
 ## 2026-08-02
 
 - Bumped app/package/crate version metadata to `0.23.0` for the system dark

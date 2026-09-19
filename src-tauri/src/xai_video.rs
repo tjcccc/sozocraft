@@ -220,6 +220,12 @@ fn build_start_body(request: &VideoGenerationRequest) -> Value {
         "aspect_ratio": request.options.aspect_ratio,
         "resolution": request.options.resolution,
     });
+    if let Some(audio) = request.options.generate_audio {
+        body["generate_audio"] = json!(audio);
+    }
+    if let Some(image) = &request.ending_image {
+        body["last_frame"] = json!({ "url": format!("data:{};base64,{}", supported_input_mime(&image.mime_type), image.data.trim()) });
+    }
     if let Some(image) = &request.starting_image {
         body["image"] = json!({
             "url": format!(
@@ -445,7 +451,7 @@ mod tests {
     fn start_payload_maps_documented_video_options() {
         let request = request();
         let body = build_start_body(&request);
-        assert_eq!(body["model"], "grok-imagine-video");
+        assert_eq!(body["model"], "grok-imagine-video-1.5");
         assert_eq!(body["duration"], 5);
         assert_eq!(body["aspect_ratio"], "16:9");
         assert_eq!(body["resolution"], "480p");
@@ -467,6 +473,19 @@ mod tests {
 
         assert_eq!(body["image"]["url"], "data:image/webp;base64,YWJj");
         assert!(body.get("reference_images").is_none());
+    }
+
+    #[test]
+    fn start_payload_maps_last_frame_and_silent_video() {
+        let mut request = request();
+        request.options.generate_audio = Some(false);
+        request.ending_image = Some(crate::models::ReferenceImageInput {
+            name: "end.png".to_string(), mime_type: "image/png".to_string(),
+            data: "ZW5k".to_string(), asset_id: None,
+        });
+        let body = build_start_body(&request);
+        assert_eq!(body["last_frame"]["url"], "data:image/png;base64,ZW5k");
+        assert_eq!(body["generate_audio"], false);
     }
 
     #[test]
@@ -567,7 +586,7 @@ mod tests {
         VideoGenerationRequest {
             task_id: None,
             provider: VideoProvider::GrokImagine,
-            model: "grok-imagine-video".to_string(),
+            model: "grok-imagine-video-1.5".to_string(),
             prompt: "  A calm lake at sunrise  ".to_string(),
             prompt_snapshot: None,
             input_mode: VideoInputMode::Text,

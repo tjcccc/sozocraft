@@ -2125,6 +2125,7 @@ button {
 
 .settings-sidebar {
     display: flex;
+    overflow-y: auto;
     min-height: 0;
     flex-direction: column;
     gap: 4px;
@@ -2145,6 +2146,26 @@ button {
 .settings-sidebar a:hover {
     color: #1265f4;
     background: #e7f0ff;
+}
+
+.settings-provider-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-left: 10px;
+    padding-left: 8px;
+    border-left: 1px solid rgba(124, 136, 158, 0.25);
+}
+
+.settings-provider-nav a {
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.settings-sidebar a:focus-visible {
+    outline: 2px solid #78a8ff;
+    outline-offset: 2px;
 }
 
 .settings-content {
@@ -2176,6 +2197,7 @@ button {
 }
 
 .provider-settings {
+    scroll-margin-top: 16px;
     display: flex;
     min-width: 0;
     flex-direction: column;

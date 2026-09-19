@@ -65,26 +65,26 @@ The current design uses:
   not support them in the current implementation.
 - Reference-image thumbnails wrap onto additional rows within the generation
   panel; do not introduce a horizontal thumbnail scrollbar.
-- Video provider tabs appear as Seedance, Grok Imagine, and Google Veo. The
+- Video provider tabs appear as Seedance, Grok Imagine, and Google Video. The
   existing Grok selection remains the initial active provider for compatibility.
   Each provider preserves its own input images and control values while tabs
   switch provider-specific models, duration rules, ratios, resolutions, limits,
   and audio behavior.
 - Seedance's Model control offers Seedance 2.0, Seedance 2.0 Fast, and Seedance
-  2.0 Mini. Changing models preserves valid settings and falls back to the
+  2.0 Mini, plus Seedance 2.5. Changing models preserves valid settings and falls back to the
   selected model's defaults when a resolution is unavailable.
 - Settings exposes a Seedance API Platform selector for Volcengine Ark and
   Higgsfield CLI plus a persisted Default Video Model selector with the same
-  Standard, Fast, and Mini choices. The selected default initializes Seedance's
+  Standard, Fast, Mini, and 2.5 choices. The selected default initializes Seedance's
   main-panel model control.
 - Video mode uses one wrapping Input Images field whose count limit follows the
   active provider. Its output panel uses native video playback and keeps video
   history separate from image history.
 - Video input mode follows per-thumbnail roles. New uploads default to Reference;
   a hover/focus menu assigns Reference or Start frame for every provider and End
-  frame for Seedance and Veo. Reference thumbnails have no badge, while explicit
+  frame for every video model. Reference thumbnails have no badge, while explicit
   Start and End assignments show compact bottom labels. Assigning either frame
-  in a two-image Seedance or Veo set creates a valid start/end pair; reference
+  in a two-image set creates a valid start/end pair; reference
   and frame workflows remain mutually exclusive. Duration sliders use the
   active provider's official discrete range and clamp when reference or
   resolution constraints narrow it.
@@ -110,3 +110,9 @@ The current design uses:
 - Theme values remain centralized in the light rules and the system dark-mode
   override in `src/styles.css`; no runtime theme preference is persisted yet.
 - PromptCraft DSL-specific UI states are placeholders until the DSL renderer exists.
+
+- Google Video groups Veo 3.1 and Gemini Omni Flash 1.1 under the existing Gemini
+  API settings. Omni uses 3–10-second clips and supports six image references;
+  its 1080p/4K choices are upscaled. Grok Imagine Video 1.5 enables audio control
+  and 1080p only for text/single-frame input, with 720p maximum for references
+  and start/end pairs. Input-mode changes immediately constrain resolution.

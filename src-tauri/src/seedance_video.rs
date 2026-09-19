@@ -418,6 +418,18 @@ mod tests {
     }
 
     #[test]
+    fn seedance_2_5_payload_preserves_model_and_long_duration() {
+        let mut value = request();
+        value.model = "doubao-seedance-2-5-260628".to_string();
+        value.options.duration = 30;
+        let body = build_start_body(&value);
+        assert_eq!(body["model"], "doubao-seedance-2-5-260628");
+        assert_eq!(body["duration"], 30);
+        assert_eq!(body["resolution"], "1080p");
+        assert_eq!(body["content"][1]["role"], "first_frame");
+    }
+
+    #[test]
     fn builds_seedance_content_roles_and_options() {
         let body = build_start_body(&request());
         assert_eq!(body.pointer("/content/1/role"), Some(&json!("first_frame")));

@@ -290,7 +290,10 @@ fn build_generate_args(
     let mut args = vec![
         "generate".to_string(),
         "create".to_string(),
-        request.model.clone(),
+        match request.model.as_str() {
+            "gpt_image_2_5_flare" | "gpt_image_2_5_sunburst" => "gpt_image_2_5".to_string(),
+            _ => request.model.clone(),
+        },
         "--prompt".to_string(),
         cli_string_value(request.prompt.trim()),
     ];
@@ -307,13 +310,20 @@ fn build_generate_args(
         }
     }
 
-    if request.model == "gpt_image_2" {
+    if let Some(variant) = gpt_image_2_5_variant(&request.model) {
+        args.extend(["--variant".to_string(), variant.to_string()]);
+    }
+
+    if request.model == "gpt_image_2" || gpt_image_2_5_variant(&request.model).is_some() {
         if let Some(quality) = clean_option(request.options.quality.as_deref()) {
-            if ["low", "medium", "high"].contains(&quality) {
+            if ["low", "medium", "high"].contains(&quality)
+                || (gpt_image_2_5_variant(&request.model).is_some()
+                    && ["xhigh", "max"].contains(&quality))
+            {
                 args.extend(["--quality".to_string(), quality.to_string()]);
             }
         }
-        if request.batch_count > 1 {
+        if request.model == "gpt_image_2" && request.batch_count > 1 {
             args.extend(["--batch_size".to_string(), request.batch_count.to_string()]);
         }
     }
@@ -372,6 +382,10 @@ fn supported_cli_aspect_ratios(model: &str) -> Option<&'static [&'static str]> {
             Some(HIGGSFIELD_NANO_ASPECT_RATIOS)
         }
         "gpt_image_2" => Some(HIGGSFIELD_GPT_IMAGE_ASPECT_RATIOS),
+        "gpt_image_2_5_flare" | "gpt_image_2_5_sunburst" => Some(&[
+            "auto", "1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "21:9", "27:16", "16:27",
+            "9:8", "8:9", "4:5", "5:4",
+        ]),
         "grok_image" => Some(HIGGSFIELD_GROK_ASPECT_RATIOS),
         _ => None,
     }
@@ -383,13 +397,24 @@ fn higgsfield_model_label(model: &str) -> &'static str {
         "nano_banana_flash" => "Nano Banana 2",
         "nano_banana" => "Nano Banana",
         "gpt_image_2" => "GPT Image 2",
+        "gpt_image_2_5_flare" => "GPT Image 2.5 Flare",
+        "gpt_image_2_5_sunburst" => "GPT Image 2.5 Sunburst",
         "grok_image" => "Grok Imagine",
         _ => "this model",
     }
 }
 
+fn gpt_image_2_5_variant(model: &str) -> Option<&'static str> {
+    match model {
+        "gpt_image_2_5_flare" => Some("flare"),
+        "gpt_image_2_5_sunburst" => Some("sunburst"),
+        _ => None,
+    }
+}
+
 fn model_accepts_resolution(model: &str) -> bool {
     matches!(model, "gpt_image_2" | "nano_banana_2" | "nano_banana_flash")
+        || gpt_image_2_5_variant(model).is_some()
 }
 
 fn clean_option(value: Option<&str>) -> Option<&str> {
@@ -988,6 +1013,23 @@ mod tests {
     };
     use crate::models::{GenerationOptions, GenerationRequest};
     use serde_json::json;
+
+    #[test]
+    fn gpt_image_2_5_maps_variants_to_the_cli_job_and_flags() {
+        for variant in ["flare", "sunburst"] {
+            let mut request = request("gpt-image", &format!("gpt_image_2_5_{variant}"), 3);
+            request.options.quality = Some("max".to_string());
+            request.options.aspect_ratio = Some("27:16".to_string());
+            assert!(request.validate().is_ok());
+            assert!(validate_request_options(&request).is_ok());
+            let args = build_generate_args(&request, &[], 180, false);
+            assert_eq!(args[2], "gpt_image_2_5");
+            assert!(!args.contains(&"--batch_size".to_string()));
+            assert!(contains_pair(&args, "--variant", variant));
+            assert!(contains_pair(&args, "--quality", "max"));
+            assert!(contains_pair(&args, "--resolution", "2k"));
+        }
+    }
 
     #[test]
     fn gpt_image_args_include_batch_size_and_quality() {

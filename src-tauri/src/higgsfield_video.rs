@@ -4,7 +4,7 @@ use crate::{
         parse_json_output, run_cli,
     },
     local_config,
-    models::{ReferenceImageInput, VideoGenerationRequest},
+    models::{ReferenceImageInput, VideoGenerationRequest, VideoInputMode},
 };
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
@@ -93,7 +93,7 @@ impl HiggsfieldVideoClient {
     pub async fn start(&self, request: &VideoGenerationRequest) -> Result<String, String> {
         let input_files = materialize_inputs(request)?;
         let args = build_create_args(request, &input_files)?;
-        let (job_type, mode) = job_type_and_mode(&request.model)?;
+        let (job_type, mode) = job_type_and_mode(request)?;
         let started_at = Utc::now();
         let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
         let output = match run_cli(
@@ -346,7 +346,7 @@ fn build_create_args(
     request: &VideoGenerationRequest,
     inputs: &TempInputFiles,
 ) -> Result<Vec<String>, String> {
-    let (job_type, mode) = job_type_and_mode(&request.model)?;
+    let (job_type, mode) = job_type_and_mode(request)?;
     let mut args = vec![
         "generate".to_string(),
         "create".to_string(),
@@ -400,8 +400,19 @@ fn build_create_args(
     Ok(args)
 }
 
-fn job_type_and_mode(model: &str) -> Result<(&'static str, Option<&'static str>), String> {
+fn job_type_and_mode(
+    request: &VideoGenerationRequest,
+) -> Result<(&'static str, Option<&'static str>), String> {
+    let model = request.model.as_str();
     Ok(match model {
+        "doubao-seedance-2-5-260628" => (
+            "seedance_2_5",
+            Some(if request.input_mode == VideoInputMode::Text {
+                "t2v"
+            } else {
+                "omni_reference"
+            }),
+        ),
         "doubao-seedance-2-0-260128" => ("seedance_2_0", Some("std")),
         "doubao-seedance-2-0-fast-260128" => ("seedance_2_0", Some("fast")),
         "doubao-seedance-2-0-mini-260615" => ("seedance_2_0_mini", None),
@@ -464,10 +475,35 @@ fn job_matches_request(
             .reference_images
             .as_deref()
             .map_or(0, |images| images.len());
-    let media_count = params
-        .get("medias")
-        .and_then(Value::as_array)
-        .map_or(0, Vec::len);
+    if request.model == "doubao-seedance-2-5-260628" {
+        let count = |key: &str| {
+            params
+                .get(key)
+                .and_then(Value::as_array)
+                .map_or(0, Vec::len)
+        };
+        let present = |key: &str| params.get(key).is_some_and(|value| !value.is_null());
+        if count("image_references")
+            != request
+                .reference_images
+                .as_deref()
+                .map_or(0, |items| items.len())
+            || present("start_image") != request.starting_image.is_some()
+            || present("end_image") != request.ending_image.is_some()
+            || count("video_references") != 0
+            || count("audio_references") != 0
+        {
+            return false;
+        }
+    }
+    let media_count = if request.model == "doubao-seedance-2-5-260628" {
+        expected_media_count
+    } else {
+        params
+            .get("medias")
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len)
+    };
 
     params.get("prompt").and_then(Value::as_str).map(str::trim) == Some(request.prompt.trim())
         && params.get("aspect_ratio").and_then(Value::as_str)
@@ -669,6 +705,60 @@ mod tests {
                 generate_audio: Some(true),
             },
         }
+    }
+
+    #[test]
+    fn seedance_2_5_maps_text_and_frame_modes() {
+        let mut value = request("doubao-seedance-2-5-260628");
+        let args = build_create_args(&value, &TempInputFiles::default()).unwrap();
+        assert_eq!(args[2], "seedance_2_5");
+        assert!(args.windows(2).any(|pair| pair == ["--mode", "t2v"]));
+        value.input_mode = VideoInputMode::Frames;
+        let image = crate::models::ReferenceImageInput {
+            name: "frame.png".to_string(),
+            mime_type: "image/png".to_string(),
+            data: "iVBORw0KGgo=".to_string(),
+            asset_id: None,
+        };
+        value.starting_image = Some(image.clone());
+        value.ending_image = Some(image);
+        let inputs = TempInputFiles {
+            directory: None,
+            paths: vec!["/unused/start.png".into(), "/unused/end.png".into()],
+        };
+        let args = build_create_args(&value, &inputs).unwrap();
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["--mode", "omni_reference"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["--start-image", "/unused/start.png"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["--end-image", "/unused/end.png"]));
+    }
+
+    #[test]
+    fn seedance_2_5_recovery_checks_separate_media_fields() {
+        let value = request("doubao-seedance-2-5-260628");
+        let mut job = json!({"job_type":"seedance_2_5", "params": {
+            "prompt": value.prompt, "aspect_ratio":"16:9", "duration":5,
+            "resolution":"720p", "generate_audio":true, "mode":"t2v",
+            "image_references":[], "video_references":[], "audio_references":[]
+        }});
+        assert!(job_matches_request(
+            &job,
+            &value,
+            "seedance_2_5",
+            Some("t2v")
+        ));
+        job["params"]["start_image"] = json!({"id":"unexpected"});
+        assert!(!job_matches_request(
+            &job,
+            &value,
+            "seedance_2_5",
+            Some("t2v")
+        ));
     }
 
     #[test]

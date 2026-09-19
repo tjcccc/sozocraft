@@ -117,6 +117,10 @@ Open the settings button in the top toolbar to switch to the full-page settings 
 - prompt library directory
 - prompt editor-only mode and prompt preview placement
 
+The Settings sidebar includes links under Providers for Nano Banana, GPT-Image,
+Grok Imagine, and Seedance Video. Shared Higgsfield CLI configuration lives
+under Platforms. Each link jumps directly to its configuration section.
+
 SozoCraft stores local configuration in:
 
 ```text
@@ -158,7 +162,7 @@ base_url = "https://openrouter.ai/api/v1"
 
 [xai]
 api_key = "your_xai_api_key_here"
-default_model = "grok-imagine-image-quality"
+default_model = "grok-imagine-image-2.0"
 base_url = "https://api.x.ai/v1"
 proxy_enabled = true
 timeout_seconds = 180
@@ -320,12 +324,18 @@ the same optimized bytes across generation runs. Cache entries older than about
 The GPT-Image tab is wired for OpenAI text-to-image and reference-image
 generation:
 
-- `gpt-image-2`
+- `gpt-image-2.5-flare`
+- `gpt-image-2.5-sunburst`
+- `gpt-image-2` (retained as the default)
 
-The current implementation enables `gpt-image-2` only, requests PNG output, and
+Both 2.5 variants support `auto`, `low`, `medium`, `high`, `xhigh`, and `max`
+quality. GPT Image 2 retains quality settings through `high`. See the official
+[OpenAI image generation guide](https://developers.openai.com/api/docs/guides/image-generation).
+
+The implementation requests PNG output and
 offers OpenAI's documented popular generation `size` values: `auto`,
 `1024x1024`, `1536x1024`, `1024x1536`, `2048x2048`, `2048x1152`,
-`3840x2160`, and `2160x3840`. The backend accepts any `gpt-image-2`
+`3840x2160`, and `2160x3840`. The backend accepts any supported GPT-Image
 resolution that fits OpenAI's documented constraints: maximum edge up to
 3840px, edges divisible by 16, long-to-short edge ratio no greater than 3:1,
 and total pixels between 655,360 and 8,294,400. The UI labels fixed sizes with
@@ -341,32 +351,53 @@ uses the model slug from that page URL.
 
 GPT-Image reference-image runs support up to 16 PNG, JPEG, or WebP inputs. For
 OpenAI-compatible Image API endpoints, SozoCraft sends reference-image runs to
-`/images/edits` as multipart `image[]` inputs. For OpenRouter endpoints, it
-sends reference images as chat message `image_url` data URLs.
+`/images/edits` as multipart `image[]` inputs. OpenRouter models
+use the dedicated Image API described below.
 
 GPT-Image can also be routed through Higgsfield CLI from the provider platform
 setting. Higgsfield CLI requests use CLI-supported aspect ratios, 1K/2K/4K
 resolution buckets, low/medium/high quality options, and app-configured proxy
-environment forwarding.
+environment forwarding. Flare and Sunburst are also selectable on Higgsfield,
+using `gpt_image_2_5` with an explicit `--variant flare` or `--variant sunburst`
+and quality through `max`, per the
+[official CLI model schemas](https://github.com/higgsfield-ai/cli/blob/main/MODELS.md).
+OpenRouter offers GPT Image 2 and both 2.5 variants through its dedicated JSON
+`/api/v1/images` endpoint, including reference-image inputs via `input_references`.
+Controls expose the documented aspect ratios and quality through `high` for
+GPT Image 2 or `max` for 2.5; fixed
+pixel sizes are hidden because the per-model endpoint capabilities do not
+advertise them. Saved GPT-5.4 Image 2 selections migrate to the direct
+`openai/gpt-image-2` model, displayed as GPT Image 2.
+GPT-Image generation and editing use `moderation: "low"` on the direct OpenAI
+API and the OpenRouter Image API (via `provider.options.openai.moderation`).
+This is fixed in the request, independent of quality. The API offers no `none`
+value; provider safety checks still apply.
+
+See [OpenRouter image generation](https://openrouter.ai/docs/guides/overview/multimodal/image-generation).
 
 ## Grok Imagine Models
 
 The Grok Imagine tab enables xAI text-to-image generation through
 `/v1/images/generations`:
 
-- `grok-imagine-image-quality`
-- `grok-imagine-image`
+- `grok-imagine-image-2.0`
+
+Older saved xAI image model selections migrate to 2.0. See the official
+[xAI image generation guide](https://docs.x.ai/developers/model-capabilities/images/generation).
 
 The current implementation requests `b64_json` responses so generated images
 can be saved locally with the same SozoCraft PNG metadata path as other
 providers. The Grok Imagine tab supports xAI aspect ratios, `1k`/`2k`
-resolution, the documented `quality` field, and up to 5 uploaded reference
+resolution, `auto`/`low`/`medium` quality (default `auto`), and up to 5 uploaded reference
 images through xAI's JSON image edit endpoint. Mask editing is intentionally not
 implemented yet.
 
 Grok Imagine can also be routed through Higgsfield CLI. In that mode SozoCraft
 uses the CLI-supported Grok Image aspect ratios and maps Standard/Quality to the
-CLI `std`/`pro` modes.
+CLI `std`/`pro` modes. Higgsfield's website advertises Grok Imagine 2.0;
+the CLI route retains its unversioned `grok_image` identifier, whose underlying
+version is not guaranteed by its published schema. The separate xAI video route
+uses Grok Imagine Video 1.5.
 
 ## Video Providers
 
@@ -383,7 +414,17 @@ Seedance can use Volcengine Ark directly or route through the authenticated
 Higgsfield CLI. The Settings view persists both the Seedance API platform and
 the default video model. The UI model ids are `doubao-seedance-2-0-260128`,
 `doubao-seedance-2-0-fast-260128`, and `doubao-seedance-2-0-mini-260615`.
-All three support up to nine reference images or a strict start/end-frame pair,
+Seedance 2.5 is also available as `doubao-seedance-2-5-260628` on Ark and
+`seedance_2_5` on Higgsfield. It supports 4–30 seconds, 480p/720p/1080p,
+up to 30 reference images, start/end frames, and the audio-generation toggle.
+Higgsfield uses `t2v` for prompt-only runs and `omni_reference` for image inputs.
+The existing 2.0 default is retained. Video/audio reference uploads, video editing,
+and extension are outside the current UI. The Ark ID follows
+[ByteDance's official sample](https://github.com/bytedance/agentkit-samples/blob/main/skills/byted-seedance-video-generate/scripts/video_generate.py),
+and the limits follow [BytePlus's model capabilities](https://github.com/byteplus-sa/ark-mcp/blob/main/docs/models.md)
+and Higgsfield's live `model get seedance_2_5 --json` schema.
+
+The three 2.0 models support up to nine reference images or a strict start/end-frame pair,
 4–15 second output, six aspect ratios, and an audio-generation toggle. The
 flagship model offers 480p/720p/1080p; Fast and Mini offer 480p/720p. Configure
 the separate Ark API key in Settings for direct Ark use. Higgsfield maps these
@@ -419,16 +460,22 @@ pair, and up to three reference images. Reference-image runs are fixed to eight
 seconds, and Veo's native audio is always enabled. See Google's
 [Veo 3.1 Gemini API guide](https://ai.google.dev/gemini-api/docs/veo).
 
-Grok Imagine uses the xAI provider configuration and model
-`grok-imagine-video`. Its one-image and reference behavior remains unchanged.
+Google Video also offers `gemini-omni-1.1-flash` (Gemini Omni Flash 1.1) through
+Google's [Interactions API](https://ai.google.dev/gemini-api/docs/omni), using the
+same Gemini credentials. It supports 3–10 seconds, landscape/portrait, 360p/720p
+and upscaled 1080p/4K, start/end frames, and up to six reference images in
+SozoCraft. Audio is generated automatically. This integration covers text and
+image inputs; conversational editing and video/audio uploads are not exposed.
+Omni uses synchronous URI delivery (with at least a 15-minute request timeout),
+then polls the returned file and downloads the MP4. Stop takes effect after the
+initial generation request returns. Interaction storage is disabled.
 
-xAI's [image-to-video documentation](https://docs.x.ai/developers/model-capabilities/video/image-to-video)
-defines one source image, while its
-[reference-to-video documentation](https://docs.x.ai/developers/model-capabilities/video/reference-to-video)
-defines up to seven reference images and a maximum duration of 10 seconds.
-Text and starting-frame modes support durations from 1 to 15 seconds. All modes
-offer aspect ratios `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, and `2:3`, and
-`480p` or `720p` resolution.
+Grok Imagine now uses `grok-imagine-video-1.5` with the xAI configuration.
+It supports 1–15-second clips, up to seven references, start/end frame pairs,
+and audio control. Text and single-start-frame runs offer 480p/720p/1080p;
+references and frame pairs are capped at 720p. See xAI's
+[generation guide](https://docs.x.ai/developers/model-capabilities/video/generation)
+and [reference/frame guide](https://docs.x.ai/developers/model-capabilities/video/reference-to-video).
 
 Video generation is asynchronous. SozoCraft starts the provider job, polls its
 status, downloads the temporary result URL immediately, and saves the MP4 to

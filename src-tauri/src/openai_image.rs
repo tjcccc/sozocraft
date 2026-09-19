@@ -102,6 +102,11 @@ impl OpenAiImageClient {
             OpenAiEndpoint::ImageEdits { url } => {
                 apply_multipart_form(self.client.post(url).bearer_auth(&self.api_key), request)?
             }
+            OpenAiEndpoint::OpenRouterImages { url, model } => self
+                .client
+                .post(url)
+                .bearer_auth(&self.api_key)
+                .json(&build_openrouter_image_request_body(request, &model)),
             OpenAiEndpoint::OpenRouterChat { url, model } => self
                 .client
                 .post(url)
@@ -128,6 +133,7 @@ enum OpenAiEndpoint {
     Images { url: String },
     ImageEdits { url: String },
     OpenRouterChat { url: String, model: String },
+    OpenRouterImages { url: String, model: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -158,6 +164,28 @@ fn resolve_endpoint(
     request_model: &str,
     has_references: bool,
 ) -> OpenAiEndpoint {
+    let page_model = openrouter_model_from_page_url(base_url);
+    let image_model = page_model.as_deref().unwrap_or(request_model);
+    if (platform == OpenAiApiPlatform::OpenRouter || base_url.contains("openrouter.ai"))
+        && matches!(
+            image_model,
+            "openai/gpt-image-2" | "openai/gpt-image-2.5-flare" | "openai/gpt-image-2.5-sunburst"
+        )
+    {
+        let api_base = if page_model.is_some() {
+            OPENROUTER_ENDPOINT
+        } else {
+            base_url
+                .trim_end_matches('/')
+                .trim_end_matches("/chat/completions")
+                .trim_end_matches("/images")
+        };
+        let api_base = api_base.trim_end_matches("/api/v1").trim_end_matches('/');
+        return OpenAiEndpoint::OpenRouterImages {
+            url: format!("{api_base}/api/v1/images"),
+            model: image_model.to_string(),
+        };
+    }
     if platform == OpenAiApiPlatform::OpenRouter {
         let api_base = base_url
             .trim_end_matches("/chat/completions")
@@ -218,12 +246,19 @@ fn openrouter_model_from_page_url(base_url: &str) -> Option<String> {
     Some(format!("{provider}/{model}"))
 }
 
+fn supports_image_quality(model: &str, quality: &str) -> bool {
+    ["auto", "low", "medium", "high"].contains(&quality)
+        || (matches!(model, "gpt-image-2.5-flare" | "gpt-image-2.5-sunburst")
+            && ["xhigh", "max"].contains(&quality))
+}
+
 fn build_image_api_request_body(request: &GenerationRequest) -> Value {
     let mut body = json!({
         "model": request.model,
         "prompt": request.prompt.trim(),
         "n": request.batch_count,
-        "output_format": "png"
+        "output_format": "png",
+        "moderation": "low",
     });
 
     if let Some(size) = request
@@ -235,11 +270,43 @@ fn build_image_api_request_body(request: &GenerationRequest) -> Value {
         body["size"] = json!(size);
     }
     if let Some(quality) = request.options.quality.as_deref() {
-        if ["auto", "low", "medium", "high"].contains(&quality) {
+        if supports_image_quality(&request.model, quality) {
             body["quality"] = json!(quality);
         }
     }
 
+    body
+}
+
+fn build_openrouter_image_request_body(request: &GenerationRequest, model: &str) -> Value {
+    let mut body = json!({
+        "model": model,
+        "prompt": request.prompt.trim(),
+        "n": request.batch_count,
+        "output_format": "png",
+        "provider": { "options": { "openai": { "moderation": "low" } } },
+    });
+    if let Some(ratio) = request.options.aspect_ratio.as_deref() {
+        if [
+            "auto", "1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "21:9",
+        ]
+        .contains(&ratio)
+        {
+            body["aspect_ratio"] = json!(ratio);
+        }
+    }
+    if let Some(quality) = request.options.quality.as_deref() {
+        if supports_image_quality(model.strip_prefix("openai/").unwrap_or(model), quality) {
+            body["quality"] = json!(quality);
+        }
+    }
+    let references: Vec<Value> = reference_images(request).iter().map(|image| json!({
+        "type": "image_url",
+        "image_url": {"url": format!("data:{};base64,{}", normalize_mime_type(&image.mime_type), image.data.trim())}
+    })).collect();
+    if !references.is_empty() {
+        body["input_references"] = json!(references);
+    }
     body
 }
 
@@ -292,7 +359,8 @@ fn apply_multipart_form(
         .text("model", request.model.clone())
         .text("prompt", request.prompt.trim().to_string())
         .text("n", request.batch_count.to_string())
-        .text("output_format", "png");
+        .text("output_format", "png")
+        .text("moderation", "low");
 
     if let Some(size) = request
         .options
@@ -303,7 +371,7 @@ fn apply_multipart_form(
         form = form.text("size", size.to_string());
     }
     if let Some(quality) = request.options.quality.as_deref() {
-        if ["auto", "low", "medium", "high"].contains(&quality) {
+        if supports_image_quality(&request.model, quality) {
             form = form.text("quality", quality.to_string());
         }
     }
@@ -565,6 +633,95 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn openrouter_image_models_use_image_api_for_generation_and_references() {
+        for model in [
+            "openai/gpt-image-2",
+            "openai/gpt-image-2.5-flare",
+            "openai/gpt-image-2.5-sunburst",
+        ] {
+            for references in [false, true] {
+                for base in [
+                    "https://openrouter.ai/api/v1",
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    "https://openrouter.ai/api/v1/images",
+                ] {
+                    assert_eq!(
+                        resolve_endpoint(OpenAiApiPlatform::OpenRouter, base, model, references),
+                        OpenAiEndpoint::OpenRouterImages {
+                            url: "https://openrouter.ai/api/v1/images".to_string(),
+                            model: model.to_string()
+                        }
+                    );
+                }
+            }
+            assert_eq!(
+                resolve_endpoint(
+                    OpenAiApiPlatform::OpenAi,
+                    &format!("https://openrouter.ai/{model}/api"),
+                    "gpt-image-2",
+                    true
+                ),
+                OpenAiEndpoint::OpenRouterImages {
+                    url: "https://openrouter.ai/api/v1/images".to_string(),
+                    model: model.to_string()
+                }
+            );
+            let mut request = request();
+            request.model = model.to_string();
+            let quality = if model == "openai/gpt-image-2" {
+                "high"
+            } else {
+                "max"
+            };
+            request.options.quality = Some(quality.to_string());
+            request.options.aspect_ratio = Some("16:9".to_string());
+            assert!(request.validate().is_ok());
+            let body = super::build_openrouter_image_request_body(&request, model);
+            assert_eq!(body["model"], model);
+            assert_eq!(body["quality"], quality);
+            assert_eq!(body["provider"]["options"]["openai"]["moderation"], "low");
+            assert_eq!(body["aspect_ratio"], "16:9");
+            assert_eq!(body["n"], 3);
+            assert!(body.get("messages").is_none());
+            assert!(body.get("input_references").is_none());
+            assert!(body.get("size").is_none());
+            request.reference_images = Some(vec![ReferenceImageInput {
+                name: "reference.png".to_string(),
+                mime_type: "image/png".to_string(),
+                data: "YWJj".to_string(),
+                asset_id: None,
+            }]);
+            let body = super::build_openrouter_image_request_body(&request, model);
+            assert_eq!(body["input_references"][0]["type"], "image_url");
+            assert_eq!(body["provider"]["options"]["openai"]["moderation"], "low");
+            assert_eq!(
+                body["input_references"][0]["image_url"]["url"],
+                "data:image/png;base64,YWJj"
+            );
+        }
+    }
+
+    #[test]
+    fn gpt_image_2_5_variants_preserve_extended_quality() {
+        for model in ["gpt-image-2.5-flare", "gpt-image-2.5-sunburst"] {
+            for quality in ["xhigh", "max"] {
+                let mut request = request();
+                request.model = model.to_string();
+                request.options.quality = Some(quality.to_string());
+                assert!(request.validate().is_ok());
+                let body = build_image_api_request_body(&request);
+                assert_eq!(body["model"], model);
+                assert_eq!(body["quality"], quality);
+                assert_eq!(body["output_format"], "png");
+                assert_eq!(body["moderation"], "low");
+            }
+        }
+        let mut request = request();
+        request.options.quality = Some("max".to_string());
+        assert!(request.validate().is_err());
+    }
+
+    #[test]
     fn generation_payload_uses_gpt_image_2_options() {
         let body = build_image_api_request_body(&request());
 
@@ -573,6 +730,7 @@ mod tests {
         assert_eq!(body["output_format"], "png");
         assert_eq!(body["size"], "3840x2160");
         assert_eq!(body["quality"], "high");
+        assert_eq!(body["moderation"], "low");
     }
 
     #[test]

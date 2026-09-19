@@ -124,7 +124,7 @@ fn build_request_body(request: &GenerationRequest) -> Value {
         }
     }
     if let Some(quality) = request.options.quality.as_deref() {
-        if ["low", "medium", "high"].contains(&quality) {
+        if ["auto", "low", "medium"].contains(&quality) {
             body["quality"] = json!(quality);
         }
     }
@@ -168,15 +168,32 @@ mod tests {
     use crate::models::{GenerationOptions, GenerationRequest, ReferenceImageInput};
 
     #[test]
+    fn only_grok_2_and_its_documented_quality_values_are_accepted() {
+        let mut value = request(None);
+        for quality in ["auto", "low", "medium"] {
+            value.options.quality = Some(quality.to_string());
+            assert!(value.validate().is_ok());
+            assert_eq!(build_request_body(&value)["quality"], quality);
+        }
+        value.options.quality = Some("high".to_string());
+        assert!(value.validate().is_err());
+        value.options.quality = None;
+        for model in ["grok-imagine-image", "grok-imagine-image-quality"] {
+            value.model = model.to_string();
+            assert!(value.validate().is_err());
+        }
+    }
+
+    #[test]
     fn generation_payload_uses_xai_options() {
         let body = build_request_body(&request(None));
 
-        assert_eq!(body["model"], "grok-imagine-image-quality");
+        assert_eq!(body["model"], "grok-imagine-image-2.0");
         assert_eq!(body["n"], 4);
         assert_eq!(body["response_format"], "b64_json");
         assert_eq!(body["aspect_ratio"], "9:19.5");
         assert_eq!(body["resolution"], "2k");
-        assert_eq!(body["quality"], "high");
+        assert_eq!(body["quality"], "medium");
         assert!(body.get("image").is_none());
         assert!(body.get("images").is_none());
     }
@@ -208,7 +225,7 @@ mod tests {
         GenerationRequest {
             task_id: None,
             provider: "grok-imagine".to_string(),
-            model: "grok-imagine-image-quality".to_string(),
+            model: "grok-imagine-image-2.0".to_string(),
             prompt: "Render a test image".to_string(),
             prompt_snapshot: None,
             batch_count: 4,
@@ -220,7 +237,7 @@ mod tests {
                 temperature: None,
                 top_p: None,
                 thinking_level: None,
-                quality: Some("high".to_string()),
+                quality: Some("medium".to_string()),
                 unlimited: None,
             },
             base_url: None,

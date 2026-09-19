@@ -2,6 +2,7 @@ use crate::{
     app_state::{load_state, save_state},
     error_log::{self, GenerationErrorLog},
     filename_template::resolve_output_path,
+    google_omni::{GoogleOmniClient, OmniStatus},
     google_veo::{GoogleVeoClient, GoogleVeoStatus},
     higgsfield_output,
     higgsfield_video::{HiggsfieldVideoClient, HiggsfieldVideoStatus},
@@ -28,6 +29,7 @@ enum ProviderClient {
     Higgsfield(HiggsfieldVideoClient),
     Grok(XaiVideoClient),
     Veo(GoogleVeoClient),
+    Omni(GoogleOmniClient),
 }
 
 enum PollStatus {
@@ -63,6 +65,7 @@ impl ProviderClient {
                 .await
                 .map_err(|error| error.to_string()),
             Self::Veo(client) => client.start(request).await,
+            Self::Omni(client) => client.start(request).await,
         }
     }
 
@@ -118,6 +121,14 @@ impl ProviderClient {
                     metadata: response.metadata,
                 })
             }
+            Self::Omni(client) => {
+                let status = match client.poll(request_id).await? {
+                    OmniStatus::Pending => PollStatus::Pending,
+                    OmniStatus::Done(url) => PollStatus::Done { url, duration: None },
+                    OmniStatus::Failed => PollStatus::Failed("Gemini Omni video processing failed.".to_string()),
+                };
+                Ok(PollResponse { status, metadata: json!({"fileId": request_id}) })
+            }
             Self::Veo(client) => {
                 let response = client.poll(request_id).await?;
                 let status = match response.status {
@@ -145,6 +156,7 @@ impl ProviderClient {
                 .await
                 .map_err(|error| error.to_string()),
             Self::Veo(client) => client.download_to(video_url, output_path).await,
+            Self::Omni(client) => client.download_to(video_url, output_path).await,
         }
     }
 
@@ -153,7 +165,7 @@ impl ProviderClient {
             Self::Higgsfield(_) => "higgsfield",
             Self::Seedance(_) => "volcengine-ark",
             Self::Grok(_) => "xai",
-            Self::Veo(_) => "google-gemini-api",
+            Self::Veo(_) | Self::Omni(_) => "google-gemini-api",
         }
     }
 
@@ -162,7 +174,7 @@ impl ProviderClient {
             Self::Higgsfield(_) => "higgsfield",
             Self::Seedance(_) => "volcengine",
             Self::Grok(_) => "xai",
-            Self::Veo(_) => "google",
+            Self::Veo(_) | Self::Omni(_) => "google",
         }
     }
 }
@@ -217,7 +229,7 @@ pub async fn generate(
         error: None,
     };
 
-    let client = match create_client(request.provider, &runtime, &settings) {
+    let client = match create_client(request.provider, &request.model, &runtime, &settings) {
         Ok(client) => client,
         Err(error) => {
             return fail(
@@ -538,6 +550,7 @@ fn provider_runtime(settings: &AppSettings, provider: VideoProvider) -> Provider
 
 fn create_client(
     provider: VideoProvider,
+    model: &str,
     runtime: &ProviderRuntime,
     settings: &AppSettings,
 ) -> Result<ProviderClient, String> {
@@ -564,6 +577,10 @@ fn create_client(
             )
             .map_err(|error| error.to_string())?,
         )),
+        VideoProvider::GoogleVeo if model == "gemini-omni-1.1-flash" => Ok(ProviderClient::Omni(GoogleOmniClient::new(
+            local_config::get_gemini_api_key().map_err(|error| error.to_string())?,
+            runtime.base_url.clone(), runtime.proxy_url.clone(), runtime.timeout_seconds,
+        )?)),
         VideoProvider::GoogleVeo => Ok(ProviderClient::Veo(GoogleVeoClient::new(
             local_config::get_gemini_api_key().map_err(|error| error.to_string())?,
             runtime.base_url.clone(),

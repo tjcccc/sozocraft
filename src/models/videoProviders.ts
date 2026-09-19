@@ -20,6 +20,7 @@ export type VideoModelConfig = {
   referenceDurations: readonly number[];
   defaultDuration: number;
   defaultResolution: string;
+  maxInputImages?: number;
 };
 
 export const VIDEO_PROVIDER_IDS = ["seedance", "grok-imagine", "google-veo"] as const;
@@ -57,6 +58,16 @@ const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
         defaultDuration: 5,
         defaultResolution: "720p",
       },
+      {
+        id: "doubao-seedance-2-5-260628",
+        productName: "Seedance 2.5",
+        resolutions: ["480p", "720p", "1080p"],
+        durations: Array.from({ length: 27 }, (_, index) => index + 4),
+        referenceDurations: Array.from({ length: 27 }, (_, index) => index + 4),
+        defaultDuration: 5,
+        defaultResolution: "720p",
+        maxInputImages: 30,
+      },
     ],
     aspectRatios: ["16:9", "9:16", "4:3", "3:4", "1:1", "21:9"],
     maxInputImages: 9,
@@ -69,23 +80,23 @@ const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
     label: "Grok Imagine",
     platformLabel: "xAI",
     models: [{
-      id: "grok-imagine-video",
-      productName: "Grok Imagine Video",
-      resolutions: ["480p", "720p"],
+      id: "grok-imagine-video-1.5",
+      productName: "Grok Imagine Video 1.5",
+      resolutions: ["480p", "720p", "1080p"],
       durations: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-      referenceDurations: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      referenceDurations: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
       defaultDuration: 5,
       defaultResolution: "480p",
     }],
     aspectRatios: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"],
     maxInputImages: 7,
     defaultAspectRatio: "16:9",
-    supportsAudioControl: false,
+    supportsAudioControl: true,
     audioAlwaysGenerated: false,
   },
   "google-veo": {
     id: "google-veo",
-    label: "Google Veo",
+    label: "Google Video",
     platformLabel: "Google Gemini API",
     models: [{
       id: "veo-3.1-generate-preview",
@@ -95,6 +106,15 @@ const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
       referenceDurations: [8],
       defaultDuration: 8,
       defaultResolution: "720p",
+    }, {
+      id: "gemini-omni-1.1-flash",
+      productName: "Gemini Omni Flash 1.1",
+      resolutions: ["360p", "720p", "1080p", "4k"],
+      durations: [3, 4, 5, 6, 7, 8, 9, 10],
+      referenceDurations: [3, 4, 5, 6, 7, 8, 9, 10],
+      defaultDuration: 5,
+      defaultResolution: "720p",
+      maxInputImages: 6,
     }],
     aspectRatios: ["16:9", "9:16"],
     maxInputImages: 3,
@@ -104,8 +124,10 @@ const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
   },
 };
 
-export function getVideoProviderConfig(provider: VideoProviderId): VideoProviderConfig {
-  return VIDEO_PROVIDERS[provider];
+export function getVideoProviderConfig(provider: VideoProviderId, modelId?: string): VideoProviderConfig {
+  const config = VIDEO_PROVIDERS[provider];
+  const model = config.models.find((item) => item.id === modelId);
+  return model?.maxInputImages === undefined ? config : { ...config, maxInputImages: model.maxInputImages };
 }
 
 export function getVideoModelConfig(
@@ -123,7 +145,7 @@ export function getVideoDurations(
   resolution: string,
 ): readonly number[] {
   const config = getVideoModelConfig(provider, modelId);
-  if (provider === "google-veo" && (inputMode === "reference" || resolution !== "720p")) {
+  if (modelId === "veo-3.1-generate-preview" && (inputMode === "reference" || resolution !== "720p")) {
     return [8];
   }
   return inputMode === "reference" ? config.referenceDurations : config.durations;
@@ -133,4 +155,11 @@ export function nearestVideoDuration(value: number, allowed: readonly number[]):
   return allowed.reduce((nearest, candidate) =>
     Math.abs(candidate - value) < Math.abs(nearest - value) ? candidate : nearest,
   );
+}
+
+export function getVideoResolutions(provider: VideoProviderId, modelId: string, inputMode: VideoInputMode): readonly string[] {
+  const resolutions = getVideoModelConfig(provider, modelId).resolutions;
+  return provider === "grok-imagine" && (inputMode === "reference" || inputMode === "frames")
+    ? resolutions.filter((value) => value !== "1080p")
+    : resolutions;
 }

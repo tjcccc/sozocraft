@@ -111,12 +111,42 @@ const HIGGSFIELD_NANO_BANANA_MODELS: ProviderModelConfig[] = [
 ];
 
 const OPENAI_GPT_IMAGE_MODELS: ProviderModelConfig[] = [
+  ...["flare", "sunburst"].map((variant) => ({
+    id: `openai/gpt-image-2.5-${variant}`,
+    label: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
+    productName: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
+    aspectRatios: ["auto", "1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "21:9"],
+    imageSizes: null,
+    qualityLevels: ["auto", "low", "medium", "high", "xhigh", "max"],
+    maxReferenceImages: 16,
+    defaults: { aspectRatio: "auto", imageSize: null, quality: "auto" },
+  })),
+  ...["flare", "sunburst"].map((variant) => ({
+    id: `gpt-image-2.5-${variant}`,
+    label: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
+    productName: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
+    qualityLevels: ["auto", "low", "medium", "high", "xhigh", "max"],
+    maxReferenceImages: 16,
+  })),
+  ...["flare", "sunburst"].map((variant) => ({
+    id: `gpt_image_2_5_${variant}`,
+    label: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
+    productName: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
+    aspectRatios: [...HIGGSFIELD_PRO_ASPECT_RATIOS, "27:16", "16:27", "9:8", "8:9"],
+    imageSizes: HIGGSFIELD_RESOLUTIONS,
+    qualityLevels: ["low", "medium", "high", "xhigh", "max"],
+    maxReferenceImages: 16,
+    defaults: { aspectRatio: "1:1", imageSize: "1k", quality: "low" },
+  })),
   { id: "gpt-image-2", label: "GPT Image 2", productName: "GPT Image 2", maxReferenceImages: 16 },
   {
-    id: "openai/gpt-5.4-image-2",
-    label: "GPT-5.4 Image 2",
-    productName: "GPT-5.4 Image 2",
+    id: "openai/gpt-image-2",
+    label: "GPT Image 2",
+    productName: "GPT Image 2",
+    aspectRatios: ["auto", "1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "21:9"],
+    imageSizes: null,
     maxReferenceImages: 16,
+    defaults: { aspectRatio: "auto", imageSize: null, quality: "auto" },
   },
   {
     id: "gpt_image_2",
@@ -132,11 +162,10 @@ const OPENAI_GPT_IMAGE_MODELS: ProviderModelConfig[] = [
 
 const XAI_GROK_IMAGE_MODELS: ProviderModelConfig[] = [
   {
-    id: "grok-imagine-image-quality",
-    label: "Grok Imagine Quality",
-    productName: "Grok Imagine Quality",
+    id: "grok-imagine-image-2.0",
+    label: "Grok Imagine 2.0",
+    productName: "Grok Imagine 2.0",
   },
-  { id: "grok-imagine-image", label: "Grok Imagine", productName: "Grok Imagine Standard" },
   {
     id: "grok_image",
     label: "Grok Image",
@@ -214,18 +243,20 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ProviderConfig> = {
       "19.5:9",
       "9:20",
       "20:9",
+      "21:9",
+      "5:2",
       "1:2",
       "2:1",
     ],
     imageSizes: ["1k", "2k"],
-    qualityLevels: ["low", "medium", "high"],
+    qualityLevels: ["auto", "low", "medium"],
     thinkingLevels: null,
     maxReferenceImages: 5,
     defaults: {
-      model: "grok-imagine-image-quality",
+      model: "grok-imagine-image-2.0",
       aspectRatio: "auto",
       imageSize: "1k",
-      quality: "medium",
+      quality: "auto",
       thinkingLevel: null,
     },
   },
@@ -238,12 +269,12 @@ export const NANO_BANANA_PLATFORM_MODELS: Record<NanoBananaApiPlatform, string> 
 
 export const GPT_IMAGE_PLATFORM_MODELS: Record<GptImageApiPlatform, string> = {
   openai: "gpt-image-2",
-  openrouter: "openai/gpt-5.4-image-2",
+  openrouter: "openai/gpt-image-2",
   higgsfield: "gpt_image_2",
 };
 
 export const GROK_IMAGE_PLATFORM_MODELS: Record<GrokImagineApiPlatform, string> = {
-  xai: "grok-imagine-image-quality",
+  xai: "grok-imagine-image-2.0",
   higgsfield: "grok_image",
 };
 
@@ -259,8 +290,11 @@ export function getProviderModels(provider: string, platform: ImageProviderApiPl
     return platform === "higgsfield" ? HIGGSFIELD_NANO_BANANA_MODELS : GEMINI_NANO_BANANA_MODELS;
   }
   if (provider === "gpt-image") {
-    const model = GPT_IMAGE_PLATFORM_MODELS[isGptImageApiPlatform(platform) ? platform : "openai"];
-    return config.models.filter((item) => item.id === model);
+    return config.models.filter((item) =>
+      platform === "higgsfield" ? item.id.startsWith("gpt_image_")
+        : platform === "openrouter" ? item.id.startsWith("openai/")
+          : item.id.startsWith("gpt-image-"),
+    );
   }
   if (provider === "grok-imagine") {
     return platform === "higgsfield"
