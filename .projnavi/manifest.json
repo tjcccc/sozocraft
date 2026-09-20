@@ -1,7 +1,7 @@
 {
   "version": 1,
   "projnaviVersion": "0.5.0",
-  "generatedAt": "2026-09-19T15:23:36.117Z",
+  "generatedAt": "2026-09-20T03:01:05.301Z",
   "root": ".",
   "files": {
     "AGENTS.md": {
@@ -10,8 +10,8 @@
       "category": "docs"
     },
     "DEVLOG.md": {
-      "hash": "ea5b455ff8837d58e48576f07be029a76e7e25e8592fcdd6bb9fe0dedda8c1e8",
-      "size": 35440,
+      "hash": "828a35b019619018cb97ec60cbf0b7cb1a98cd4f88ffc7ba3e844a2c6ff35fff",
+      "size": 36094,
       "category": "docs"
     },
     "docs/architecture.md": {
@@ -20,7 +20,7 @@
       "category": "docs"
     },
     "package.json": {
-      "hash": "f11056d3f42d82afcc596eee9f90c678c1f15a26e0310db2da4b963eafcc6572",
+      "hash": "ca89b1bbec31d1c4586f84ac7c9bdf07f707d9d7979189e40581a7ec365ad9c3",
       "size": 1032,
       "category": "config"
     },
@@ -40,8 +40,8 @@
       "category": "docs"
     },
     "spec/ui.md": {
-      "hash": "b910b91b2c1e98ef72b198314f88b0a8b39fcba8b7149b6cdfa5d466b576f4c2",
-      "size": 6667,
+      "hash": "f6c96e677aae58dbca44961dd6e3b53c03b088fe134ebc243ef6d7856cfc9f7f",
+      "size": 7157,
       "category": "docs"
     },
     "src-tauri/capabilities/default.json": {
@@ -50,7 +50,7 @@
       "category": "source"
     },
     "src-tauri/tauri.conf.json": {
-      "hash": "7666db7ed4e39b58244361d073be916bca69460863c96ba1f6be8153438de34e",
+      "hash": "d5adf21943f5d3c92d3ddc4723ce423f6469f8094a065a96670de043862dc6aa",
       "size": 1347,
       "category": "source"
     },
@@ -60,7 +60,7 @@
       "category": "source"
     },
     "src/App.tsx": {
-      "hash": "5aa2ccb02b489f240a3ddcba3de48d93fd48d8ff0c2470e9ea284379715afec6",
+      "hash": "94159eac038b163b8c6042e8f7f4c162e8941a0ff27bdbee0257c95beb886b6a",
       "size": 33446,
       "category": "source"
     },
@@ -326,7 +326,7 @@
       ]
     },
     "package.json": {
-      "hash": "f11056d3f42d82afcc596eee9f90c678c1f15a26e0310db2da4b963eafcc6572",
+      "hash": "ca89b1bbec31d1c4586f84ac7c9bdf07f707d9d7979189e40581a7ec365ad9c3",
       "size": 1032,
       "category": "config",
       "claimIds": [

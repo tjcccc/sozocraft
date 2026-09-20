@@ -53,8 +53,15 @@ The current design uses:
   field is disabled with the toggle off; when left empty, its placeholder
   explains that the General Proxy URL is used as the fallback.
 - Use icon buttons for compact toolbar/tool actions when the icon is familiar.
-- The toolbar brand mark uses the light/dark SozoCraft SVG selected by the
-  system color scheme and applies its rounded square mask in CSS.
+- The toolbar brand mark uses the light/dark layered-picture PNG with an apricot
+  play triangle, selected by the system color scheme, with a rounded square
+  mask applied in CSS.
+  Approved transparent foreground masters live in `assets/app-icon/`.
+  `python3 scripts/build_app_icons.py` (requires Pillow) composes a subtle
+  white-to-silver vertical gradient for light mode and solid charcoal for dark
+  mode, shared artwork sizing, and padded rounded native icons.
+  It regenerates toolbar PNGs, native light/dark PNGs, ICNS, ICO, and bundle sizes.
+  Backgrounds and native masks are defined in code, separate from the artwork.
 - The complete application follows the macOS light/dark appearance through
   `prefers-color-scheme`; dark mode retains the same information hierarchy,
   uses blue-gray surfaces instead of pure black, and lightens monochrome

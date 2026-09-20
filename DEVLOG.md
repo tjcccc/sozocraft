@@ -1,5 +1,18 @@
 # DEVLOG
 
+## 2026-09-20
+
+- Bumped app/package/crate versions from `0.23.0` to `0.24.1`: accounts for
+  the missed `0.24.0` provider-feature bump in `482a2db` and the `0.24.1`
+  icon refresh checkpoint. The earlier commit is unchanged.
+
+- Applied the approved layered-picture light/dark icons with rounded play
+  triangles to the toolbar and macOS Dock, and regenerated desktop bundle icons.
+  Preserved system appearance switching. Kept original transparent artwork in
+  `assets/app-icon/` and added
+  a reproducible Pillow compositor for backgrounds, spacing, masks, and exports.
+  The light enclosure uses a subtle white-to-silver gradient; dark uses charcoal.
+
 ## 2026-09-19
 
 - Fixed GPT-Image moderation to `low` for direct OpenAI generation/edits and

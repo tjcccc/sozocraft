@@ -38,8 +38,8 @@ import type {
 import { clamp } from "./utils/math";
 import { fileNameFromPath, isSupportedImagePath } from "./utils/referenceImages";
 import { textareaIndexFromPoint } from "./utils/textareaPosition";
-import sozocraftIconDark from "./assets/sozocraft-icon-dark.svg";
-import sozocraftIconLight from "./assets/sozocraft-icon-light.svg";
+import sozocraftIconDark from "./assets/sozocraft-icon-dark.png";
+import sozocraftIconLight from "./assets/sozocraft-icon-light.png";
 import type { AppSettings } from "./types";
 
 const MIN_COLUMN_WIDTHS = [24, 24, 28];
