@@ -2,6 +2,16 @@
 
 ## 2026-09-20
 
+- Bumped app/package/crate versions to `0.25.0` for Quick prompt mode.
+  Polished its controls with 12px labels and previous/next tab arrows.
+
+- Added Quick prompt mode with eight persistent plain-text tabs, disabled DSL,
+  a separate temporary Markdown store, restart recovery, and an explicit
+  unsaved-draft handoff to the library. Preserved existing library edits.
+
+- Removed the toolbar brand icon's enclosing background in both themes;
+  native Dock and bundle icons retain their existing backgrounds.
+
 - Bumped app/package/crate versions from `0.23.0` to `0.24.1`: accounts for
   the missed `0.24.0` provider-feature bump in `482a2db` and the `0.24.1`
   icon refresh checkpoint. The earlier commit is unchanged.

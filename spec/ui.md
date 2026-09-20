@@ -54,12 +54,12 @@ The current design uses:
   explains that the General Proxy URL is used as the fallback.
 - Use icon buttons for compact toolbar/tool actions when the icon is familiar.
 - The toolbar brand mark uses the light/dark layered-picture PNG with an apricot
-  play triangle, selected by the system color scheme, with a rounded square
-  mask applied in CSS.
+  play triangle, selected by the system color scheme, on a transparent canvas
+  without an enclosing background or CSS mask.
   Approved transparent foreground masters live in `assets/app-icon/`.
   `python3 scripts/build_app_icons.py` (requires Pillow) composes a subtle
   white-to-silver vertical gradient for light mode and solid charcoal for dark
-  mode, shared artwork sizing, and padded rounded native icons.
+  mode for native icons, shared artwork sizing, and padded rounded native icons.
   It regenerates toolbar PNGs, native light/dark PNGs, ICNS, ICO, and bundle sizes.
   Backgrounds and native masks are defined in code, separate from the artwork.
 - The complete application follows the macOS light/dark appearance through
@@ -123,3 +123,18 @@ The current design uses:
   its 1080p/4K choices are upscaled. Grok Imagine Video 1.5 enables audio control
   and 1080p only for text/single-frame input, with 720p maximum for references
   and start/end pairs. Input-mode changes immediately constrain resolution.
+
+### Quick prompt workspace
+
+- Quick sits beside DSL in the Prompt Editor header; DSL is disabled while Quick
+  or its pending plain-text library draft is shown. The saved DSL preference is retained.
+- Quick hides the library sidebar and name/tag fields. A tab strip with
+  previous/next arrows provides eight numbered tabs, add, and close controls.
+  The selected tab stays visible without a scrollbar. Nonempty closes
+  require confirmation; closing the last tab leaves an empty Prompt 1.
+- Quick tab labels and footer actions use compact 12px text.
+- Turning Quick off opens name/tag fields and an explicit Save to Library action.
+  No library file or database row is created before that action. Back to Library
+  restores the existing library context without discarding Quick text.
+- Autosave status and retry remain visible. Drafts flush on tab/mode changes,
+  window blur, and window close. Generation uses the active text without DSL parsing.

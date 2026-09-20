@@ -185,17 +185,19 @@ export function StatusText({ status }: { status: string }) {
 
 export function ToggleSwitch({
   checked,
+  disabled = false,
   label,
   onChange,
 }: {
   checked: boolean;
+  disabled?: boolean;
   label: string;
   onChange: (checked: boolean) => void;
 }) {
   return (
     <label className="toggle-switch">
       <span>{label}</span>
-      <input checked={checked} type="checkbox" onChange={(event) => onChange(event.target.checked)} />
+      <input disabled={disabled} checked={checked} type="checkbox" onChange={(event) => onChange(event.target.checked)} />
       <span aria-hidden="true" className="toggle-track">
         <span className="toggle-thumb" />
       </span>

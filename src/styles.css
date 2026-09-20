@@ -97,8 +97,6 @@ button {
     width: 28px;
     height: 28px;
     flex: 0 0 auto;
-    overflow: hidden;
-    border-radius: 7px;
 }
 
 .brand-mark img {
@@ -2924,5 +2922,136 @@ button:disabled {
 @media (max-width: 1200px) {
     .prompt-body {
         grid-template-columns: 180px 8px minmax(0, 1fr) !important;
+    }
+}
+
+/* Quick drafts share the editor surface, with no library metadata in Quick mode. */
+.toggle-switch:has(input:disabled) {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.prompt-panel > .panel-header {
+    height: auto;
+    min-height: 45px;
+    flex-wrap: wrap;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    flex-shrink: 0;
+}
+.quick-workspace {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.quick-tabs-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color, #e2e5eb);
+}
+.quick-tab-navigation {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+.quick-tab-navigation .icon-button {
+    width: 26px;
+    height: 28px;
+    padding: 0;
+}
+.quick-tabs {
+    display: flex;
+    gap: 4px;
+    overflow: hidden;
+    flex: 1;
+    min-width: 0;
+}
+.quick-tab {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    border-radius: 6px;
+    background: var(--surface-subtle, #f3f5f8);
+}
+.quick-tab button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    padding: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.quick-tab:has([aria-selected="true"]) {
+    background: #e6efff;
+    color: #1769ed;
+}
+.quick-tab .quick-close {
+    padding: 6px;
+    display: flex;
+}
+.quick-editor {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+}
+.quick-footer, .quick-confirm {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border-color, #e2e5eb);
+}
+.quick-footer .prompt-save-state {
+    margin-right: auto;
+}
+.quick-footer button,
+.quick-confirm button {
+    font-size: 12px;
+    font-weight: 600;
+}
+.quick-draft-footer {
+    justify-content: flex-end;
+}
+.quick-draft-footer .prompt-save-state {
+    flex-basis: 100%;
+}
+.quick-draft-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color, #e2e5eb);
+}
+.quick-draft-fields label {
+    flex: 1;
+    min-width: 120px;
+    font-size: 12px;
+}
+.quick-draft-fields input {
+    display: block;
+    width: 100%;
+    margin-top: 5px;
+}
+@media (prefers-color-scheme: dark) {
+    .quick-tab {
+        background: #293343;
+    }
+    .quick-tab:has([aria-selected="true"]) {
+        background: #263e60;
+        color: #9bc4ff;
+    }
+    .quick-tabs-toolbar,
+    .quick-footer,
+    .quick-confirm,
+    .quick-draft-fields {
+        border-color: #354154;
     }
 }

@@ -569,3 +569,17 @@ cd src-tauri && cargo test
 - provider-specific mask editing flows for GPT-Image and Grok Imagine
 - Grok Imagine video editing and extension workflows
 - restart-safe recovery for in-flight video jobs
+
+## Quick prompts
+
+Enable **Quick** beside DSL in the Prompt Editor for up to eight plain-text tabs.
+DSL and tag-saving controls are disabled in Quick mode; literal `#` characters
+remain ordinary text. Tabs autosave under `~/.sozocraft/quick-prompts/` and restore
+with the active tab and mode on restart. Model settings and references are shared
+across tabs. Closing a nonempty tab asks before discarding it.
+
+Turn Quick off or choose **Save to Library…** to prepare the active tab as an
+unsaved library draft. Give it a name and optional tags, then explicitly save it.
+Saving clears that Quick tab only; returning to Quick without saving retains its
+latest text. **Back to Library** restores your previous library selection while
+keeping the Quick draft. Your other library edits and Quick tabs are preserved.

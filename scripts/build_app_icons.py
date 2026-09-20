@@ -43,7 +43,7 @@ def compose_foregrounds() -> dict[str, Image.Image]:
     tiles = {}
     for theme, source in sources.items():
         foreground = source.crop(crop).resize(dimensions, Image.Resampling.LANCZOS)
-        tile = background(theme)
+        tile = Image.new("RGBA", (SIZE, SIZE))
         tile.alpha_composite(foreground, ((SIZE - dimensions[0]) // 2,
                                           (SIZE - dimensions[1]) // 2))
         tiles[theme] = tile
@@ -75,7 +75,9 @@ def main() -> None:
         tile.resize((256, 256), Image.Resampling.LANCZOS).save(
             ROOT / "src" / "assets" / f"sozocraft-icon-{theme}.png"
         )
-        native = native_icon(tile)
+        native_tile = background(theme)
+        native_tile.alpha_composite(tile)
+        native = native_icon(native_tile)
         native.save(icons / ("icon.png" if theme == "light" else "icon-dark.png"))
         if theme == "light":
             for filename, size in [("32x32.png", 32), ("128x128.png", 128),

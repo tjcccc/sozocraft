@@ -1,3 +1,5 @@
+import { QuickPromptPanel } from "./QuickPromptPanel";
+import type { QuickPrompts } from "../hooks/useQuickPrompts";
 import {
   ArrowDownAZ,
   ChevronDown,
@@ -26,6 +28,8 @@ type TagNode = {
 };
 
 export function PromptColumn({
+  quick,
+  onSaveQuick,
   items,
   prompt,
   query,
@@ -56,6 +60,8 @@ export function PromptColumn({
   onPromptChange,
   onSelectPrompt,
 }: {
+  quick: QuickPrompts;
+  onSaveQuick: (name: string, source: string, tags: string[]) => Promise<void>;
   items: PromptListItem[];
   prompt: string;
   query: string;
@@ -238,6 +244,8 @@ export function PromptColumn({
     [onRenameTag, renamingTagName],
   );
 
+  if (quick.editing) return <QuickPromptPanel quick={quick} onSave={onSaveQuick} fileDropActive={fileDropActive} />;
+
   return (
     <section className="panel prompt-panel">
       <PanelHeader
@@ -245,6 +253,7 @@ export function PromptColumn({
         title="Prompt Editor"
         actions={
           <div className="prompt-header-actions">
+            <ToggleSwitch checked={false} label="Quick" disabled={!quick.state} onChange={quick.toggle} />
             <ToggleSwitch checked={dslEnabled} label="DSL" onChange={setDslEnabled} />
             {dslEnabled ? (
               <div className="preview-menu">

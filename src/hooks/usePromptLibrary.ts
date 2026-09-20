@@ -133,14 +133,14 @@ export function usePromptLibrary({
   }, [flushCurrentPrompt, loadPrompt, setMessage, setStatus, settings, upsertItem]);
 
   const importPromptSource = useCallback(
-    async (name: string, source: string) => {
+    async (name: string, source: string, tags: string[] = []) => {
       if (!settings) {
-        return;
+        throw new Error("Prompt library is not ready");
       }
       await flushCurrentPrompt();
       const created = await createPrompt(settings.promptDirectory, {
         name: promptNameFromImport(name),
-        tags: [],
+        tags,
         description: "",
       });
       const document = await savePrompt(settings.promptDirectory, {

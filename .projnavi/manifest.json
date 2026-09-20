@@ -1,7 +1,7 @@
 {
   "version": 1,
   "projnaviVersion": "0.5.0",
-  "generatedAt": "2026-09-20T03:01:05.301Z",
+  "generatedAt": "2026-09-20T08:53:06.943Z",
   "root": ".",
   "files": {
     "AGENTS.md": {
@@ -10,17 +10,17 @@
       "category": "docs"
     },
     "DEVLOG.md": {
-      "hash": "828a35b019619018cb97ec60cbf0b7cb1a98cd4f88ffc7ba3e844a2c6ff35fff",
-      "size": 36094,
+      "hash": "4f6160ae061a7e7fff2877098aac3ca74b6918ee7d7d3b1f8b42dc9501615f5a",
+      "size": 36603,
       "category": "docs"
     },
     "docs/architecture.md": {
-      "hash": "3a233e2886d186cba4a6168c936842617a33a4ab317b83ad4e240de77d3606ff",
-      "size": 8303,
+      "hash": "e24300dde7f49219b9e5dac61464fcf41b0077248e617ccf79564f2827ba244e",
+      "size": 9155,
       "category": "docs"
     },
     "package.json": {
-      "hash": "ca89b1bbec31d1c4586f84ac7c9bdf07f707d9d7979189e40581a7ec365ad9c3",
+      "hash": "f9a6cae7af2dedde92baddfbd326d683ee2dbf286b11b7231f32697a5cab8990",
       "size": 1032,
       "category": "config"
     },
@@ -35,22 +35,22 @@
       "category": "config"
     },
     "README.md": {
-      "hash": "25ee9532c9e1b4c736edf378663d2234776f8d5215719c488fa43c488149d668",
-      "size": 23970,
+      "hash": "6d4dac75abc582e141899682ed92dbc59750915f3edec520287b42f772e9a6ab",
+      "size": 24783,
       "category": "docs"
     },
     "spec/ui.md": {
-      "hash": "f6c96e677aae58dbca44961dd6e3b53c03b088fe134ebc243ef6d7856cfc9f7f",
-      "size": 7157,
+      "hash": "c8193de3834231262f5f8a5d91141ddda2f357799c9203ef99b4711a4c0359e2",
+      "size": 8150,
       "category": "docs"
     },
     "src-tauri/capabilities/default.json": {
-      "hash": "806021ca28abbb02fca6e6fc0c7e1fedd5f0fe3632f3dd6c1bd6cb420f16d179",
-      "size": 193,
+      "hash": "344f0eaf2d262cd2243a1807e6e3707e597db69b39ab25e3df8b20d4f81cbcaa",
+      "size": 222,
       "category": "source"
     },
     "src-tauri/tauri.conf.json": {
-      "hash": "d5adf21943f5d3c92d3ddc4723ce423f6469f8094a065a96670de043862dc6aa",
+      "hash": "b31b9e719b7bea90601322e1a4fb18a9b081df763fbdedb774c67998cd3d8360",
       "size": 1347,
       "category": "source"
     },
@@ -60,13 +60,13 @@
       "category": "source"
     },
     "src/App.tsx": {
-      "hash": "94159eac038b163b8c6042e8f7f4c162e8941a0ff27bdbee0257c95beb886b6a",
-      "size": 33446,
+      "hash": "87f8fcf5608c64e94769fba981cf3d98532ec7cbfb262070eff0e87c958c4ffd",
+      "size": 34259,
       "category": "source"
     },
     "src/components/common.tsx": {
-      "hash": "f2e247405bc98ea584a8c3fbf905fdfa3b5d33da3f11504d876e128b1274e0aa",
-      "size": 4896,
+      "hash": "6fda2710dee65888dd9850325d92b9c63888cf46a468f9a51ee921383ae2b10d",
+      "size": 4958,
       "category": "source"
     },
     "src/components/GenerationPanel.tsx": {
@@ -85,8 +85,8 @@
       "category": "source"
     },
     "src/components/PromptColumn.tsx": {
-      "hash": "aa995d85fd674b36c580c9a48deaca14fe5c9a5a62da73124ea8e1c439b1fc4d",
-      "size": 23605,
+      "hash": "f2a843fa4f35798b1ba593f9071c52a7fb00ca454532f0aa0557aec1af3071cf",
+      "size": 24074,
       "category": "source"
     },
     "src/components/PromptEditor.test.tsx": {
@@ -97,6 +97,16 @@
     "src/components/PromptEditor.tsx": {
       "hash": "8210612547d6cbe2d76a4d9fce167b2f7c9959bc5c1a9bc99259ee30dad40890",
       "size": 20471,
+      "category": "source"
+    },
+    "src/components/QuickPromptPanel.test.tsx": {
+      "hash": "23bdca5a3c26749e95e45ce63b180561d68d9745748d802912ca0fa354e5ca39",
+      "size": 3280,
+      "category": "test"
+    },
+    "src/components/QuickPromptPanel.tsx": {
+      "hash": "5d172c0719fe548730c8122fc0532bc938a1d8c82f3b87a6d5c65ec5586f616b",
+      "size": 6639,
       "category": "source"
     },
     "src/components/ReferenceImagesField.tsx": {
@@ -160,8 +170,18 @@
       "category": "source"
     },
     "src/hooks/usePromptLibrary.ts": {
-      "hash": "476cd6edc9dc551192cf9d891081cdca9d0c10f6a2a78c6a0a88d0b91933f855",
-      "size": 13667,
+      "hash": "66b0aecb46bbfdf746ffb5d184e77dd3a648d536a907bce7e13f807265d3f607",
+      "size": 13724,
+      "category": "source"
+    },
+    "src/hooks/useQuickPrompts.test.tsx": {
+      "hash": "2c078a4a0f5cba1378a11e76c27632e918ed8759165f8b1ee4676e7ce28a8d37",
+      "size": 5705,
+      "category": "test"
+    },
+    "src/hooks/useQuickPrompts.ts": {
+      "hash": "18860c972caad65b2a3263f57943ae20a36ea88c6c9678d3b0651bdb863ea3ae",
+      "size": 5817,
       "category": "source"
     },
     "src/hooks/useVideoGeneration.test.ts": {
@@ -318,15 +338,15 @@
       ]
     },
     "docs/architecture.md": {
-      "hash": "3a233e2886d186cba4a6168c936842617a33a4ab317b83ad4e240de77d3606ff",
-      "size": 8303,
+      "hash": "e24300dde7f49219b9e5dac61464fcf41b0077248e617ccf79564f2827ba244e",
+      "size": 9155,
       "category": "docs",
       "claimIds": [
         "risk.tauri-boundary"
       ]
     },
     "package.json": {
-      "hash": "ca89b1bbec31d1c4586f84ac7c9bdf07f707d9d7979189e40581a7ec365ad9c3",
+      "hash": "f9a6cae7af2dedde92baddfbd326d683ee2dbf286b11b7231f32697a5cab8990",
       "size": 1032,
       "category": "config",
       "claimIds": [
@@ -334,8 +354,8 @@
       ]
     },
     "README.md": {
-      "hash": "25ee9532c9e1b4c736edf378663d2234776f8d5215719c488fa43c488149d668",
-      "size": 23970,
+      "hash": "6d4dac75abc582e141899682ed92dbc59750915f3edec520287b42f772e9a6ab",
+      "size": 24783,
       "category": "docs",
       "claimIds": [
         "module.prompt-library"
@@ -364,8 +384,8 @@
       "claimIds": []
     },
     "src-tauri/src/lib.rs": {
-      "hash": "377ee800d3ae0bb5fb6db89a806804ce503c24f63bb856a396aacd52578c67ac",
-      "size": 36436,
+      "hash": "64e2a38e5b9f3b12c33362d173d750faed77677bd1423ebc57531e5e6cec4354",
+      "size": 36549,
       "category": "evidence",
       "claimIds": [
         "flow.generation",
@@ -405,8 +425,8 @@
       ]
     },
     "src/components/PromptColumn.tsx": {
-      "hash": "aa995d85fd674b36c580c9a48deaca14fe5c9a5a62da73124ea8e1c439b1fc4d",
-      "size": 23605,
+      "hash": "f2a843fa4f35798b1ba593f9071c52a7fb00ca454532f0aa0557aec1af3071cf",
+      "size": 24074,
       "category": "source",
       "claimIds": [
         "module.prompt-library"
@@ -449,8 +469,8 @@
       ]
     },
     "src/hooks/usePromptLibrary.ts": {
-      "hash": "476cd6edc9dc551192cf9d891081cdca9d0c10f6a2a78c6a0a88d0b91933f855",
-      "size": 13667,
+      "hash": "66b0aecb46bbfdf746ffb5d184e77dd3a648d536a907bce7e13f807265d3f607",
+      "size": 13724,
       "category": "source",
       "claimIds": [
         "module.prompt-library"
@@ -474,7 +494,7 @@
     }
   },
   "inventory": {
-    "summary": "Detected Node package sozocraft. Indexed 52 relevant files. Detected 6 test files.",
+    "summary": "Detected Node package sozocraft. Indexed 56 relevant files. Detected 8 test files.",
     "packageName": "sozocraft",
     "packageScripts": [
       "build",
@@ -495,13 +515,15 @@
     "fileCounts": {
       "docs": 6,
       "config": 4,
-      "source": 36,
-      "test": 6
+      "source": 38,
+      "test": 8
     },
     "tests": [
       "src/components/PromptEditor.test.tsx",
+      "src/components/QuickPromptPanel.test.tsx",
       "src/components/VideoGenerationPanel.test.tsx",
       "src/hooks/useGenerationQueue.test.tsx",
+      "src/hooks/useQuickPrompts.test.tsx",
       "src/hooks/useVideoGeneration.test.ts",
       "src/models/imageProviders.test.ts",
       "src/utils/outputTemplate.test.ts"

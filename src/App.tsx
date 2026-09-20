@@ -1,3 +1,4 @@
+import { useQuickPrompts } from "./hooks/useQuickPrompts";
 import { Loader2, Play, Settings, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -73,7 +74,7 @@ export function App() {
     openaiApiKeySaved,
     openrouterApiKey,
     openrouterApiKeySaved,
-    prompt,
+    prompt: libraryPrompt,
     saveKey,
     saveArkKey,
     saveOpenaiKey,
@@ -86,7 +87,7 @@ export function App() {
     setBatches,
     setCurrentPromptId,
     setMessage,
-    setPrompt,
+    setPrompt: setLibraryPrompt,
     setSettings,
     setStatus,
     setXaiApiKey,
@@ -97,21 +98,28 @@ export function App() {
     xaiApiKeySaved,
   } = useAppState();
 
+  const quick = useQuickPrompts((error) => { setStatus("error"); setMessage(error); });
+  const prompt = quick.editing ? quick.active?.source ?? "" : libraryPrompt;
+  const setPrompt = quick.editing ? quick.setSource : setLibraryPrompt;
+
   useEffect(() => {
     promptRef.current = prompt;
   }, [prompt]);
 
   const promptLibrary = usePromptLibrary({
     currentPromptId,
-    prompt,
+    prompt: libraryPrompt,
     promptDslEnabled: settings?.promptDslEnabled ?? true,
     setCurrentPromptId,
     setMessage,
-    setPrompt,
+    setPrompt: setLibraryPrompt,
     setStatus,
     settings,
   });
-  const importPromptSource = promptLibrary.importPromptSource;
+  const importPromptSource = useCallback(async (name: string, source: string) => {
+    if (quick.editing) quick.setSource(source);
+    else await promptLibrary.importPromptSource(name, source);
+  }, [quick.editing, quick.setSource, promptLibrary.importPromptSource]);
 
   const { filteredBatches, historyDate, setHistoryDate } = useHistoryDate(batches, mode);
   useEffect(() => {
@@ -138,6 +146,7 @@ export function App() {
   });
   const { failedVideoPaths, videoUrls } = useVideoPreviews({ expandedBatch, previewBatch });
   const getCurrentPrompt = useCallback(async () => {
+    if (quick.editing) return promptRef.current.trim();
     if (!settings) {
       return promptLibrary.renderedPrompt;
     }
@@ -152,6 +161,7 @@ export function App() {
       return settings.promptDslEnabled ? promptLibrary.renderedPrompt : promptRef.current.trim();
     }
   }, [
+    quick.editing,
     promptLibrary.renderedPrompt,
     promptLibrary.selectedPromptId,
     settings,
@@ -641,6 +651,8 @@ export function App() {
       ) : showEditorOnly ? (
         <section className="workspace editor-only-workspace" ref={workspaceRef}>
           <PromptColumn
+            quick={quick}
+            onSaveQuick={promptLibrary.importPromptSource}
             items={promptLibrary.filteredItems}
             prompt={prompt}
             query={promptLibrary.query}
@@ -695,6 +707,8 @@ export function App() {
           }}
         >
           <PromptColumn
+            quick={quick}
+            onSaveQuick={promptLibrary.importPromptSource}
             items={promptLibrary.filteredItems}
             prompt={prompt}
             query={promptLibrary.query}

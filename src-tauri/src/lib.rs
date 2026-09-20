@@ -17,6 +17,7 @@ mod macos_app_icon;
 mod models;
 mod openai_image;
 mod prompt_library;
+mod quick_prompts;
 mod reference_image_cache;
 mod seedance_video;
 mod video_generation;
@@ -958,6 +959,8 @@ pub fn run() {
     let app = tauri::Builder::default()
         .manage(GenerationRuntime::default())
         .invoke_handler(tauri::generate_handler![
+            quick_prompts::load_quick_prompts,
+            quick_prompts::save_quick_prompts,
             load_app_state,
             save_app_settings,
             save_current_prompt,

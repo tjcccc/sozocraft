@@ -6,6 +6,7 @@
 - `src/components/` contains UI panels and shared primitives.
 - `src/hooks/` contains reusable state/effect workflows:
   - `useAppState` loads and saves app settings/state.
+  - `useQuickPrompts` owns the separate eight-tab scratchpad and explicit library handoff.
   - `useGeneration` owns image option state and image request construction.
   - `useVideoGeneration` owns per-provider video state and video request construction.
   - `useGenerationQueue` serializes image and video tasks through one queue and cancellation path.
@@ -124,3 +125,16 @@
 - The asset protocol starts with an empty scope. A preview command validates an
   exact regular MP4 against saved generation history before allowing that file.
 - Avoid adding global state libraries, generated schemas, or routing until the app has a concrete need.
+
+## Quick draft persistence
+
+Quick tabs use `~/.sozocraft/quick-prompts/`, never the prompt directory or SQLite
+index. `quick_prompts.rs` validates a maximum of eight UUID-keyed tabs (1 MB each),
+loads regular files only, and serializes writes behind a mutex. Timestamped Markdown
+files are written before atomically replacing `workspace.json`; only then are the
+previous manifest’s files removed. Tab selection, mode, and pending library-draft
+metadata survive restart. Errors preserve the last committed manifest.
+
+The main-window capability includes `core:window:allow-destroy` so the close-request
+handler can flush Quick drafts before closing the window. Failed flushes keep the
+window open. No filesystem or shell permissions are added to the renderer.
