@@ -100,3 +100,26 @@ describe("Quick workspace", () => {
   });
 
 });
+
+it("imports into a new tab then replaces numbered Prompt 8 with undo and redo", async () => {
+  const { result } = await setup();
+  act(() => result.current.importSource("image prompt"));
+  expect(result.current.state?.tabs).toHaveLength(2);
+  expect(result.current.active?.source).toBe("image prompt");
+  expect(result.current.state?.tabs[0].source).toBe("# shared prompt");
+  act(() => { for (let i = 0; i < 6; i++) result.current.add(); });
+  act(() => result.current.setSource("my eighth draft"));
+  act(() => result.current.select("one"));
+  act(() => result.current.importSource("replacement image prompt"));
+  expect(result.current.state?.tabs).toHaveLength(8);
+  expect(result.current.active?.number).toBe(8);
+  expect(result.current.active?.source).toBe("replacement image prompt");
+  act(() => result.current.setSource("edited import"));
+  act(() => result.current.undo());
+  expect(result.current.active?.source).toBe("replacement image prompt");
+  act(() => result.current.undo());
+  expect(result.current.active?.source).toBe("my eighth draft");
+  act(() => result.current.undo(true));
+  expect(result.current.active?.source).toBe("replacement image prompt");
+  await act(() => result.current.flush());
+});

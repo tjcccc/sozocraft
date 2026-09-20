@@ -55,3 +55,27 @@ it("switches tabs with arrows and disables navigation at the ends", async () => 
   expect(screen.getByRole("tab", { name: "Prompt 2" }).getAttribute("aria-selected")).toBe("true");
   await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Saved"));
 });
+
+it("restores an imported replacement using Cmd+Z in the editor", async () => {
+  function Harness() {
+    const quick = useQuickPrompts(vi.fn());
+    return quick.state ? <>
+      <button onClick={() => {
+        for (let i = 0; i < 7; i++) quick.add();
+        quick.setSource("original eighth prompt");
+        quick.importSource("image metadata prompt");
+      }}>Import at capacity</button>
+      <QuickPromptPanel quick={quick} onSave={vi.fn()} />
+    </> : null;
+  }
+  render(<Harness />);
+  await screen.findByRole("tab", { name: "Prompt 1" });
+  fireEvent.click(screen.getByRole("button", { name: "Import at capacity" }));
+  const editor = screen.getByRole("textbox") as HTMLTextAreaElement;
+  expect(editor.value).toBe("image metadata prompt");
+  fireEvent.keyDown(editor, { key: "z", metaKey: true });
+  expect(editor.value).toBe("original eighth prompt");
+  fireEvent.keyDown(editor, { key: "z", metaKey: true, shiftKey: true });
+  expect(editor.value).toBe("image metadata prompt");
+  await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Saved"));
+});

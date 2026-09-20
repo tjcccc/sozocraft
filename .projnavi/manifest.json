@@ -1,7 +1,7 @@
 {
   "version": 1,
   "projnaviVersion": "0.5.0",
-  "generatedAt": "2026-09-20T08:53:06.943Z",
+  "generatedAt": "2026-09-20T09:12:28.355Z",
   "root": ".",
   "files": {
     "AGENTS.md": {
@@ -10,8 +10,8 @@
       "category": "docs"
     },
     "DEVLOG.md": {
-      "hash": "4f6160ae061a7e7fff2877098aac3ca74b6918ee7d7d3b1f8b42dc9501615f5a",
-      "size": 36603,
+      "hash": "642c8f469830a14cd812d91163844aa75331e70934f477c747f50990041ea6bf",
+      "size": 36876,
       "category": "docs"
     },
     "docs/architecture.md": {
@@ -20,7 +20,7 @@
       "category": "docs"
     },
     "package.json": {
-      "hash": "f9a6cae7af2dedde92baddfbd326d683ee2dbf286b11b7231f32697a5cab8990",
+      "hash": "56ff57552c2e08cbe78b32ae1e40845ee073d9a056fa58472859b32208479479",
       "size": 1032,
       "category": "config"
     },
@@ -35,13 +35,13 @@
       "category": "config"
     },
     "README.md": {
-      "hash": "6d4dac75abc582e141899682ed92dbc59750915f3edec520287b42f772e9a6ab",
-      "size": 24783,
+      "hash": "17f4b1db56cfdf1f00caa633feb455eb536c70af08a4d6666bafb8f730f52a8b",
+      "size": 25086,
       "category": "docs"
     },
     "spec/ui.md": {
-      "hash": "c8193de3834231262f5f8a5d91141ddda2f357799c9203ef99b4711a4c0359e2",
-      "size": 8150,
+      "hash": "475eed7bfb956de0da36da5889c9bc74d584bee3d1767e9bfdc5b58c432e56e2",
+      "size": 8379,
       "category": "docs"
     },
     "src-tauri/capabilities/default.json": {
@@ -50,7 +50,7 @@
       "category": "source"
     },
     "src-tauri/tauri.conf.json": {
-      "hash": "b31b9e719b7bea90601322e1a4fb18a9b081df763fbdedb774c67998cd3d8360",
+      "hash": "1e80bfda2385b00e4023c155c6f88aa9f5ee5ae3d29c6d4d8cf31248aa8d1595",
       "size": 1347,
       "category": "source"
     },
@@ -60,8 +60,8 @@
       "category": "source"
     },
     "src/App.tsx": {
-      "hash": "87f8fcf5608c64e94769fba981cf3d98532ec7cbfb262070eff0e87c958c4ffd",
-      "size": 34259,
+      "hash": "05712c922b43f09f22cc8ca258b05c1b251a2dd22526169f346513dbc0d1d546",
+      "size": 34408,
       "category": "source"
     },
     "src/components/common.tsx": {
@@ -100,13 +100,13 @@
       "category": "source"
     },
     "src/components/QuickPromptPanel.test.tsx": {
-      "hash": "23bdca5a3c26749e95e45ce63b180561d68d9745748d802912ca0fa354e5ca39",
-      "size": 3280,
+      "hash": "0299c02aabb66f0b21fee8f42fcbe8373f7729c26fd107b3e894b52dada68520",
+      "size": 4365,
       "category": "test"
     },
     "src/components/QuickPromptPanel.tsx": {
-      "hash": "5d172c0719fe548730c8122fc0532bc938a1d8c82f3b87a6d5c65ec5586f616b",
-      "size": 6639,
+      "hash": "34acefb401e7067050722d5d2810ac2a993c13f611a8e53273bdd0508370fb82",
+      "size": 7017,
       "category": "source"
     },
     "src/components/ReferenceImagesField.tsx": {
@@ -175,13 +175,13 @@
       "category": "source"
     },
     "src/hooks/useQuickPrompts.test.tsx": {
-      "hash": "2c078a4a0f5cba1378a11e76c27632e918ed8759165f8b1ee4676e7ce28a8d37",
-      "size": 5705,
+      "hash": "85e1307aec5d3da5dd15ea0e73c046b5df5df17b8cbe7cc139e49517cb1644de",
+      "size": 6926,
       "category": "test"
     },
     "src/hooks/useQuickPrompts.ts": {
-      "hash": "18860c972caad65b2a3263f57943ae20a36ea88c6c9678d3b0651bdb863ea3ae",
-      "size": 5817,
+      "hash": "5283e313f387e3d4aea549f00b8647c5be56260c3ac49d60f1eb791946a786b9",
+      "size": 7409,
       "category": "source"
     },
     "src/hooks/useVideoGeneration.test.ts": {
@@ -346,7 +346,7 @@
       ]
     },
     "package.json": {
-      "hash": "f9a6cae7af2dedde92baddfbd326d683ee2dbf286b11b7231f32697a5cab8990",
+      "hash": "56ff57552c2e08cbe78b32ae1e40845ee073d9a056fa58472859b32208479479",
       "size": 1032,
       "category": "config",
       "claimIds": [
@@ -354,8 +354,8 @@
       ]
     },
     "README.md": {
-      "hash": "6d4dac75abc582e141899682ed92dbc59750915f3edec520287b42f772e9a6ab",
-      "size": 24783,
+      "hash": "17f4b1db56cfdf1f00caa633feb455eb536c70af08a4d6666bafb8f730f52a8b",
+      "size": 25086,
       "category": "docs",
       "claimIds": [
         "module.prompt-library"

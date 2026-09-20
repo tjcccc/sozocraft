@@ -22,6 +22,7 @@ export function useQuickPrompts(reportError: (message: string) => void) {
   const [saveState, setSaveState] = useState<"loading" | "saved" | "dirty" | "saving" | "error">("loading");
   const [busy, setBusy] = useState(false);
   const savingLibrary = useRef(false);
+  const history = useRef(new Map<string, { undo: string[]; redo: string[] }>());
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const errorRef = useRef(reportError);
@@ -87,16 +88,51 @@ export function useQuickPrompts(reportError: (message: string) => void) {
     return () => { disposed = true; unlisten?.(); window.removeEventListener("blur", blur); };
   }, [flush]);
 
+  const remember = useCallback((tab: QuickTab, source: string) => {
+    if (tab.source === source) return;
+    const entry = history.current.get(tab.id) ?? { undo: [], redo: [] };
+    entry.undo = [...entry.undo.slice(-49), tab.source];
+    entry.redo = [];
+    history.current.set(tab.id, entry);
+  }, []);
+
+  const importSource = useCallback((source: string) => {
+    if (savingLibrary.current) return;
+    change(s => {
+      const tab = s.tabs.length < 8 ? newQuickTab(s.tabs) : s.tabs.find(t => t.number === 8)!;
+      remember(tab, source);
+      const replacement = { ...tab, source };
+      return { ...s, activeId: tab.id, title: "", tags: "",
+        tabs: s.tabs.length < 8 ? [...s.tabs, replacement] : s.tabs.map(t => t.id === tab.id ? replacement : t) };
+    }, true);
+  }, [change, remember]);
+
+  const undo = useCallback((redo = false) => {
+    if (savingLibrary.current) return;
+    change(s => {
+      const tab = s.tabs.find(t => t.id === s.activeId)!;
+      const entry = history.current.get(tab.id);
+      const stack = redo ? entry?.redo : entry?.undo;
+      if (!entry || !stack?.length) return s;
+      const source = stack.pop()!;
+      (redo ? entry.undo : entry.redo).push(tab.source);
+      return { ...s, tabs: s.tabs.map(t => t.id === tab.id ? { ...t, source } : t) };
+    });
+  }, [change]);
+
   const setSource = useCallback((source: string) => {
     if (savingLibrary.current) return;
-    change(s => ({ ...s, tabs: s.tabs.map(t => t.id === s.activeId ? { ...t, source } : t) }));
-  }, [change]);
+    change(s => {
+      remember(s.tabs.find(t => t.id === s.activeId)!, source);
+      return { ...s, tabs: s.tabs.map(t => t.id === s.activeId ? { ...t, source } : t) };
+    });
+  }, [change, remember]);
 
   const active = state?.tabs.find(tab => tab.id === state.activeId);
   return {
     state, active, saveState, busy, flush,
     editing: !!state && (state.enabled || state.pending),
-    setSource,
+    setSource, importSource, undo,
     setTitle: (title: string) => change(s => ({ ...s, title })),
     setTags: (tags: string) => change(s => ({ ...s, tags })),
     toggle: (enabled: boolean) => change(s => ({ ...s, enabled, pending: !enabled }), true),
@@ -108,6 +144,7 @@ export function useQuickPrompts(reportError: (message: string) => void) {
       return { ...s, tabs: [...s.tabs, tab], activeId: tab.id, title: "", tags: "" };
     }, true),
     close: (id: string) => change(s => {
+      history.current.delete(id);
       let tabs = s.tabs.filter(t => t.id !== id);
       if (!tabs.length) tabs = [newQuickTab([])];
       return { ...s, tabs, activeId: s.activeId === id ? tabs[0].id : s.activeId };
@@ -123,6 +160,7 @@ export function useQuickPrompts(reportError: (message: string) => void) {
         const tab = snapshot.tabs.find(t => t.id === snapshot.activeId)!;
         await save(snapshot.title.trim() || "Untitled Prompt", tab.source,
           snapshot.tags.split(/[\s,]+/).map(t => t.replace(/^#/, "")).filter(Boolean));
+        history.current.delete(tab.id);
         change(s => ({ ...s, pending: false, enabled: false, title: "", tags: "",
           tabs: s.tabs.map(t => t.id === tab.id ? { ...t, source: "" } : t) }), true);
       } catch (error) { errorRef.current(String(error)); }

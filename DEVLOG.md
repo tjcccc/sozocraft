@@ -2,6 +2,12 @@
 
 ## 2026-09-20
 
+- Bumped app/package/crate versions to `0.25.1` for Quick image-prompt imports
+  and undoable replacement at the tab limit.
+
+- Image-prompt imports in Quick mode now open a new tab, or replace Prompt 8
+  at capacity, with per-tab undo/redo for restoring overwritten text.
+
 - Bumped app/package/crate versions to `0.25.0` for Quick prompt mode.
   Polished its controls with 12px labels and previous/next tab arrows.
 

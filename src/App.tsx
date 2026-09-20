@@ -116,10 +116,11 @@ export function App() {
     setStatus,
     settings,
   });
-  const importPromptSource = useCallback(async (name: string, source: string) => {
-    if (quick.editing) quick.setSource(source);
+  const importPromptSource = useCallback(async (name: string, source: string, fromImage = false) => {
+    if (fromImage && quick.state?.enabled) quick.importSource(source);
+    else if (quick.editing) quick.setSource(source);
     else await promptLibrary.importPromptSource(name, source);
-  }, [quick.editing, quick.setSource, promptLibrary.importPromptSource]);
+  }, [quick.editing, quick.state?.enabled, quick.importSource, quick.setSource, promptLibrary.importPromptSource]);
 
   const { filteredBatches, historyDate, setHistoryDate } = useHistoryDate(batches, mode);
   useEffect(() => {
@@ -424,7 +425,7 @@ export function App() {
           if (isPlainObject(parsed)) {
             const promptSnapshot = stringValue(parsed.promptSnapshot)?.trim();
             if (promptSnapshot) {
-              await importPromptSource(importName, promptSnapshot);
+              await importPromptSource(importName, promptSnapshot, true);
               const restored = restoreGenerationFromSozocraftMetadata(parsed);
               setStatus("ready");
               setMessage(
@@ -442,7 +443,7 @@ export function App() {
 
       const promptMetadata = metadata.prompt?.trim();
       if (promptMetadata && !promptMetadata.startsWith("{")) {
-        await importPromptSource(importName, promptMetadata);
+        await importPromptSource(importName, promptMetadata, true);
         return;
       }
       setStatus("error");

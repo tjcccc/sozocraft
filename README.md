@@ -583,3 +583,8 @@ unsaved library draft. Give it a name and optional tags, then explicitly save it
 Saving clears that Quick tab only; returning to Quick without saving retains its
 latest text. **Back to Library** restores your previous library selection while
 keeping the Quick draft. Your other library edits and Quick tabs are preserved.
+
+Image metadata imported while Quick is on opens a new temporary tab. At the
+eight-tab limit it replaces Prompt 8 and selects it. Cmd+Z (Ctrl+Z on other
+platforms) restores the replaced text; Shift+Cmd+Z redoes it. Undo history is
+kept per tab for the current session and is not restored after restart.

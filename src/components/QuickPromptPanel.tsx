@@ -83,7 +83,15 @@ export function QuickPromptPanel({ quick, onSave, fileDropActive }: {
       <div className={`quick-editor prompt-editor-area${fileDropActive ? " file-drop-active" : ""}`}
         id="quick-editor" role={state.enabled ? "tabpanel" : undefined}
         aria-labelledby={state.enabled ? `quick-tab-${state.activeId}` : undefined}
-        data-file-drop-zone="prompt-editor">
+        data-file-drop-zone="prompt-editor"
+        onKeyDownCapture={event => {
+          if (!(event.target instanceof HTMLTextAreaElement) || event.nativeEvent.isComposing) return;
+          if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "z") {
+            event.preventDefault();
+            event.stopPropagation();
+            quick.undo(event.shiftKey);
+          }
+        }}>
         <PromptEditor key={state.activeId} dslEnabled={false} getDraggedPromptInclude={() => null}
           highlightRef={highlightRef} onPromptChange={quick.setSource} prompt={quick.active?.source ?? ""} />
       </div>

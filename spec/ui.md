@@ -138,3 +138,7 @@ The current design uses:
   restores the existing library context without discarding Quick text.
 - Autosave status and retry remain visible. Drafts flush on tab/mode changes,
   window blur, and window close. Generation uses the active text without DSL parsing.
+
+- Image imports in Quick mode select a new temporary tab; at eight tabs they
+  replace numbered Prompt 8. Session-local per-tab undo/redo includes imports
+  and text edits, with Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z editor shortcuts.
