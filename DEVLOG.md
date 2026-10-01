@@ -1,5 +1,35 @@
 # DEVLOG
 
+## 2026-10-01
+
+- User confirmed live Omni generation works with the updated installed CLI.
+  Checkpoint validation: 160 Rust tests, 42 frontend tests, frontend/release
+  builds, and installed dry runs for Veo 3.1, Veo Lite, and Omni.
+
+- Fixed Omni URI delivery to send `store=true`, as required by the provider's
+  HTTP 400 diagnostic, while retaining synchronous generation and the documented
+  duration field. CLI default video filenames now reuse the desktop output
+  template with Google/model names, local date folders, and collision handling.
+  Added install/update guidance for keeping the PATH binary current.
+
+- Added Veo 3.1 Lite to Google Video and the agent CLI with model-specific
+  resolution, duration, and frame-only input validation. Lite uploads receive
+  start/end roles, and asset references/4K are unavailable. Retained standard
+  Veo as the default; added frontend, native, and CLI regression coverage.
+
+- Replaced opaque Gemini Omni HTTP errors with bounded, redacted Google status,
+  message, and field-violation diagnostics. Added regression coverage for HTTP
+  400 details, credential/prompt/media redaction, and non-JSON upstream errors.
+
+- Added the headless `sozocraft-cli video generate/status/wait` commands for
+  Veo 3.1 and Gemini Omni Flash 1.1, using the same local Gemini credentials,
+  base URL, proxy, timeout, and output directory as the desktop app. Added dry-run
+  validation, frame/reference inputs, flushed JSON events, resumable operation
+  IDs, and MP4 publication that never overwrites an existing destination.
+- Added an agent CLI guide and build/run scripts. CLI outputs are separate from
+  desktop history. Normalized shared Gemini `/models` base URLs for both Google
+  video adapters and disabled redirects on Veo API requests.
+
 ## 2026-09-20
 
 - Bumped app/package/crate versions to `0.25.1` for Quick image-prompt imports

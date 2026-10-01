@@ -87,8 +87,9 @@ The current design uses:
 - Video mode uses one wrapping Input Images field whose count limit follows the
   active provider. Its output panel uses native video playback and keeps video
   history separate from image history.
-- Video input mode follows per-thumbnail roles. New uploads default to Reference;
-  a hover/focus menu assigns Reference or Start frame for every provider and End
+- Video input mode follows per-thumbnail roles. New uploads default to Reference
+  except Veo Lite, which assigns frame roles;
+  a hover/focus menu assigns Reference where supported or Start frame, and End
   frame for every video model. Reference thumbnails have no badge, while explicit
   Start and End assignments show compact bottom labels. Assigning either frame
   in a two-image set creates a valid start/end pair; reference
@@ -118,8 +119,11 @@ The current design uses:
   override in `src/styles.css`; no runtime theme preference is persisted yet.
 - PromptCraft DSL-specific UI states are placeholders until the DSL renderer exists.
 
-- Google Video groups Veo 3.1 and Gemini Omni Flash 1.1 under the existing Gemini
-  API settings. Omni uses 3–10-second clips and supports six image references;
+- Google Video groups Veo 3.1, Veo 3.1 Lite, and Gemini Omni Flash 1.1 under the existing Gemini
+  API settings. Lite offers 720p/1080p, with eight seconds required at 1080p,
+  and up to two frame inputs. Lite uploads receive Start/End roles; its role
+  menu omits Reference. Switching to Lite keeps at most two images and assigns
+  frame roles. Standard Veo remains the default. Omni uses 3–10-second clips and supports six image references;
   its 1080p/4K choices are upscaled. Grok Imagine Video 1.5 enables audio control
   and 1080p only for text/single-frame input, with 720p maximum for references
   and start/end pairs. Input-mode changes immediately constrain resolution.

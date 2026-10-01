@@ -1,5 +1,5 @@
 use crate::{google_veo::GoogleVeoClient, models::VideoGenerationRequest};
-use reqwest::{Client, Proxy, Url};
+use reqwest::{Client, Proxy, StatusCode, Url};
 use serde_json::{json, Value};
 use std::{path::Path, time::Duration};
 
@@ -41,11 +41,7 @@ impl GoogleOmniClient {
         }
         Ok(Self {
             api_key,
-            base_url: base_url
-                .filter(|value| !value.trim().is_empty())
-                .unwrap_or_else(|| DEFAULT_ENDPOINT.to_string())
-                .trim_end_matches('/')
-                .to_string(),
+            base_url: crate::google_veo::normalize_api_base_url(base_url),
             client: builder.build().map_err(|error| error.to_string())?,
             downloader,
         })
@@ -60,7 +56,22 @@ impl GoogleOmniClient {
             .send()
             .await
             .map_err(|_| "Gemini Omni generation request failed.".to_string())?;
-        let body = response_json(response).await?;
+        let mut sensitive = vec![self.api_key.as_str(), request.prompt.as_str()];
+        sensitive.extend(
+            request
+                .starting_image
+                .iter()
+                .chain(request.ending_image.iter())
+                .chain(
+                    request
+                        .reference_images
+                        .as_deref()
+                        .unwrap_or_default()
+                        .iter(),
+                )
+                .map(|image| image.data.trim()),
+        );
+        let body = response_json(response, &sensitive).await?;
         parse_file_id(&body)
     }
 
@@ -73,7 +84,7 @@ impl GoogleOmniClient {
             .send()
             .await
             .map_err(|_| "Gemini Omni file status request failed.".to_string())?;
-        let body = response_json(response).await?;
+        let body = response_json(response, &[self.api_key.as_str()]).await?;
         match body.get("state").and_then(Value::as_str) {
             Some("ACTIVE") => Ok(OmniStatus::Done(format!(
                 "{DEFAULT_ENDPOINT}/files/{file_id}:download?alt=media"
@@ -138,7 +149,8 @@ fn build_body(request: &VideoGenerationRequest) -> Value {
     json!({
         "model": request.model,
         "input": input,
-        "background": false, "store": false, "stream": false,
+        // URI video delivery requires a stored interaction, even for synchronous generation.
+        "background": false, "store": true, "stream": false,
         "response_format": {
             "type": "video", "delivery": "uri",
             "aspect_ratio": request.options.aspect_ratio,
@@ -148,7 +160,10 @@ fn build_body(request: &VideoGenerationRequest) -> Value {
     })
 }
 
-async fn response_json(mut response: reqwest::Response) -> Result<Value, String> {
+async fn response_json(
+    mut response: reqwest::Response,
+    sensitive: &[&str],
+) -> Result<Value, String> {
     let status = response.status();
     let mut bytes = Vec::new();
     while let Some(chunk) = response
@@ -163,13 +178,84 @@ async fn response_json(mut response: reqwest::Response) -> Result<Value, String>
         }
         bytes.extend_from_slice(&chunk);
     }
-    if !status.is_success() {
-        // Never log echoed media, prompts, or credentials from an API error body.
-        return Err(format!(
-            "Gemini Omni returned HTTP {status}. Check API access and generation settings."
-        ));
+    parse_response(status, &bytes, sensitive)
+}
+
+fn parse_response(status: StatusCode, bytes: &[u8], sensitive: &[&str]) -> Result<Value, String> {
+    let body = serde_json::from_slice::<Value>(bytes);
+    if status.is_success() {
+        return body.map_err(|_| "Gemini Omni returned invalid JSON.".to_string());
     }
-    serde_json::from_slice(&bytes).map_err(|_| "Gemini Omni returned invalid JSON.".to_string())
+    let mut diagnostics = Vec::new();
+    if let Ok(body) = body {
+        // Read only Google's structured diagnostics; never dump the response or its metadata.
+        if let Some(error) = body.get("error") {
+            if let Some(code) = error.get("status").and_then(Value::as_str) {
+                if code.len() <= 64
+                    && code
+                        .bytes()
+                        .all(|byte| byte.is_ascii_uppercase() || byte == b'_')
+                {
+                    diagnostics.push(code.to_string());
+                }
+            }
+            if let Some(message) = error.get("message").and_then(Value::as_str) {
+                diagnostics.push(redacted_diagnostic(message, sensitive));
+            }
+            for violation in error
+                .get("details")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .flat_map(|detail| {
+                    detail
+                        .get("fieldViolations")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                })
+                .take(4)
+            {
+                let field = violation
+                    .get("field")
+                    .and_then(Value::as_str)
+                    .unwrap_or("request");
+                if let Some(description) = violation.get("description").and_then(Value::as_str) {
+                    diagnostics.push(redacted_diagnostic(
+                        &format!("{field}: {description}"),
+                        sensitive,
+                    ));
+                }
+            }
+        }
+    }
+    diagnostics.retain(|value| !value.is_empty());
+    let reason = if diagnostics.is_empty() {
+        "No structured provider error details were returned.".to_string()
+    } else {
+        diagnostics.join("; ").chars().take(2_000).collect()
+    };
+    Err(format!("Gemini Omni returned HTTP {status}: {reason}"))
+}
+
+fn redacted_diagnostic(value: &str, sensitive: &[&str]) -> String {
+    let mut value = value.to_string();
+    // Redact before truncating, including a provider's truncated echoes of long media/prompts.
+    for secret in sensitive.iter().copied().filter(|value| !value.is_empty()) {
+        value = value.replace(secret, "[redacted]");
+        if secret.chars().count() > 64 {
+            let prefix: String = secret.chars().take(64).collect();
+            if let Some(index) = value.find(&prefix) {
+                value.truncate(index);
+                value.push_str("[redacted provider echo]");
+            }
+        }
+    }
+    value
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(2_000)
+        .collect()
 }
 
 fn parse_file_id(body: &Value) -> Result<String, String> {
@@ -212,7 +298,7 @@ fn parse_file_id(body: &Value) -> Result<String, String> {
     Ok(file_id.to_string())
 }
 
-fn validate_file_id(id: &str) -> Result<(), String> {
+pub(crate) fn validate_file_id(id: &str) -> Result<(), String> {
     if id.is_empty()
         || id.len() > 256
         || !id
@@ -227,6 +313,59 @@ fn validate_file_id(id: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reports_structured_provider_reason_and_field_errors() {
+        let body = json!({"error": {
+            "code": 400, "status": "INVALID_ARGUMENT", "message": "Unsupported video setting",
+            "details": [{"fieldViolations": [{"field": "response_format.duration", "description": "Invalid duration"}]}],
+        }});
+        let error =
+            parse_response(StatusCode::BAD_REQUEST, body.to_string().as_bytes(), &[]).unwrap_err();
+        assert!(error.contains("HTTP 400"));
+        assert!(error.contains("INVALID_ARGUMENT"));
+        assert!(error.contains("Unsupported video setting"));
+        assert!(error.contains("response_format.duration: Invalid duration"));
+    }
+
+    #[test]
+    fn diagnostics_redact_credentials_prompts_and_media_without_dumping_body() {
+        let image = "A".repeat(512);
+        let body = json!({"error": {
+            "status": "INVALID_ARGUMENT", "message": format!("test-key secret prompt {image}"),
+            "details": [{"request": {"api_key": "test-key", "prompt": "secret prompt", "data": image}}],
+        }});
+        let error = parse_response(
+            StatusCode::BAD_REQUEST,
+            body.to_string().as_bytes(),
+            &["test-key", "secret prompt", &image],
+        )
+        .unwrap_err();
+        assert!(error.contains("INVALID_ARGUMENT"));
+        assert!(error.contains("[redacted]"));
+        assert!(!error.contains("test-key"));
+        assert!(!error.contains("secret prompt"));
+        assert!(!error.contains(&image));
+        assert!(!error.contains("api_key"));
+        let truncated_echo = format!("Invalid image: {}...", &image[..128]);
+        assert!(!redacted_diagnostic(&truncated_echo, &[&image]).contains(&image[..64]));
+    }
+
+    #[test]
+    fn non_json_errors_stay_generic_and_success_still_parses() {
+        let error = parse_response(
+            StatusCode::BAD_REQUEST,
+            b"<html>secret upstream response</html>",
+            &[],
+        )
+        .unwrap_err();
+        assert!(!error.contains("secret upstream"));
+        assert!(error.contains("No structured provider error details"));
+        assert_eq!(
+            parse_response(StatusCode::OK, b"{\"status\":\"completed\"}", &[]).unwrap()["status"],
+            "completed"
+        );
+    }
     #[test]
     fn builds_uri_delivery_with_explicit_frame_roles_and_duration() {
         use crate::models::{
@@ -265,7 +404,9 @@ mod tests {
             body["input"][2]["text"],
             "[# Sources <FIRST_FRAME>@Image1 <LAST_FRAME>@Image2] Animate"
         );
-        assert_eq!(body["store"], false);
+        assert_eq!(body["store"], true);
+        assert_eq!(body["background"], false);
+        assert_eq!(body["stream"], false);
         request.starting_image = None;
         request.ending_image = None;
         request.reference_images = Some(vec![image]);

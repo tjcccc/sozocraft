@@ -1,27 +1,32 @@
 {
   "version": 1,
   "projnaviVersion": "0.5.0",
-  "generatedAt": "2026-09-20T09:12:28.355Z",
+  "generatedAt": "2026-10-01T06:29:15.064Z",
   "root": ".",
   "files": {
     "AGENTS.md": {
-      "hash": "febbf5c0379997adca07b04d0729b827194bbe906bd840cfd5dc2a95dd0869d6",
-      "size": 3364,
+      "hash": "33d47befa21782586ebed182a5126f861d66567bd52bb0abc56003a9daccc3ff",
+      "size": 3628,
       "category": "docs"
     },
     "DEVLOG.md": {
-      "hash": "642c8f469830a14cd812d91163844aa75331e70934f477c747f50990041ea6bf",
-      "size": 36876,
+      "hash": "b75a111bd9538e696745d8dfd3b10f3c2b2652e0eab8c868ca8adefd430a222a",
+      "size": 38655,
+      "category": "docs"
+    },
+    "docs/agent-cli.md": {
+      "hash": "c07e08f57776a16aae7a204469cf7238c624824981b0fc9f9ab7e4df80d7e783",
+      "size": 12648,
       "category": "docs"
     },
     "docs/architecture.md": {
-      "hash": "e24300dde7f49219b9e5dac61464fcf41b0077248e617ccf79564f2827ba244e",
-      "size": 9155,
+      "hash": "9dac76da0935c0f85ee0ed9ba501b76698195339f2328ecb9b07e6e45cb643aa",
+      "size": 9814,
       "category": "docs"
     },
     "package.json": {
-      "hash": "56ff57552c2e08cbe78b32ae1e40845ee073d9a056fa58472859b32208479479",
-      "size": 1032,
+      "hash": "066633129e78001ec4222af29e62aef8538c86f86eeb8209c4f3de0d4ea17ff5",
+      "size": 1213,
       "category": "config"
     },
     "pnpm-lock.yaml": {
@@ -35,13 +40,13 @@
       "category": "config"
     },
     "README.md": {
-      "hash": "17f4b1db56cfdf1f00caa633feb455eb536c70af08a4d6666bafb8f730f52a8b",
-      "size": 25086,
+      "hash": "f2404581cf86c689d6e452d0f302d146e66ff081d6df39a56111a52fd503ebaf",
+      "size": 26198,
       "category": "docs"
     },
     "spec/ui.md": {
-      "hash": "475eed7bfb956de0da36da5889c9bc74d584bee3d1767e9bfdc5b58c432e56e2",
-      "size": 8379,
+      "hash": "fef114ed436d19a827002d72bee0c64f23f7c1ca3f78ac74e9e583ad62c8bd44",
+      "size": 8704,
       "category": "docs"
     },
     "src-tauri/capabilities/default.json": {
@@ -53,6 +58,11 @@
       "hash": "1e80bfda2385b00e4023c155c6f88aa9f5ee5ae3d29c6d4d8cf31248aa8d1595",
       "size": 1347,
       "category": "source"
+    },
+    "src-tauri/tests/agent_cli.rs": {
+      "hash": "a2980fb85abd4699f7a970044c69890160229c57851120a32d22f5c2a532ff98",
+      "size": 1722,
+      "category": "test"
     },
     "src/api.ts": {
       "hash": "fd5834fa6b00fbce3ac4f715d5e16ae165089dd40e4d137d6975acf8a6aeec4c",
@@ -125,13 +135,13 @@
       "category": "source"
     },
     "src/components/VideoGenerationPanel.test.tsx": {
-      "hash": "d7e032d2608e27c848fc5d6e23f80ff486c5b3d8e6fceb860d849086bb4308f6",
-      "size": 6433,
+      "hash": "1b35b029044fc8f16feda2d145bafc071737e6363387a782caa021e5c4926032",
+      "size": 7555,
       "category": "test"
     },
     "src/components/VideoGenerationPanel.tsx": {
-      "hash": "bb42762040a77da00b1f58755c7bf1023c704ca391f14c2a702b04b3e8851f89",
-      "size": 7713,
+      "hash": "18841b4ed3500406aad981a50eedabfe03d1ea891b05fa37fe3c223668495bc4",
+      "size": 7970,
       "category": "source"
     },
     "src/hooks/useAppState.ts": {
@@ -185,13 +195,13 @@
       "category": "source"
     },
     "src/hooks/useVideoGeneration.test.ts": {
-      "hash": "d448ad279db3596ee097d027eee008fddd728a16dc6acc0d65e1dadc3ff69bde",
-      "size": 8533,
+      "hash": "b8e1abc9dba5c7dffec96faaa637b7316a814617f1a6d116f7caca09292fd88a",
+      "size": 9900,
       "category": "test"
     },
     "src/hooks/useVideoGeneration.ts": {
-      "hash": "3e5ed8f4f7f8863b562e67ae637963feff378ef1b2fbdbae7710728dfa2f70af",
-      "size": 13839,
+      "hash": "042f1db9b39553d221468726afcb1f7deb661bc58e51575510ba95650dc3e9dd",
+      "size": 14493,
       "category": "source"
     },
     "src/hooks/useVideoPreviews.ts": {
@@ -220,8 +230,8 @@
       "category": "source"
     },
     "src/models/videoProviders.ts": {
-      "hash": "3ff93f363dacd62b4eae184e5234fcab6908805f95bc85e40f96488e69f487f1",
-      "size": 5608,
+      "hash": "235e57032c5b22f35bfe0e1a0bfe6d98472b7abd54a482f03fc8058dedfa6c2d",
+      "size": 5991,
       "category": "source"
     },
     "src/types.ts": {
@@ -287,13 +297,13 @@
   },
   "notes": {
     ".projnavi/project.md": {
-      "hash": "407b37fdc5f6c31617045b24ea54fca09a26491536dbce474f84a8d222dd80d0",
-      "size": 2356,
+      "hash": "e5f395962908d816feee3e6c26c5b13085c6edae235997dd257e9ceff32dee66",
+      "size": 2558,
       "category": "note"
     },
     ".projnavi/modules/backend.md": {
-      "hash": "4c2d8ea0ee0fef41356722c77503a723dbafaf5e5b23b810af0183f63f0c66f7",
-      "size": 1873,
+      "hash": "00295d1ec64f32f1a9eb7ecdd69f2efe057448a1fbe20e76f51560ed912f1f7b",
+      "size": 2166,
       "category": "note"
     },
     ".projnavi/modules/example.md": {
@@ -317,8 +327,8 @@
       "category": "note"
     },
     ".projnavi/flows/generation.md": {
-      "hash": "2863c0fa514ff9af7b8278df917c0ce71f7ecb20b72c41be9bc387aa3149dcff",
-      "size": 2270,
+      "hash": "bad950b225044b2f219e11e550d10b98bd7c27f7f6318ec4812b3ec19ec7afae",
+      "size": 2757,
       "category": "note"
     },
     ".projnavi/flows/prompt-library.md": {
@@ -329,8 +339,8 @@
   },
   "evidence": {
     "AGENTS.md": {
-      "hash": "febbf5c0379997adca07b04d0729b827194bbe906bd840cfd5dc2a95dd0869d6",
-      "size": 3364,
+      "hash": "33d47befa21782586ebed182a5126f861d66567bd52bb0abc56003a9daccc3ff",
+      "size": 3628,
       "category": "docs",
       "claimIds": [
         "command.validation",
@@ -338,24 +348,24 @@
       ]
     },
     "docs/architecture.md": {
-      "hash": "e24300dde7f49219b9e5dac61464fcf41b0077248e617ccf79564f2827ba244e",
-      "size": 9155,
+      "hash": "9dac76da0935c0f85ee0ed9ba501b76698195339f2328ecb9b07e6e45cb643aa",
+      "size": 9814,
       "category": "docs",
       "claimIds": [
         "risk.tauri-boundary"
       ]
     },
     "package.json": {
-      "hash": "56ff57552c2e08cbe78b32ae1e40845ee073d9a056fa58472859b32208479479",
-      "size": 1032,
+      "hash": "066633129e78001ec4222af29e62aef8538c86f86eeb8209c4f3de0d4ea17ff5",
+      "size": 1213,
       "category": "config",
       "claimIds": [
         "command.validation"
       ]
     },
     "README.md": {
-      "hash": "17f4b1db56cfdf1f00caa633feb455eb536c70af08a4d6666bafb8f730f52a8b",
-      "size": 25086,
+      "hash": "f2404581cf86c689d6e452d0f302d146e66ff081d6df39a56111a52fd503ebaf",
+      "size": 26198,
       "category": "docs",
       "claimIds": [
         "module.prompt-library"
@@ -384,8 +394,8 @@
       "claimIds": []
     },
     "src-tauri/src/lib.rs": {
-      "hash": "64e2a38e5b9f3b12c33362d173d750faed77677bd1423ebc57531e5e6cec4354",
-      "size": 36549,
+      "hash": "50ba979dc2c0e5d16a19ec1530fd12076258901222e5c7f081f5dae63eac3cae",
+      "size": 36562,
       "category": "evidence",
       "claimIds": [
         "flow.generation",
@@ -399,8 +409,8 @@
       "claimIds": []
     },
     "src-tauri/src/models.rs": {
-      "hash": "1918338eb1abfedb4a1a19008c3caa0f61f6b1859dc613aba3a1747deaa3b346",
-      "size": 41750,
+      "hash": "e40cf0d7eb85f3a94e2742435385027c57bb58879ac7189c09569b4c2e8a11c0",
+      "size": 43579,
       "category": "evidence",
       "claimIds": [
         "flow.generation",
@@ -494,10 +504,12 @@
     }
   },
   "inventory": {
-    "summary": "Detected Node package sozocraft. Indexed 56 relevant files. Detected 8 test files.",
+    "summary": "Detected Node package sozocraft. Indexed 58 relevant files. Detected 9 test files.",
     "packageName": "sozocraft",
     "packageScripts": [
       "build",
+      "cli",
+      "cli:build",
       "dev",
       "preview",
       "tauri",
@@ -513,12 +525,13 @@
       "src-tauri"
     ],
     "fileCounts": {
-      "docs": 6,
+      "docs": 7,
       "config": 4,
       "source": 38,
-      "test": 8
+      "test": 9
     },
     "tests": [
+      "src-tauri/tests/agent_cli.rs",
       "src/components/PromptEditor.test.tsx",
       "src/components/QuickPromptPanel.test.tsx",
       "src/components/VideoGenerationPanel.test.tsx",

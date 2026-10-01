@@ -39,15 +39,13 @@ impl GoogleVeoClient {
         if api_key.trim().is_empty() {
             return Err("Gemini API key is missing.".to_string());
         }
-        let base_url = base_url
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| DEFAULT_ENDPOINT.to_string())
-            .trim_end_matches('/')
-            .to_string();
+        let base_url = normalize_api_base_url(base_url);
         validate_api_base_url(&base_url)?;
 
         let timeout = Duration::from_secs(timeout_seconds.max(10));
-        let mut client_builder = Client::builder().timeout(timeout);
+        let mut client_builder = Client::builder()
+            .timeout(timeout)
+            .redirect(redirect::Policy::none());
         let mut download_builder =
             Client::builder()
                 .timeout(timeout)
@@ -339,6 +337,16 @@ async fn write_mp4_response(
     Ok(total as u64)
 }
 
+pub(crate) fn normalize_api_base_url(value: Option<String>) -> String {
+    let value = value
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| DEFAULT_ENDPOINT.to_string());
+    let value = value.trim().trim_end_matches('/');
+    // Gemini image settings commonly point at the models collection. Video adapters
+    // append their own models/operations or interactions/files paths.
+    value.strip_suffix("/models").unwrap_or(value).to_string()
+}
+
 fn validate_api_base_url(value: &str) -> Result<(), String> {
     let url = Url::parse(value).map_err(|_| "Invalid Google Gemini base URL.".to_string())?;
     if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
@@ -347,7 +355,7 @@ fn validate_api_base_url(value: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_operation_name(value: &str) -> Result<(), String> {
+pub(crate) fn validate_operation_name(value: &str) -> Result<(), String> {
     if value.is_empty()
         || value.len() > 512
         || value.starts_with('/')
@@ -422,6 +430,20 @@ mod tests {
     use crate::models::{
         ReferenceImageInput, VideoGenerationOptions, VideoInputMode, VideoProvider,
     };
+
+    #[test]
+    fn accepts_shared_gemini_models_collection_base_url() {
+        assert_eq!(
+            normalize_api_base_url(Some(
+                " https://generativelanguage.googleapis.com/v1beta/models/ ".to_string()
+            )),
+            DEFAULT_ENDPOINT
+        );
+        assert_eq!(
+            normalize_api_base_url(Some("https://proxy.example/google/v1beta".to_string())),
+            "https://proxy.example/google/v1beta"
+        );
+    }
 
     fn request() -> VideoGenerationRequest {
         VideoGenerationRequest {

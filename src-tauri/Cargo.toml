@@ -4,6 +4,11 @@ version = "0.25.1"
 description = "A desktop AI visual generation studio and prompt workspace."
 authors = ["SozoCraft"]
 edition = "2021"
+default-run = "sozocraft"
+
+[[bin]]
+name = "sozocraft-cli"
+path = "src/bin/sozocraft-cli.rs"
 
 [lib]
 name = "sozocraft_lib"

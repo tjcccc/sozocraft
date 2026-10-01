@@ -70,7 +70,7 @@ export function VideoGenerationPanel({
   const supportsEndFrame = true;
   const frameRoleDisabled = inputImages.length > 2;
   const roleOptions = [
-    { label: "Reference", value: "reference" as const },
+    ...(modelConfig.supportsReferenceImages === false ? [] : [{ label: "Reference", value: "reference" as const }]),
     {
       disabled: frameRoleDisabled,
       label: "Start frame",
@@ -188,6 +188,9 @@ export function VideoGenerationPanel({
       />
       {providerConfig.audioAlwaysGenerated ? (
         <p className="video-provider-note">{modelConfig.productName} generates audio automatically.</p>
+      ) : null}
+      {modelConfig.supportsReferenceImages === false ? (
+        <p className="video-provider-note">{modelConfig.productName} accepts start/end frames, but no asset references.</p>
       ) : null}
       {model === "gemini-omni-1.1-flash" ? (
         <p className="video-provider-note">Omni Stop takes effect after the initial generation request returns.</p>

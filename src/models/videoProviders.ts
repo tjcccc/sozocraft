@@ -21,6 +21,7 @@ export type VideoModelConfig = {
   defaultDuration: number;
   defaultResolution: string;
   maxInputImages?: number;
+  supportsReferenceImages?: boolean;
 };
 
 export const VIDEO_PROVIDER_IDS = ["seedance", "grok-imagine", "google-veo"] as const;
@@ -107,6 +108,16 @@ const VIDEO_PROVIDERS: Record<VideoProviderId, VideoProviderConfig> = {
       defaultDuration: 8,
       defaultResolution: "720p",
     }, {
+      id: "veo-3.1-lite-generate-preview",
+      productName: "Veo 3.1 Lite",
+      resolutions: ["720p", "1080p"],
+      durations: [4, 6, 8],
+      referenceDurations: [],
+      defaultDuration: 8,
+      defaultResolution: "720p",
+      maxInputImages: 2,
+      supportsReferenceImages: false,
+    }, {
       id: "gemini-omni-1.1-flash",
       productName: "Gemini Omni Flash 1.1",
       resolutions: ["360p", "720p", "1080p", "4k"],
@@ -145,7 +156,7 @@ export function getVideoDurations(
   resolution: string,
 ): readonly number[] {
   const config = getVideoModelConfig(provider, modelId);
-  if (modelId === "veo-3.1-generate-preview" && (inputMode === "reference" || resolution !== "720p")) {
+  if (["veo-3.1-generate-preview", "veo-3.1-lite-generate-preview"].includes(modelId) && (inputMode === "reference" || resolution !== "720p")) {
     return [8];
   }
   return inputMode === "reference" ? config.referenceDurations : config.durations;

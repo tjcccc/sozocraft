@@ -324,7 +324,7 @@ impl VideoGenerationRequest {
                 "doubao-seedance-2-5-260628",
             ],
             VideoProvider::GrokImagine => &["grok-imagine-video-1.5"],
-            VideoProvider::GoogleVeo => &["veo-3.1-generate-preview", "gemini-omni-1.1-flash"],
+            VideoProvider::GoogleVeo => &["veo-3.1-generate-preview", "veo-3.1-lite-generate-preview", "gemini-omni-1.1-flash"],
         };
         if !supported_models.contains(&self.model.as_str()) {
             return Err(format!(
@@ -398,6 +398,9 @@ impl VideoGenerationRequest {
                 validate_video_input_image(ending_image, "ending", self.provider)?;
             }
             VideoInputMode::Reference => {
+                if self.model == "veo-3.1-lite-generate-preview" {
+                    return Err("Veo 3.1 Lite does not support asset reference images; use starting/ending frames.".to_string());
+                }
                 if self.starting_image.is_some() || self.ending_image.is_some() {
                     return Err(
                         "Reference-to-video cannot be combined with frame images.".to_string()
@@ -482,6 +485,7 @@ impl VideoGenerationOptions {
             VideoProvider::GoogleVeo if model == "gemini-omni-1.1-flash" => (
                 &[3, 4, 5, 6, 7, 8, 9, 10], &["16:9", "9:16"], &["360p", "720p", "1080p", "4k"],
             ),
+            VideoProvider::GoogleVeo if model == "veo-3.1-lite-generate-preview" => (&[4, 6, 8], &["16:9", "9:16"], &["720p", "1080p"]),
             VideoProvider::GoogleVeo => (&[4, 6, 8], &["16:9", "9:16"], &["720p", "1080p", "4k"]),
         };
         if !durations.contains(&self.duration) {
@@ -505,9 +509,9 @@ impl VideoGenerationOptions {
                 self.resolution
             ));
         }
-        if model == "veo-3.1-generate-preview" && self.resolution != "720p" && self.duration != 8 {
+        if matches!(model, "veo-3.1-generate-preview" | "veo-3.1-lite-generate-preview") && self.resolution != "720p" && self.duration != 8 {
             return Err(
-                "Google Veo 1080p and 4K generation requires an 8-second duration.".to_string(),
+                "Google Veo high-resolution generation requires an 8-second duration.".to_string(),
             );
         }
         if provider == VideoProvider::GoogleVeo && self.generate_audio.is_some() {
@@ -1154,6 +1158,36 @@ mod video_tests {
                 .collect(),
         );
         assert!(value.validate().unwrap_err().contains("between 1 and 3"));
+    }
+
+    #[test]
+    fn veo_lite_accepts_frames_but_rejects_4k_references_and_short_1080p() {
+        let mut value = request();
+        value.provider = VideoProvider::GoogleVeo;
+        value.model = "veo-3.1-lite-generate-preview".to_string();
+        value.options = VideoGenerationOptions {
+            duration: 6,
+            aspect_ratio: "9:16".to_string(),
+            resolution: "720p".to_string(),
+            generate_audio: None,
+        };
+        assert!(value.validate().is_ok());
+        value.input_mode = VideoInputMode::Frames;
+        value.starting_image = Some(valid_image("start.png"));
+        value.ending_image = Some(valid_image("end.png"));
+        assert!(value.validate().is_ok());
+        value.options.resolution = "1080p".to_string();
+        assert!(value.validate().unwrap_err().contains("requires an 8-second"));
+        value.options.duration = 8;
+        assert!(value.validate().is_ok());
+        value.options.resolution = "4k".to_string();
+        assert!(value.validate().unwrap_err().contains("resolution"));
+        value.options.resolution = "720p".to_string();
+        value.input_mode = VideoInputMode::Reference;
+        value.starting_image = None;
+        value.ending_image = None;
+        value.reference_images = Some(vec![valid_image("ref.png")]);
+        assert!(value.validate().unwrap_err().contains("does not support asset reference"));
     }
 
     fn valid_image(name: &str) -> ReferenceImageInput {

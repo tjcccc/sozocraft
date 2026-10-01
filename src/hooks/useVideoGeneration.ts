@@ -75,12 +75,20 @@ export function reconcileInputImageRoles(
   previousImages: ReferenceImageInput[],
   nextImages: ReferenceImageInput[],
   previousRoles: Record<string, VideoInputImageRole>,
+  modelId?: string,
 ): Record<string, VideoInputImageRole> {
   const nextIds = new Set(nextImages.map((image) => image.id));
   const roles = Object.fromEntries(
     nextImages.map((image) => [image.id, previousRoles[image.id] ?? "reference"]),
   ) as Record<string, VideoInputImageRole>;
   const previousMode = videoInputMode(previousImages, previousRoles);
+
+  if (getVideoModelConfig(provider, modelId).supportsReferenceImages === false) {
+    const starting = nextImages.find((image) => roles[image.id] === "starting") ?? nextImages[0];
+    return Object.fromEntries(nextImages.map((image) => [
+      image.id, image.id === starting?.id ? "starting" : "ending",
+    ])) as Record<string, VideoInputImageRole>;
+  }
 
   if (nextImages.some((image) => image.assetId)) {
     return Object.fromEntries(
@@ -119,11 +127,15 @@ export function updateInputImageRole(
   roles: Record<string, VideoInputImageRole>,
   imageId: string,
   role: VideoInputImageRole,
+  modelId?: string,
 ): Record<string, VideoInputImageRole> {
   if (!images.some((image) => image.id === imageId)) {
     return roles;
   }
   if (role === "reference") {
+    if (getVideoModelConfig(provider, modelId).supportsReferenceImages === false) {
+      return roles;
+    }
     return Object.fromEntries(
       images.map((image) => [image.id, "reference"]),
     ) as Record<string, VideoInputImageRole>;
@@ -226,7 +238,8 @@ export function useVideoGeneration({
 
   const setInputImages: Dispatch<SetStateAction<ReferenceImageInput[]>> = useCallback(
     (next) => updateProviderState((current) => {
-      const inputImages = typeof next === "function" ? next(current.inputImages) : next;
+      const inputImages = (typeof next === "function" ? next(current.inputImages) : next)
+        .slice(0, getVideoProviderConfig(provider, current.model).maxInputImages);
       return {
         inputImages,
         inputImageRoles: reconcileInputImageRoles(
@@ -234,6 +247,7 @@ export function useVideoGeneration({
           current.inputImages,
           inputImages,
           current.inputImageRoles,
+          current.model,
         ),
       };
     }),
@@ -248,6 +262,7 @@ export function useVideoGeneration({
         current.inputImageRoles,
         imageId,
         role,
+        current.model,
       ),
     }));
   }, [provider, updateProviderState]);
@@ -353,7 +368,7 @@ export function useVideoGeneration({
         return {
           model: nextModel.id,
           inputImages,
-          inputImageRoles: reconcileInputImageRoles(provider, current.inputImages, inputImages, current.inputImageRoles),
+          inputImageRoles: reconcileInputImageRoles(provider, current.inputImages, inputImages, current.inputImageRoles, nextModel.id),
           resolution: nextModel.resolutions.includes(current.resolution)
             ? current.resolution
             : nextModel.defaultResolution,

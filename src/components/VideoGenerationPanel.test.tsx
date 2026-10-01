@@ -43,6 +43,25 @@ function renderPanel(
 }
 
 describe("video generation controls", () => {
+  it("offers Veo Lite with two frame inputs, no references, and no 4K", async () => {
+    const user = userEvent.setup();
+    const model = getVideoModelConfig("google-veo", "veo-3.1-lite-generate-preview");
+    const props = renderPanel("google-veo", {
+      model: model.id,
+      modelConfig: model,
+      providerConfig: getVideoProviderConfig("google-veo", model.id),
+      inputImages: [{ id: "sprite", name: "sprite.png", mimeType: "image/png", data: "iVBORw0KGgo=", dataUrl: "data:image/png;base64,iVBORw0KGgo=" }],
+      inputImageRoles: { sprite: "starting" },
+    });
+    expect(screen.getByRole("option", { name: "Veo 3.1 Lite" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "4k" })).toBeNull();
+    expect(screen.getByText("1 / 2")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Set use for sprite.png" }));
+    expect(screen.queryByRole("menuitemradio", { name: "Reference" })).toBeNull();
+    await user.selectOptions(screen.getByLabelText("Model"), "veo-3.1-generate-preview");
+    expect(props.setModel).toHaveBeenCalledWith("veo-3.1-generate-preview");
+  });
+
   it("orders providers as Seedance, Grok Imagine, and Google Video", async () => {
     const user = userEvent.setup();
     const setMode = vi.fn();

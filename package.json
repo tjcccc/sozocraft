@@ -4,6 +4,8 @@
   "version": "0.25.1",
   "type": "module",
   "scripts": {
+    "cli": "cargo run --quiet --manifest-path src-tauri/Cargo.toml --bin sozocraft-cli --",
+    "cli:build": "cargo build --manifest-path src-tauri/Cargo.toml --bin sozocraft-cli",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",

@@ -95,6 +95,24 @@ Frontend-only development:
 pnpm dev
 ```
 
+## Agent CLI
+
+Agents can generate videos without opening the desktop app using Veo 3.1,
+Veo 3.1 Lite, or Gemini Omni Flash 1.1. The CLI reads the same `~/.sozocraft/config.toml`, including
+the Gemini API key, base URL, proxy settings, timeout, and output directory.
+
+```bash
+pnpm cli:build
+./src-tauri/target/debug/sozocraft-cli video generate \
+  --model veo-3.1-generate-preview \
+  --prompt "Pixel-art character walking in place, fixed camera, solid background" \
+  --output ./outputs/pixel-walk.mp4
+```
+
+Use `--dry-run` to validate without a paid request. See
+[the agent CLI guide](docs/agent-cli.md) for image inputs, Omni examples,
+newline-delimited JSON output, and resuming existing jobs.
+
 ## Configuration
 
 Open the settings button in the top toolbar to switch to the full-page settings view and configure:
@@ -404,7 +422,7 @@ uses Grok Imagine Video 1.5.
 Video mode reuses the existing prompt library/editor and presents providers in
 the order Seedance, Grok Imagine, and Google Veo. Each provider keeps its own
 controls and input-image selection when switching tabs. One shared Input Images
-interaction uses per-thumbnail roles: uploads default to Reference, and a hover
+interaction uses per-thumbnail roles: uploads default to Reference (Lite assigns frame roles), and a hover
 or keyboard-focus menu can assign Start frame for every provider plus End frame
 for Seedance and Veo. Reference thumbnails remain unlabelled; explicit Start and
 End assignments receive compact badges. Start/end-frame pairs and reference
@@ -460,6 +478,12 @@ pair, and up to three reference images. Reference-image runs are fixed to eight
 seconds, and Veo's native audio is always enabled. See Google's
 [Veo 3.1 Gemini API guide](https://ai.google.dev/gemini-api/docs/veo).
 
+Veo 3.1 Lite (`veo-3.1-lite-generate-preview`) is also available in Google
+Video and the agent CLI. It supports 4/6/8 seconds at 720p, eight seconds at
+1080p, and starting/end frames. It does not support 4K or asset references.
+Uploads automatically receive frame roles when Lite is selected. Standard
+Veo remains the default.
+
 Google Video also offers `gemini-omni-1.1-flash` (Gemini Omni Flash 1.1) through
 Google's [Interactions API](https://ai.google.dev/gemini-api/docs/omni), using the
 same Gemini credentials. It supports 3–10 seconds, landscape/portrait, 360p/720p
@@ -468,7 +492,8 @@ SozoCraft. Audio is generated automatically. This integration covers text and
 image inputs; conversational editing and video/audio uploads are not exposed.
 Omni uses synchronous URI delivery (with at least a 15-minute request timeout),
 then polls the returned file and downloads the MP4. Stop takes effect after the
-initial generation request returns. Interaction storage is disabled.
+initial generation request returns. Interaction storage is enabled because
+Google requires `store=true` for URI video delivery.
 
 Grok Imagine now uses `grok-imagine-video-1.5` with the xAI configuration.
 It supports 1–15-second clips, up to seven references, start/end frame pairs,

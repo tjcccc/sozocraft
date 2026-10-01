@@ -21,6 +21,24 @@ const startingImage = {
 };
 
 describe("video provider request mapping", () => {
+  it("keeps Veo Lite limits and frame-only image roles aligned", () => {
+    const model = getVideoModelConfig("google-veo", "veo-3.1-lite-generate-preview");
+    expect(model.productName).toBe("Veo 3.1 Lite");
+    expect(model.resolutions).toEqual(["720p", "1080p"]);
+    expect(getVideoDurations("google-veo", model.id, "image", "720p")).toEqual([4, 6, 8]);
+    expect(getVideoDurations("google-veo", model.id, "frames", "1080p")).toEqual([8]);
+    expect(getVideoProviderConfig("google-veo", model.id).maxInputImages).toBe(2);
+    expect(getVideoModelConfig("google-veo").id).toBe("veo-3.1-generate-preview");
+    const ending = { ...startingImage, id: "ending-image" };
+    const roles = reconcileInputImageRoles("google-veo", [], [startingImage], {}, model.id);
+    expect(videoInputMode([startingImage], roles)).toBe("image");
+    const pair = reconcileInputImageRoles("google-veo", [startingImage], [startingImage, ending], roles, model.id);
+    expect(videoInputMode([startingImage, ending], pair)).toBe("frames");
+    expect(updateInputImageRole("google-veo", [startingImage, ending], pair, startingImage.id, "reference", model.id)).toEqual(pair);
+    const switched = reconcileInputImageRoles("google-veo", [startingImage, ending], [startingImage, ending], {}, model.id);
+    expect(videoInputMode([startingImage, ending], switched)).toBe("frames");
+  });
+
   it("exposes Seedance 2.5 limits without changing Seedance 2.0", () => {
     const model = getVideoModelConfig("seedance", "doubao-seedance-2-5-260628");
     expect(model.productName).toBe("Seedance 2.5");

@@ -23,6 +23,13 @@
 
 ## Backend
 
+- `src-tauri/src/bin/sozocraft-cli.rs` is a headless binary. `cli/arguments.rs`
+  owns its narrow command contract; `cli/video.rs` validates inputs, loads the
+  shared Gemini config, dispatches Veo/Omni requests, monitors existing jobs,
+  and publishes MP4 files without overwriting, using the shared desktop output
+  template by default. It does not load or modify desktop
+  history or the prompt SQLite index. See `docs/agent-cli.md`.
+
 - `src-tauri/src/models.rs` contains serializable app/request/history types.
 - `src-tauri/src/gemini_models.rs` contains Gemini image model capability constants.
 - `src-tauri/src/gemini.rs` builds Gemini requests, parses responses, and guards model-specific options.
@@ -36,7 +43,8 @@
   validates result URLs, and downloads bounded MP4 output.
 - `src-tauri/src/google_omni.rs` maps Gemini Omni Interactions URI delivery,
   frame/reference roles, and file readiness, reusing the bounded Google MP4
-  downloader. Google Video routes by validated model ID while retaining the
+  downloader. URI video delivery enables Google interaction storage, as required
+  by the API. Google Video routes by validated model ID while retaining the
   persisted `google-veo` provider ID for compatibility.
 - `src-tauri/src/google_veo.rs` maps Gemini API Veo long-running operations and
   validates Google-hosted output downloads.
@@ -106,7 +114,9 @@
   and cannot be mixed with the starting-image mode.
 - Google Veo uses the existing Gemini credential and supports 4/6/8 seconds at
   720p, eight seconds at 1080p/4K or with up to three references, and always-on
-  native audio. Requests explicitly use `personGeneration: allow_all` for text
+  native audio. Veo 3.1 Lite uses the same client with 720p/1080p only,
+  eight seconds required for 1080p, and frame inputs instead of asset references.
+  Requests explicitly use `personGeneration: allow_all` for text
   input and `allow_adult` for workflows containing images.
 - Seedance routes through either a separate local Ark credential or the
   authenticated Higgsfield CLI. Both routes accept one starting frame, a

@@ -1,4 +1,5 @@
 mod app_state;
+pub mod cli;
 mod ark_assets;
 mod error_log;
 mod file_access;

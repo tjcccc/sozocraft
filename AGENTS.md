@@ -27,6 +27,12 @@ SozoCraft is a Tauri 2 + React/TypeScript desktop app with a Rust backend.
 
 - Update `README.md`, `DEVLOG.md`, `spec/ui.md`, or this file when behavior, setup, architecture, or security expectations change.
 
+## Headless generation
+
+Before using the video CLI, read `docs/agent-cli.md` for its config, model options,
+JSON protocol, and job recovery rules. Preserve returned model/operation pairs;
+resume existing jobs rather than automatically retrying a paid generation.
+
 <!-- projnavi-agent-codex:start -->
 ## projnavi
 

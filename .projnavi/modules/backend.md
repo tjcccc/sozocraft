@@ -10,6 +10,7 @@ The Rust backend is the trust boundary for Tauri commands, provider request cons
 - `src-tauri/src/models.rs` defines serialized app state/settings, generation request/response types, defaults, supported provider IDs, supported model IDs, and core request validation.
 - Provider clients are split by route: `gemini.rs`, `openai_image.rs`, `xai_image.rs`, and `higgsfield.rs`.
 - `src-tauri/src/local_config.rs` stores local config and API keys under `~/.sozocraft/config.toml`.
+- `src-tauri/src/cli/arguments.rs` and `cli/video.rs` expose headless agent video generation, status, and wait commands for Veo 3.1, Veo 3.1 Lite, and Gemini Omni Flash 1.1, reusing the Google adapters and shared local config. `docs/agent-cli.md` describes the JSON protocol and job recovery.
 - `src-tauri/src/app_state.rs` stores non-secret app state under the platform data directory.
 - `src-tauri/src/file_access.rs`, `filename_template.rs`, `reference_image_cache.rs`, and `image_meta.rs` are boundary helpers for local files, output paths, reference images, and PNG metadata.
 

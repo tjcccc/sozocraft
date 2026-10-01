@@ -11,7 +11,8 @@
 Video tasks share the frontend queue but use `useVideoGeneration` and the
 `generate_video` Tauri command. `useVideoGeneration` derives text, starting
 frame, start/end frame, or reference mode from per-thumbnail roles in each
-provider's image list. New uploads default to Reference; the hover menu can
+provider's image list. New uploads default to Reference except Veo Lite, which assigns Start/End
+frames and does not support asset references; the hover menu can
 assign Start for every provider or End for Seedance and Veo. `videoProviders.ts`
 supplies the Seedance, Grok Imagine, and Google Veo capability rules.
 `video_generation.rs` validates and optimizes that contract, dispatches to
@@ -20,6 +21,12 @@ JSON sidecar. Grok reference mode caps duration at 10 seconds, while Veo
 reference mode is fixed at 8 seconds.
 
 ## Common Change Points
+
+Headless agents use `sozocraft-cli video generate/status/wait`, bypassing the
+renderer and desktop history. `cli/arguments.rs` parses options and resume IDs;
+`cli/video.rs` validates `VideoGenerationRequest`, loads the shared Gemini config,
+dispatches to `google_veo.rs` or `google_omni.rs`, emits JSON events, and publishes
+a local MP4 without overwriting. Start with `docs/agent-cli.md` for usage.
 
 - New generation option: frontend state/defaults in `useGeneration.ts`, control visibility in `GenerationPanel.tsx`, request types in `src/types.ts`, Rust request types/defaults/validation in `models.rs`, metadata write in `lib.rs`, and provider payload builders.
 - New provider/model or task to add a new image provider: frontend provider catalog and settings platform controls, backend supported-model arrays and dispatch, local config/defaults, docs, and tests.
