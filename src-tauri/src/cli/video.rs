@@ -209,7 +209,10 @@ fn build_request(options: &Generate) -> Result<VideoGenerationRequest, String> {
     if options.end.is_some() && options.start.is_none() {
         return Err("--end-image requires --start-image.".to_string());
     }
-    if options.start.is_some() && !options.references.is_empty() {
+    if options.model != "gemini-omni-1.1-flash"
+        && options.start.is_some()
+        && !options.references.is_empty()
+    {
         return Err("Frame images cannot be combined with --reference.".to_string());
     }
     let input_mode = if options.end.is_some() {
@@ -407,6 +410,28 @@ mod tests {
         );
         value.references.push(value.start.clone().unwrap());
         assert!(build_request(&value).is_err());
+        value.model = "gemini-omni-1.1-flash".to_string();
+        assert_eq!(
+            build_request(&value).unwrap().input_mode,
+            VideoInputMode::Frames
+        );
+        value.end = None;
+        assert_eq!(
+            build_request(&value).unwrap().input_mode,
+            VideoInputMode::Image
+        );
+        let mut request = build_request(&value).unwrap();
+        let reference = request.reference_images.as_ref().unwrap()[0].clone();
+        request.reference_images = Some(vec![reference; 7]);
+        assert!(request
+            .validate()
+            .unwrap_err()
+            .contains("6 reference images"));
+        request.reference_images = Some(vec![crate::models::ReferenceImageInput {
+            data: "bm90IGFuIGltYWdl".to_string(),
+            ..request.starting_image.clone().unwrap()
+        }]);
+        assert!(request.validate().is_err());
         fs::remove_dir_all(dir).unwrap();
     }
 

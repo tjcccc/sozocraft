@@ -356,6 +356,18 @@ impl VideoGenerationRequest {
             return Err("Grok reference and frame-pair video supports at most 720p resolution.".to_string());
         }
         let reference_images = self.reference_images.as_deref().unwrap_or_default();
+        let allows_frame_references = self.provider == VideoProvider::GoogleVeo
+            && self.model == "gemini-omni-1.1-flash";
+        if allows_frame_references
+            && matches!(self.input_mode, VideoInputMode::Image | VideoInputMode::Frames)
+        {
+            if reference_images.len() > 6 {
+                return Err("Gemini Omni accepts at most 6 reference images.".to_string());
+            }
+            for image in reference_images {
+                validate_video_input_image(image, "reference", self.provider)?;
+            }
+        }
         match self.input_mode {
             VideoInputMode::Text => {
                 if self.starting_image.is_some()
@@ -369,7 +381,7 @@ impl VideoGenerationRequest {
                 let Some(image) = &self.starting_image else {
                     return Err("Image-to-video requires one starting image.".to_string());
                 };
-                if !reference_images.is_empty() {
+                if !reference_images.is_empty() && !allows_frame_references {
                     return Err(
                         "A starting image cannot be combined with reference images.".to_string()
                     );
@@ -388,7 +400,7 @@ impl VideoGenerationRequest {
                 let Some(ending_image) = &self.ending_image else {
                     return Err("Start-and-end-frame video requires one ending image.".to_string());
                 };
-                if !reference_images.is_empty() {
+                if !reference_images.is_empty() && !allows_frame_references {
                     return Err(
                         "Start-and-end-frame video cannot be combined with reference images."
                             .to_string(),

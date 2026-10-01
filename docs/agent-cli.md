@@ -140,6 +140,20 @@ but the generated motion still needs visual inspection.
   --output ./outputs/pixel-walk-omni.mp4
 ```
 
+For Omni sprite keyframes, combine frame images with character/style references.
+References retain separate asset roles; the six-reference limit excludes frame
+images. This example validates locally without submitting a generation:
+
+```bash
+sozocraft-cli video generate \
+  --model gemini-omni-1.1-flash \
+  --prompt "Animate a seamless pixel walk loop, preserving the reference character." \
+  --start-image ./assets/contact.png \
+  --end-image ./assets/contact.png \
+  --reference ./assets/character-sheet.png \
+  --duration 8 --resolution 720p --dry-run
+```
+
 ### Input modes and supported options
 
 | Input | Flags | Constraints |
@@ -147,7 +161,7 @@ but the generated motion still needs visual inspection.
 | Text to video | No image flags | All models |
 | Image to video | `--start-image FILE` | One starting frame |
 | Frame pair | `--start-image FILE --end-image FILE` | Ending frame requires starting frame |
-| Asset references | Repeat `--reference FILE` | Veo standard: 1–3; Omni: 1–6; unsupported by Lite; cannot mix with frame flags |
+| Asset references | Repeat `--reference FILE` | Veo standard: 1–3, cannot mix with frame flags; Omni: 1–6, can mix with starting/ending frames; unsupported by Lite |
 
 | Option | Veo 3.1 | Omni Flash 1.1 |
 | --- | --- | --- |

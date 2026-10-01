@@ -2,6 +2,13 @@
 
 ## 2026-10-01
 
+- Allowed the Omni CLI to combine starting/ending keyframes with up to six
+  asset reference images. Shared validation checks every reference and keeps
+  Veo's restrictions. Added mixed-role payload and dry-run regression coverage.
+  Validation: 161 Rust tests and six installed release CLI dry runs passed;
+  reinstalled the CLI and verified its hash matches the release build. No paid
+  generation calls were submitted.
+
 - User confirmed live Omni generation works with the updated installed CLI.
   Checkpoint validation: 160 Rust tests, 42 frontend tests, frontend/release
   builds, and installed dry runs for Veo 3.1, Veo Lite, and Omni.

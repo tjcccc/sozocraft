@@ -407,6 +407,11 @@ mod tests {
         assert_eq!(body["store"], true);
         assert_eq!(body["background"], false);
         assert_eq!(body["stream"], false);
+        request.reference_images = Some(vec![image.clone(), image.clone()]);
+        assert_eq!(
+            build_body(&request)["input"][4]["text"],
+            "[# Sources <FIRST_FRAME>@Image1 <LAST_FRAME>@Image2] [# References <IMAGE_REF_0>@Image3 <IMAGE_REF_1>@Image4] Animate"
+        );
         request.starting_image = None;
         request.ending_image = None;
         request.reference_images = Some(vec![image]);
