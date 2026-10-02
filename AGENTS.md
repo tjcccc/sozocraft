@@ -27,6 +27,13 @@ SozoCraft is a Tauri 2 + React/TypeScript desktop app with a Rust backend.
 
 - Update `README.md`, `DEVLOG.md`, `spec/ui.md`, or this file when behavior, setup, architecture, or security expectations change.
 
+## Versioning
+
+- `package.json` defines the app version. Keep `src-tauri/Cargo.toml`,
+  `src-tauri/tauri.conf.json`, and the app entry in `src-tauri/Cargo.lock` synchronized.
+- For savegame checkpoints, use a minor bump for new capabilities and a patch
+  bump for compatible fixes, unless the user specifies a version or bump.
+
 ## Headless generation
 
 Before using the image or video CLI, read `docs/agent-cli.md` for its config, model options,

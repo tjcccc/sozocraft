@@ -2,6 +2,9 @@
 
 ## 2026-10-02
 
+- Bumped to `0.26.0` for the expanded headless image/video CLI. Synchronized
+  package, Rust, Tauri, and lockfile versions and documented checkpoint versioning.
+
 - Added CLI `--version` / `-V` using the app's package version, with regression
   coverage that verifies both flags work even with malformed local config.
   All 175 Rust tests passed; reinstalled the release CLI and verified both flags

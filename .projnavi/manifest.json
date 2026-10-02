@@ -1,17 +1,17 @@
 {
   "version": 1,
   "projnaviVersion": "0.5.0",
-  "generatedAt": "2026-10-02T03:25:05.596Z",
+  "generatedAt": "2026-10-02T04:01:05.793Z",
   "root": ".",
   "files": {
     "AGENTS.md": {
-      "hash": "7417c242db26d38015b69845dafa12439bc07468cf2076d03d81b13fe979835e",
-      "size": 3647,
+      "hash": "9d7c3947550d807bd63bcc100a8b2b239aa80b83435b4aa11b972d0aaef7b33f",
+      "size": 3975,
       "category": "docs"
     },
     "DEVLOG.md": {
-      "hash": "9587d5ab35f8cc7a7f2f9f9a04ec2dd8590a31737cd2b6d291fdb3945a3fb761",
-      "size": 41150,
+      "hash": "26e938b1a6024db2ca488cc8314200c6bad538778793dcc1b22aa4c73fd86c08",
+      "size": 41312,
       "category": "docs"
     },
     "docs/agent-cli.md": {
@@ -25,7 +25,7 @@
       "category": "docs"
     },
     "package.json": {
-      "hash": "dd5cc6cfbbda34468e3e5e9e4ef10163847cc03c771f54fc6f9f29ddac902740",
+      "hash": "1d606842e5b76cdc203775673f78b350f63c0e8a524af3a52b2fe4f0598f7d7c",
       "size": 1264,
       "category": "config"
     },
@@ -60,7 +60,7 @@
       "category": "source"
     },
     "src-tauri/tauri.conf.json": {
-      "hash": "1e80bfda2385b00e4023c155c6f88aa9f5ee5ae3d29c6d4d8cf31248aa8d1595",
+      "hash": "ea5e9c6f4425e962d92d50193304d5d93f49bdc0ba7e739ff2ee3a88504a26f9",
       "size": 1347,
       "category": "source"
     },
@@ -354,8 +354,8 @@
   },
   "evidence": {
     "AGENTS.md": {
-      "hash": "7417c242db26d38015b69845dafa12439bc07468cf2076d03d81b13fe979835e",
-      "size": 3647,
+      "hash": "9d7c3947550d807bd63bcc100a8b2b239aa80b83435b4aa11b972d0aaef7b33f",
+      "size": 3975,
       "category": "docs",
       "claimIds": [
         "command.validation",
@@ -371,7 +371,7 @@
       ]
     },
     "package.json": {
-      "hash": "dd5cc6cfbbda34468e3e5e9e4ef10163847cc03c771f54fc6f9f29ddac902740",
+      "hash": "1d606842e5b76cdc203775673f78b350f63c0e8a524af3a52b2fe4f0598f7d7c",
       "size": 1264,
       "category": "config",
       "claimIds": [
