@@ -24,13 +24,20 @@
 ## Backend
 
 - `src-tauri/src/bin/sozocraft-cli.rs` is a headless binary. `cli/arguments.rs`
-  owns its narrow command contract; `cli/video.rs` validates inputs, loads the
-  shared Gemini config, dispatches Veo/Omni requests, monitors existing jobs,
+  and `cli/image_arguments.rs` own its command contracts. `cli/image_request.rs`
+  validates image models, platform options, and decoded references; `cli/image.rs`
+  reuses desktop provider dispatch without desktop history or prompt-index writes.
+  `cli/input.rs` and `cli/output.rs` share input reading and atomic file publication.
+  `cli/video_models.rs` maps models, platforms, reference limits, and safe job IDs.
+  `cli/video.rs` validates inputs, loads shared provider config, dispatches
+  Veo/Omni, Seedance (Ark/Higgsfield), and Grok video requests, monitors existing jobs,
   and publishes MP4 files without overwriting, using the shared desktop output
   template by default. It does not load or modify desktop
   history or the prompt SQLite index. See `docs/agent-cli.md`.
 
 - `src-tauri/src/models.rs` contains serializable app/request/history types.
+- `src-tauri/src/video_provider.rs` shares video clients, config routing, credential
+  loading, and normalized polling between the desktop workflow and agent CLI.
 - `src-tauri/src/gemini_models.rs` contains Gemini image model capability constants.
 - `src-tauri/src/gemini.rs` builds Gemini requests, parses responses, and guards model-specific options.
 - `src-tauri/src/openai_image.rs` builds OpenAI Image API generation requests,

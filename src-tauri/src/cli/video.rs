@@ -1,33 +1,26 @@
 use super::{
     arguments::{validate_operation, Command, Generate},
     emit,
+    input::{read_image, read_prompt},
+    output::{validate_output, Output},
+    video_models,
 };
 use crate::{
-    file_access,
-    filename_template::resolve_output_path,
-    google_omni::{GoogleOmniClient, OmniStatus},
-    google_veo::{GoogleVeoClient, GoogleVeoStatus},
-    local_config,
-    models::{
-        AppSettings, ReferenceImageInput, VideoGenerationOptions, VideoGenerationRequest,
-        VideoInputMode, VideoProvider,
-    },
+    file_access, local_config,
+    models::{AppSettings, VideoGenerationOptions, VideoGenerationRequest, VideoInputMode},
+    video_provider::{self, PollStatus, ProviderClient},
 };
+#[cfg(test)]
 use chrono::Local;
 use serde_json::json;
-use std::{
-    fs,
-    io::Read,
-    path::{Path, PathBuf},
-    time::Duration,
-};
+#[cfg(test)]
+use std::{fs, io::Read};
+use std::{path::Path, time::Duration};
 use tokio::time::Instant;
+#[cfg(test)]
 use uuid::Uuid;
 
-enum Client {
-    Veo(GoogleVeoClient),
-    Omni(GoogleOmniClient),
-}
+struct Client(ProviderClient);
 
 enum Status {
     Pending,
@@ -36,59 +29,33 @@ enum Status {
 
 impl Client {
     fn new(model: &str, key: &str, settings: &AppSettings) -> Result<Self, String> {
-        let proxy = settings
-            .gemini_proxy_enabled
-            .then(|| settings.proxy_url.clone())
-            .flatten();
-        if model == "gemini-omni-1.1-flash" {
-            Ok(Self::Omni(GoogleOmniClient::new(
-                key.to_string(),
-                settings.optional_base_url.clone(),
-                proxy,
-                settings.gemini_timeout_seconds,
-            )?))
-        } else {
-            Ok(Self::Veo(GoogleVeoClient::new(
-                key.to_string(),
-                settings.optional_base_url.clone(),
-                proxy,
-                settings.gemini_timeout_seconds,
-            )?))
-        }
+        let provider = video_models::provider(model)?;
+        video_provider::create_client_with_key(
+            provider,
+            model,
+            &video_provider::provider_runtime(settings, provider),
+            settings,
+            key,
+        )
+        .map(Self)
     }
-
     async fn start(&self, request: &VideoGenerationRequest) -> Result<String, String> {
-        match self {
-            Self::Veo(client) => client.start(request).await,
-            Self::Omni(client) => client.start(request).await,
-        }
+        self.0.start(request).await
     }
-
     async fn poll(&self, operation: &str) -> Result<Status, String> {
-        match self {
-            Self::Veo(client) => match client.poll(operation).await?.status {
-                GoogleVeoStatus::Pending => Ok(Status::Pending),
-                GoogleVeoStatus::Done { url } => Ok(Status::Completed(url)),
-                GoogleVeoStatus::Failed(error) => Err(error),
-            },
-            Self::Omni(client) => match client.poll(operation).await? {
-                OmniStatus::Pending => Ok(Status::Pending),
-                OmniStatus::Done(url) => Ok(Status::Completed(url)),
-                OmniStatus::Failed => Err("Gemini Omni video processing failed.".to_string()),
-            },
+        match self.0.poll(operation).await?.status {
+            PollStatus::Pending => Ok(Status::Pending),
+            PollStatus::Done { url, .. } => Ok(Status::Completed(url)),
+            PollStatus::Failed(error) => Err(error),
         }
     }
-
     async fn download(&self, url: &str, path: &Path) -> Result<u64, String> {
-        match self {
-            Self::Veo(client) => client.download_to(url, path).await,
-            Self::Omni(client) => client.download_to(url, path).await,
-        }
+        self.0.download_to(url, path).await
     }
 }
 
 pub(super) async fn execute(command: Command) -> Result<(), String> {
-    // Validate local inputs before credentials or any paid request. Dry runs never load secrets.
+    // Validate local inputs before retrieving credentials or making any paid request.
     let request = if let Command::Generate(options) = &command {
         Some(build_request(options)?)
     } else {
@@ -96,26 +63,81 @@ pub(super) async fn execute(command: Command) -> Result<(), String> {
     };
     if let (Command::Generate(options), Some(request)) = (&command, &request) {
         if options.dry_run {
+            let mut settings = if request.provider == crate::models::VideoProvider::Seedance {
+                local_config::load_settings(AppSettings::default())
+            } else {
+                AppSettings::default()
+            };
+            video_models::apply_platform(
+                &mut settings,
+                &options.model,
+                options.platform.as_deref(),
+            )?;
             if let Some(output) = &options.output {
-                validate_output(output)?;
+                validate_output(output, "mp4")?;
             }
             return emit(&json!({
                 "status": "validated", "model": request.model, "inputMode": request.input_mode,
+                "provider": request.provider.id(), "platform": video_models::platform(&options.model, &settings)?,
                 "options": request.options, "inputImageCount": request.reference_images.as_ref().map_or(0, Vec::len)
                     + usize::from(request.starting_image.is_some()) + usize::from(request.ending_image.is_some()),
             }));
         }
     }
-    let key = local_config::get_gemini_api_key().map_err(|_| "Could not load Gemini API key from ~/.sozocraft/config.toml. Configure it in SozoCraft and check that the file is valid.".to_string())?;
-    let settings = local_config::load_settings(AppSettings::default());
-    execute_with_settings(command, request, &key, &settings)
+    let (model, platform) = match &command {
+        Command::Generate(options) => (&options.model, options.platform.as_deref()),
+        Command::Status {
+            model, platform, ..
+        }
+        | Command::Wait {
+            model, platform, ..
+        } => (model, platform.as_deref()),
+        _ => return Err("Expected a video command.".to_string()),
+    };
+    let mut settings = local_config::load_settings(AppSettings::default());
+    video_models::apply_platform(&mut settings, model, platform)?;
+    let key = video_models::load_key(model, &settings)?;
+    let runtime = video_provider::provider_runtime(&settings, video_models::provider(model)?);
+    execute_with_settings(command, request.as_ref(), &key, &settings)
         .await
-        .map_err(|error| redact(&error, &key))
+        .map_err(|error| {
+            let mut error = error;
+            let mut sensitive = vec![key.as_str()];
+            sensitive.extend(
+                [runtime.proxy_url.as_deref(), runtime.base_url.as_deref()]
+                    .into_iter()
+                    .flatten(),
+            );
+            if let Some(request) = &request {
+                sensitive.push(&request.prompt);
+                sensitive.extend(
+                    request
+                        .starting_image
+                        .iter()
+                        .chain(request.ending_image.iter())
+                        .chain(
+                            request
+                                .reference_images
+                                .as_deref()
+                                .unwrap_or_default()
+                                .iter(),
+                        )
+                        .map(|image| image.data.as_str()),
+                );
+            }
+            for value in sensitive.into_iter().filter(|value| !value.is_empty()) {
+                error = error.replace(value, "[redacted]");
+                if let Ok(escaped) = serde_json::to_string(value) {
+                    error = error.replace(&escaped[1..escaped.len() - 1], "[redacted]");
+                }
+            }
+            redact(&error, &key)
+        })
 }
 
 async fn execute_with_settings(
     command: Command,
-    request: Option<VideoGenerationRequest>,
+    request: Option<&VideoGenerationRequest>,
     key: &str,
     settings: &AppSettings,
 ) -> Result<(), String> {
@@ -127,11 +149,18 @@ async fn execute_with_settings(
             let output = if options.no_wait {
                 None
             } else {
-                Some(Output::prepare(options.output, settings, &options.model)?)
+                Some(Output::prepare_video(
+                    options.output,
+                    settings,
+                    client.0.filename_provider(),
+                    &options.model,
+                )?)
             };
             let operation = client.start(&request).await?;
             validate_operation(&options.model, &operation)?;
-            emit(&json!({"status": "submitted", "model": options.model, "operation": operation}))?;
+            emit(
+                &json!({"status": "submitted", "model": options.model, "operation": operation, "provider": request.provider.id(), "platform": video_models::platform(&options.model, settings)?}),
+            )?;
             if let Some(output) = output {
                 wait(
                     &client,
@@ -144,31 +173,37 @@ async fn execute_with_settings(
             }
             Ok(())
         }
-        Command::Status { operation, model } => {
+        Command::Status {
+            operation, model, ..
+        } => {
             let client = Client::new(&model, key, settings)?;
             let status = match client.poll(&operation).await? {
                 Status::Pending => "pending",
                 Status::Completed(_) => "completed",
             };
-            emit(&json!({"status": status, "model": model, "operation": operation}))
+            emit(
+                &json!({"status": status, "model": model, "operation": operation, "provider": video_models::provider(&model)?.id(), "platform": video_models::platform(&model, settings)?}),
+            )
         }
         Command::Wait {
             operation,
             model,
             output,
             max_wait,
+            ..
         } => {
             let client = Client::new(&model, key, settings)?;
             wait(
                 &client,
                 &model,
                 &operation,
-                Output::prepare(output, settings, &model)?,
+                Output::prepare_video(output, settings, client.0.filename_provider(), &model)?,
                 max_wait,
             )
             .await
         }
-        Command::Help => Ok(()),
+        Command::Help | Command::Version => Ok(()),
+        Command::Image(_) => Err("Expected a video command.".to_string()),
     }
 }
 
@@ -192,7 +227,7 @@ async fn wait(
                 let bytes = client.download(&url, &output.partial).await?;
                 output.publish()?;
                 return emit(
-                    &json!({"status": "completed", "model": model, "operation": operation, "outputPath": output.final_path, "bytes": bytes}),
+                    &json!({"status": "completed", "model": model, "operation": operation, "outputPath": output.final_path, "bytes": bytes, "provider": video_models::provider(model)?.id(), "platform": match client.0.platform() { "volcengine-ark" => "ark", "google-gemini-api" => "gemini", value => value }}),
                 );
             }
         }
@@ -226,7 +261,7 @@ fn build_request(options: &Generate) -> Result<VideoGenerationRequest, String> {
     };
     let request = VideoGenerationRequest {
         task_id: None,
-        provider: VideoProvider::GoogleVeo,
+        provider: video_models::provider(&options.model)?,
         model: options.model.clone(),
         prompt,
         prompt_snapshot: None,
@@ -244,120 +279,22 @@ fn build_request(options: &Generate) -> Result<VideoGenerationRequest, String> {
             duration: options.duration,
             aspect_ratio: options.aspect_ratio.clone(),
             resolution: options.resolution.clone(),
-            generate_audio: None,
+            generate_audio: options.audio,
         },
     };
     request.validate()?;
     Ok(request)
 }
 
-fn read_prompt(reader: impl Read) -> Result<String, String> {
-    let mut bytes = Vec::new();
-    reader
-        .take(50_001)
-        .read_to_end(&mut bytes)
-        .map_err(|_| "Failed to read prompt from stdin.")?;
-    if bytes.len() > 50_000 {
-        return Err("Video prompt is too large.".to_string());
-    }
-    String::from_utf8(bytes).map_err(|_| "Prompt must be UTF-8.".to_string())
-}
-
-fn read_image(path: &str) -> Result<ReferenceImageInput, String> {
-    let value = file_access::read_image_data_url(path)?;
-    let (header, data) = value
-        .split_once(";base64,")
-        .ok_or("Invalid image encoding.")?;
-    Ok(ReferenceImageInput {
-        name: Path::new(path)
-            .file_name()
-            .and_then(|value| value.to_str())
-            .ok_or("Invalid image filename.")?
-            .to_string(),
-        mime_type: header.trim_start_matches("data:").to_string(),
-        data: data.to_string(),
-        asset_id: None,
-    })
-}
-
 fn redact(error: &str, key: &str) -> String {
-    error.replace(key, "[redacted]")
-}
-
-fn validate_output(path: &Path) -> Result<(), String> {
-    if path
-        .extension()
-        .and_then(|value| value.to_str())
-        .is_none_or(|value| !value.eq_ignore_ascii_case("mp4"))
-    {
-        return Err("Output must be a new .mp4 file.".to_string());
-    }
-    match fs::symlink_metadata(path) {
-        Ok(_) => Err("Output already exists; choose a new file.".to_string()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(_) => Err("Cannot inspect output path.".to_string()),
-    }
-}
-
-struct Output {
-    final_path: PathBuf,
-    partial: PathBuf,
-}
-
-impl Output {
-    fn prepare(path: Option<PathBuf>, settings: &AppSettings, model: &str) -> Result<Self, String> {
-        let path = match path {
-            Some(path) => path,
-            None => {
-                let batch_id = Uuid::new_v4().to_string();
-                resolve_output_path(
-                    &settings.output_directory,
-                    &settings.output_template,
-                    "google",
-                    model,
-                    "001",
-                    &batch_id[..6],
-                    "mp4",
-                    Local::now(),
-                )
-                .map_err(|error| error.to_string())?
-            }
-        };
-        validate_output(&path)?;
-        let path = if path.is_absolute() {
-            path
-        } else {
-            std::env::current_dir()
-                .map_err(|_| "Cannot determine working directory.")?
-                .join(path)
-        };
-        let parent = path.parent().ok_or("Invalid output directory.")?;
-        fs::create_dir_all(parent).map_err(|_| "Cannot create output directory.")?;
-        let parent = parent
-            .canonicalize()
-            .map_err(|_| "Cannot resolve output directory.")?;
-        let final_path = parent.join(path.file_name().ok_or("Invalid output filename.")?);
-        let partial = parent.join(format!(".sozocraft-cli-{}.part", Uuid::new_v4()));
-        fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&partial)
-            .map_err(|_| "Cannot write to output directory.")?;
-        Ok(Self {
-            final_path,
-            partial,
-        })
-    }
-
-    fn publish(&self) -> Result<(), String> {
-        // A hard link atomically publishes the complete file without replacing any existing path.
-        fs::hard_link(&self.partial, &self.final_path).map_err(|_| "Cannot publish MP4 output; the destination may already exist or the filesystem may not support hard links.".to_string())
-    }
-}
-
-impl Drop for Output {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.partial);
+    if key.is_empty() {
+        error.chars().take(2000).collect()
+    } else {
+        error
+            .replace(key, "[redacted]")
+            .chars()
+            .take(2000)
+            .collect()
     }
 }
 
@@ -470,6 +407,7 @@ mod tests {
     fn rejects_oversized_stdin_and_redacts_key() {
         assert!(read_prompt(&vec![b'x'; 50_001][..]).is_err());
         assert!(read_prompt(&b"\xff"[..]).is_err());
+        assert_eq!(redact("mock failure", ""), "mock failure");
         assert_eq!(redact("echoed secret", "secret"), "echoed [redacted]");
     }
 

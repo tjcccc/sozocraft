@@ -22,6 +22,7 @@ mod quick_prompts;
 mod reference_image_cache;
 mod seedance_video;
 mod video_generation;
+mod video_provider;
 mod xai_image;
 mod xai_video;
 

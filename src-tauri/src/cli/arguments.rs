@@ -1,16 +1,22 @@
+use super::video_models;
+pub(super) use super::video_models::validate_operation;
 use std::{collections::HashSet, ffi::OsString, path::PathBuf};
 
 #[derive(Debug)]
 pub(super) enum Command {
     Help,
+    Version,
+    Image(super::image_arguments::GenerateImage),
     Generate(Generate),
     Status {
         operation: String,
         model: String,
+        platform: Option<String>,
     },
     Wait {
         operation: String,
         model: String,
+        platform: Option<String>,
         output: Option<PathBuf>,
         max_wait: u64,
     },
@@ -19,6 +25,8 @@ pub(super) enum Command {
 #[derive(Debug)]
 pub(super) struct Generate {
     pub model: String,
+    pub platform: Option<String>,
+    pub audio: Option<bool>,
     pub prompt: Option<String>,
     pub prompt_file: Option<String>,
     pub start: Option<String>,
@@ -45,9 +53,16 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
     if args.is_empty() || args == ["--help"] || args == ["-h"] {
         return Ok(Command::Help);
     }
+    if args == ["--version"] || args == ["-V"] {
+        return Ok(Command::Version);
+    }
+    if args.first().map(String::as_str) == Some("image") {
+        return super::image_arguments::parse(&args);
+    }
     if args.first().map(String::as_str) != Some("video") {
         return Err(
-            "Expected video generate, video status, or video wait. Use --help.".to_string(),
+            "Expected image generate, video generate, video status, or video wait. Use --help."
+                .to_string(),
         );
     }
     if args == ["video", "--help"] || args == ["video", "-h"] {
@@ -56,7 +71,8 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
     let action = args.get(1).map(String::as_str).unwrap_or_default();
     if !["generate", "status", "wait"].contains(&action) {
         return Err(
-            "Expected video generate, video status, or video wait. Use --help.".to_string(),
+            "Expected image generate, video generate, video status, or video wait. Use --help."
+                .to_string(),
         );
     }
     if args.len() == 3 && matches!(args[2].as_str(), "--help" | "-h") {
@@ -64,6 +80,8 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
     }
     let mut options = Generate {
         model: "veo-3.1-generate-preview".to_string(),
+        platform: None,
+        audio: None,
         prompt: None,
         prompt_file: None,
         start: None,
@@ -84,6 +102,8 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
         let allowed = match action {
             "generate" => [
                 "--model",
+                "--platform",
+                "--generate-audio",
                 "--prompt",
                 "--prompt-file",
                 "--start-image",
@@ -98,8 +118,15 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
                 "--dry-run",
             ]
             .contains(&flag.as_str()),
-            "status" => ["--operation", "--model"].contains(&flag.as_str()),
-            _ => ["--operation", "--model", "--output", "--max-wait"].contains(&flag.as_str()),
+            "status" => ["--operation", "--model", "--platform"].contains(&flag.as_str()),
+            _ => [
+                "--operation",
+                "--model",
+                "--platform",
+                "--output",
+                "--max-wait",
+            ]
+            .contains(&flag.as_str()),
         };
         if !allowed {
             return Err("Unknown option for this command. Use --help.".to_string());
@@ -121,6 +148,14 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
             .ok_or_else(|| format!("Missing value for {flag}."))?;
         match flag.as_str() {
             "--model" => options.model = value.clone(),
+            "--platform" => options.platform = Some(value.clone()),
+            "--generate-audio" => {
+                options.audio = Some(match value.as_str() {
+                    "true" => true,
+                    "false" => false,
+                    _ => return Err("--generate-audio must be true or false.".to_string()),
+                })
+            }
             "--prompt" => options.prompt = Some(value.clone()),
             "--prompt-file" => options.prompt_file = Some(value.clone()),
             "--start-image" => options.start = Some(value.clone()),
@@ -147,8 +182,21 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
         return Err("Max wait must be between 1 and 3600 seconds.".to_string());
     }
     validate_model(&options.model)?;
-    if options.model == "gemini-omni-1.1-flash" && !seen.contains("--duration") {
+    let provider = video_models::provider(&options.model)?;
+    if let Some(platform) = options.platform.as_deref() {
+        video_models::validate_platform(&options.model, platform)?;
+    }
+    if options.audio.is_some() && provider == crate::models::VideoProvider::GoogleVeo {
+        return Err("Google video models do not support --generate-audio.".to_string());
+    }
+    if (options.model == "gemini-omni-1.1-flash"
+        || provider != crate::models::VideoProvider::GoogleVeo)
+        && !seen.contains("--duration")
+    {
         options.duration = 5;
+    }
+    if provider == crate::models::VideoProvider::GrokImagine && !seen.contains("--resolution") {
+        options.resolution = "480p".to_string();
     }
     if action == "generate" {
         if options.model == "veo-3.1-lite-generate-preview" && !options.references.is_empty() {
@@ -163,11 +211,7 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
         if options.no_wait && (options.output.is_some() || seen.contains("--max-wait")) {
             return Err("--no-wait cannot be combined with --output or --max-wait; use video wait to download.".to_string());
         }
-        let max_references = if options.model == "gemini-omni-1.1-flash" {
-            6
-        } else {
-            3
-        };
+        let max_references = video_models::max_references(&options.model);
         if options.references.len() > max_references {
             return Err(format!(
                 "This model accepts at most {max_references} reference images."
@@ -175,17 +219,28 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
         }
         return Ok(Command::Generate(options));
     }
+    if provider == crate::models::VideoProvider::Seedance && options.platform.is_none() {
+        return Err(
+            "Seedance status/wait requires --platform ark or higgsfield from the submitted event."
+                .to_string(),
+        );
+    }
     let operation = operation.ok_or("Supply --operation NAME.")?;
     validate_operation(&options.model, &operation)?;
+    if options.platform.as_deref() == Some("higgsfield") {
+        crate::higgsfield_video::validate_job_id(&operation)?;
+    }
     if action == "status" {
         Ok(Command::Status {
             operation,
             model: options.model,
+            platform: options.platform,
         })
     } else {
         Ok(Command::Wait {
             operation,
             model: options.model,
+            platform: options.platform,
             output: options.output,
             max_wait: options.max_wait,
         })
@@ -193,34 +248,7 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
 }
 
 pub(super) fn validate_model(model: &str) -> Result<(), String> {
-    if matches!(
-        model,
-        "veo-3.1-generate-preview" | "veo-3.1-lite-generate-preview" | "gemini-omni-1.1-flash"
-    ) {
-        Ok(())
-    } else {
-        Err("Supported models: veo-3.1-generate-preview, veo-3.1-lite-generate-preview, gemini-omni-1.1-flash.".to_string())
-    }
-}
-
-pub(super) fn validate_operation(model: &str, operation: &str) -> Result<(), String> {
-    if model == "gemini-omni-1.1-flash" {
-        crate::google_omni::validate_file_id(operation)
-    } else {
-        crate::google_veo::validate_operation_name(operation)?;
-        if !operation
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'-' | b'_' | b'.'))
-        {
-            return Err("Invalid characters in Veo operation name.".to_string());
-        }
-        if !operation.starts_with(&format!("models/{model}/operations/"))
-            && !operation.starts_with("operations/")
-        {
-            return Err("Expected a Veo operation name returned by video generate.".to_string());
-        }
-        Ok(())
-    }
+    video_models::provider(model).map(|_| ())
 }
 
 #[cfg(test)]
@@ -229,6 +257,71 @@ mod tests {
 
     fn command(values: &[&str]) -> Result<Command, String> {
         parse(values.iter().map(OsString::from))
+    }
+
+    #[test]
+    fn new_video_models_have_safe_defaults_and_explicit_recovery_routes() {
+        for (model, resolution) in [
+            ("doubao-seedance-2-0-260128", "720p"),
+            ("grok-imagine-video-1.5", "480p"),
+        ] {
+            let Command::Generate(value) = command(&[
+                "video",
+                "generate",
+                "--model",
+                model,
+                "--prompt",
+                "walk",
+                "--generate-audio",
+                "false",
+            ])
+            .unwrap() else {
+                panic!("expected generate")
+            };
+            assert_eq!(value.duration, 5);
+            assert_eq!(value.resolution, resolution);
+            assert_eq!(value.audio, Some(false));
+        }
+        assert!(command(&[
+            "video",
+            "generate",
+            "--prompt",
+            "walk",
+            "--generate-audio",
+            "false"
+        ])
+        .is_err());
+        assert!(command(&[
+            "video",
+            "status",
+            "--model",
+            "doubao-seedance-2-0-260128",
+            "--operation",
+            "task-123"
+        ])
+        .is_err());
+        assert!(command(&[
+            "video",
+            "status",
+            "--model",
+            "doubao-seedance-2-0-260128",
+            "--platform",
+            "ark",
+            "--operation",
+            "task-123"
+        ])
+        .is_ok());
+        assert!(command(&[
+            "video",
+            "status",
+            "--model",
+            "grok-imagine-video-1.5",
+            "--platform",
+            "higgsfield",
+            "--operation",
+            "task-123"
+        ])
+        .is_err());
     }
 
     #[test]

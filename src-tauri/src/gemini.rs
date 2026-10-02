@@ -169,7 +169,7 @@ fn default_safety_settings() -> Value {
     ])
 }
 
-fn supported_aspect_ratio(request: &GenerationRequest) -> Option<&str> {
+pub(crate) fn supported_aspect_ratio(request: &GenerationRequest) -> Option<&str> {
     let aspect_ratio = request.options.aspect_ratio.as_deref()?;
     if aspect_ratio == "Auto" {
         return None;
@@ -185,7 +185,7 @@ fn supported_aspect_ratio(request: &GenerationRequest) -> Option<&str> {
     supported.contains(&aspect_ratio).then_some(aspect_ratio)
 }
 
-fn supported_image_size(request: &GenerationRequest) -> Option<&str> {
+pub(crate) fn supported_image_size(request: &GenerationRequest) -> Option<&str> {
     let image_size = request.options.image_size.as_deref()?;
     let supported = match request.model.as_str() {
         "gemini-3-pro-image-preview" => GEMINI_3_PRO_IMAGE_SIZES.as_slice(),
@@ -196,7 +196,7 @@ fn supported_image_size(request: &GenerationRequest) -> Option<&str> {
     supported.contains(&image_size).then_some(image_size)
 }
 
-fn supported_thinking_level(request: &GenerationRequest) -> Option<&str> {
+pub(crate) fn supported_thinking_level(request: &GenerationRequest) -> Option<&str> {
     if request.model != "gemini-3.1-flash-image-preview" {
         return None;
     }

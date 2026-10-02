@@ -97,9 +97,27 @@ pnpm dev
 
 ## Agent CLI
 
-Agents can generate videos without opening the desktop app using Veo 3.1,
-Veo 3.1 Lite, or Gemini Omni Flash 1.1. The CLI reads the same `~/.sozocraft/config.toml`, including
-the Gemini API key, base URL, proxy settings, timeout, and output directory.
+Install or update the release CLI with `pnpm cli:install` (or `npm run cli:install`).
+The installer verifies the command and reports PATH setup issues. For Rust-only
+setup without Node, use the Cargo command in [the agent CLI guide](docs/agent-cli.md).
+
+Agents can generate images with `sozocraft-cli image generate`, using the app's
+configured Gemini, OpenAI/OpenRouter, xAI, or Higgsfield route and credentials.
+Model selection, reference images, PNG output, and dry-run validation are supported.
+For example:
+
+```bash
+sozocraft-cli image generate \
+  --model gemini-3.1-flash-image-preview \
+  --prompt "Pixel-art character contact pose, fixed camera, solid background" \
+  --size 1K --aspect-ratio 1:1 --output ./outputs/contact.png --dry-run
+```
+
+Agents can also generate videos with Google Veo/Omni, Seedance through Ark or
+Higgsfield, and Grok Imagine Video through xAI. The CLI reads the same
+`~/.sozocraft/config.toml`, including provider credentials, platform routing,
+base URL, proxy settings, timeout, and output directory. Save the returned
+model/platform/operation tuple; Seedance recovery requires `--platform`.
 
 ```bash
 pnpm cli:build
@@ -110,7 +128,7 @@ pnpm cli:build
 ```
 
 Use `--dry-run` to validate without a paid request. See
-[the agent CLI guide](docs/agent-cli.md) for image inputs, Omni examples,
+[the agent CLI guide](docs/agent-cli.md) for image generation, reference inputs, Omni examples,
 newline-delimited JSON output, and resuming existing jobs.
 
 ## Configuration

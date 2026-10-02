@@ -587,7 +587,7 @@ fn write_input(
     Ok(path)
 }
 
-fn validate_job_id(value: &str) -> Result<(), String> {
+pub(crate) fn validate_job_id(value: &str) -> Result<(), String> {
     if Uuid::parse_str(value).is_ok() {
         return Ok(());
     }

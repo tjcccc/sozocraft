@@ -323,7 +323,7 @@ fn validate_api_base_url(value: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_task_id(value: &str) -> Result<(), String> {
+pub(crate) fn validate_task_id(value: &str) -> Result<(), String> {
     if value.is_empty()
         || value.len() > 256
         || !value

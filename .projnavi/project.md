@@ -19,7 +19,7 @@ Use projnavi as navigation advice only. Verify source files before editing, espe
 
 - App shell and cross-panel wiring live in `src/App.tsx`.
 - Tauri invoke wrappers live in `src/api.ts`; matching command handlers are in `src-tauri/src/lib.rs`.
-- Headless agent CLI usage is in `docs/agent-cli.md`; `src-tauri/src/cli/` owns video generation, monitoring, and JSON output for Veo 3.1, Veo 3.1 Lite, and Omni Flash 1.1. Build with `pnpm cli:build`.
+- Headless agent CLI usage is in `docs/agent-cli.md`; `src-tauri/src/cli/` owns image generation through configured app providers, video generation/monitoring for Veo/Omni, Seedance, and Grok, and JSON output. Build with `pnpm cli:build`; install/update the release CLI with `pnpm cli:install` (`scripts/install-cli.mjs`).
 - Provider/model capability UX lives in `src/models/imageProviders.ts` and `src/models/geminiImageModels.ts`.
 - Generation orchestration state lives in `src/hooks/useGeneration.ts`; backend request validation and save/history behavior live in `src-tauri/src/models.rs` and `src-tauri/src/lib.rs`.
 - Prompt library UI state lives in `src/hooks/usePromptLibrary.ts` and `src/components/PromptColumn.tsx`; prompt persistence, search, include resolution, and rendering live in `src-tauri/src/prompt_library.rs`.

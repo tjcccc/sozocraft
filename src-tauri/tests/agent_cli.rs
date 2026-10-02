@@ -2,6 +2,28 @@ use serde_json::Value;
 use std::process::Command;
 
 #[test]
+fn version_flags_report_package_version_without_loading_config() {
+    let dir = std::env::temp_dir().join(format!("sozocraft-cli-version-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(dir.join(".sozocraft")).unwrap();
+    std::fs::write(dir.join(".sozocraft/config.toml"), "invalid [toml").unwrap();
+    for flag in ["--version", "-V"] {
+        let result = Command::new(env!("CARGO_BIN_EXE_sozocraft-cli"))
+            .arg(flag)
+            .env("HOME", &dir)
+            .env("USERPROFILE", &dir)
+            .output()
+            .unwrap();
+        assert!(result.status.success());
+        assert!(result.stderr.is_empty());
+        assert_eq!(
+            String::from_utf8(result.stdout).unwrap(),
+            format!("sozocraft-cli {}\n", env!("CARGO_PKG_VERSION"))
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn mixed_frame_references_are_only_accepted_for_omni() {
     let dir = std::env::temp_dir().join(format!("sozocraft-cli-mixed-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir(&dir).unwrap();

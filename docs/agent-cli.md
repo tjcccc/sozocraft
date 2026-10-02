@@ -1,8 +1,11 @@
-# SozoCraft video CLI for agents
+# SozoCraft image and video CLI for agents
 
-Use `sozocraft-cli video generate` to generate an MP4 without opening the desktop
-app. Supported models are `veo-3.1-generate-preview` (default),
-`veo-3.1-lite-generate-preview`, and `gemini-omni-1.1-flash`. Generation uses the existing Rust provider adapters.
+Use `sozocraft-cli image generate` for PNG images through the app's existing
+image providers and configured platform. Use `sozocraft-cli video generate`
+for MP4 videos. Both run headlessly and reuse the existing Rust adapters.
+
+Video supports the app's Google Veo/Omni, Seedance (Ark or Higgsfield), and Grok
+Imagine Video (xAI) models. The default remains `veo-3.1-generate-preview`.
 
 ## Build and run
 
@@ -30,6 +33,36 @@ cargo build --release --manifest-path src-tauri/Cargo.toml --bin sozocraft-cli
 To install or update the command on PATH (including a stale existing binary):
 
 ```bash
+pnpm cli:install
+sozocraft-cli --help
+sozocraft-cli --version
+```
+
+`--version` (or `-V`) prints `sozocraft-cli <package version>` and exits without
+loading config or contacting providers. The CLI shares the app's package version.
+
+`npm run cli:install` works too. The installer builds a release binary with
+`--locked --force`, verifies the installed executable with `--help`, and reports
+missing/stale PATH entries. It uses `CARGO_INSTALL_ROOT`, then `CARGO_HOME`, then
+`~/.cargo` as the install root; it passes that root explicitly to Cargo rather
+than using Cargo's `install.root` configuration. It does not edit shell startup
+files, app config, or credentials and does not call generation APIs.
+
+For a custom install root:
+
+```bash
+pnpm cli:install --root ./local-cli
+# With npm: npm run cli:install -- --root ./local-cli
+```
+
+Without pnpm/npm, run `node /path/to/sozocraft/scripts/install-cli.mjs` from any
+directory. Relative `--root` paths resolve against your working directory.
+The script requires Node, Rust/Cargo, and the app's native build prerequisites;
+it uses only Node built-ins and needs no JavaScript dependency installation.
+
+For Rust-only setup without Node, Cargo can install directly:
+
+```bash
 cargo install --path src-tauri --bin sozocraft-cli --locked --force
 sozocraft-cli --help
 ```
@@ -40,20 +73,21 @@ updates only the repository's debug binary, not a previously installed copy.
 
 ## Configuration and credentials
 
-The CLI automatically reads `~/.sozocraft/config.toml`. Configure the Gemini
-API key in the desktop app, then close or leave the app open as desired.
-The CLI reads `[gemini].api_key`, `base_url`, `proxy_url`, `proxy_enabled`,
+The CLI automatically reads `~/.sozocraft/config.toml`. Configure the selected
+provider credentials in the desktop app; the app can remain open or closed.
+Google video commands read `[gemini].api_key`, `base_url`, `proxy_url`, `proxy_enabled`,
 and `timeout_seconds`, plus `[output].directory` and `[output].template`. An image-style base URL ending
 in `/models` is normalized to the API root for video calls.
 
-All three models use the Gemini key even when the app's image API platform is set to
-Higgsfield. CLI model selection is explicit and does not change app settings.
+All three Google video models use the Gemini key even when the app's image API platform is set to
+Higgsfield. Video model selection is explicit and does not change app settings.
 There are no API-key command-line flags or environment overrides. Do not print,
 copy into prompts, or commit the config file. Missing credentials or invalid
-config return a JSON error. `--dry-run` does not load credentials.
+config return a JSON error. `--dry-run` does not require credentials.
 
-If `--output` is omitted, the command uses the desktop's configured output
-filename template, with `{provider}` = `google`, `{model}` = the selected API
+For video, if `--output` is omitted, the command uses the desktop's configured output
+filename template, with `{provider}` = `google`, `volcengine`, `xai`, or
+`higgsfield` for the selected route; `{model}` = the selected API
 model ID, `{batch_id}` = a six-character local batch ID, `{id}` = `001`,
 `{extension}` = `mp4`, and local time for date tokens. For example, the template:
 
@@ -75,15 +109,182 @@ CLI generation does not change desktop history, prompt files, or the SQLite
 index. It returns output metadata as JSON events and does not create the
 desktop `.mp4.json` sidecar. Save stdout if you need a durable job/result record.
 
-## Agent workflow
+## Image generation
+
+```bash
+sozocraft-cli image generate \
+  --model gemini-3.1-flash-image-preview \
+  --prompt-file ./prompts/contact-pose.txt \
+  --reference ./assets/character.png \
+  --aspect-ratio 1:1 --size 1K --thinking-level minimal \
+  --output ./outputs/contact.png --dry-run
+```
+
+Remove `--dry-run` to generate. The command requests one image; there is no batch
+flag in this first image workflow. Prompts follow the same plain-text/file/stdin
+rules as video. PNG/JPEG references are decoded locally to reject corrupt files,
+with a 100 MiB file limit and 256 MiB decoder allocation limit. Reference bytes
+are preserved, without desktop JPEG optimization; WebP is unsupported here.
+
+Image commands read the provider/platform settings from the same local config.
+Without `--provider` or `--model`, they use `[app].default_provider` and its
+configured default model. `--model` infers the provider; an explicit `--provider`
+must match. Selecting a different provider without a model uses Nano Banana Pro,
+GPT Image 2, or Grok Imagine 2.0, with the corresponding configured platform ID.
+The selected provider's platform still comes from config; incompatible model
+IDs are rejected. CLI flags do not change config or desktop state.
+
+| Provider | Configured platform | Accepted model IDs | Reference limit |
+| --- | --- | --- | --- |
+| `nano-banana` | Gemini | `gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`, `gemini-2.5-flash-image` | 14 for Pro/3.1 Flash; 3 for 2.5 Flash |
+| `nano-banana` | Higgsfield | `nano_banana_2`, `nano_banana_flash`, `nano_banana` | 8 |
+| `gpt-image` | OpenAI or OpenRouter | `gpt-image-2`, `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst` | 16 |
+| `gpt-image` | OpenRouter | `openai/gpt-image-2`, `openai/gpt-image-2.5-flare`, `openai/gpt-image-2.5-sunburst` | 16 |
+| `gpt-image` | Higgsfield | `gpt_image_2`, `gpt_image_2_5_flare`, `gpt_image_2_5_sunburst` | 16 |
+| `grok-imagine` | xAI | `grok-imagine-image-2.0` | 5 |
+| `grok-imagine` | Higgsfield | `grok_image` | 5 |
+
+Gemini uses `[gemini].api_key`; OpenAI uses `[openai].api_key`; OpenRouter uses
+`[openrouter].api_key`; xAI uses `[xai].api_key`. The configured base URL, proxy
+toggle/URL, and provider timeout are honored. Higgsfield uses the configured CLI
+path, its existing authenticated workspace, and Higgsfield proxy settings.
+Image `--dry-run` reads settings but does not require API keys, start provider
+processes, make network requests, or create outputs.
+
+Optional image flags are checked against the selected model:
+
+- `--aspect-ratio`: supported model ratios; native GPT uses `--size` instead.
+- `--size`: Gemini Pro `1K/2K/4K`; 3.1 Flash also `512`; absent for 2.5 Flash.
+  Native GPT accepts `auto` or validated `WIDTHxHEIGHT`, such as `1536x1024`.
+  OpenRouter's `openai/...` IDs use aspect ratio and reject size. xAI accepts
+  `1k/2k`; Higgsfield accepts `1k/2k/4k` except `nano_banana` and `grok_image`.
+- `--quality`: GPT `auto/low/medium/high`, with `xhigh/max` for 2.5 variants.
+  Higgsfield GPT excludes `auto`. xAI accepts `auto/low/medium`;
+  Higgsfield Grok accepts `std/pro`. Nano Banana has no quality flag.
+- `--thinking-level`: `minimal/high` for Gemini 3.1 Flash only.
+
+Omitted image options are left to the provider's defaults; temporary desktop
+generation controls are not loaded. Unsupported options fail before generation.
+
+An explicit `--output` must be a new `.png` file. Otherwise, image output uses
+the desktop filename template with its image provider/model naming (for example,
+`gemini` and `nano-banana-2`), `{id}=001`, a six-character local batch ID, and
+`{extension}=png`. Date folders and collision suffixes follow that template.
+Output parent/write access is checked before the provider call. Generated PNG
+or JPEG data is decoded and re-encoded to PNG before atomic publication.
+If the provider returns additional images, all are saved: default names use
+successive IDs, and explicit names add `_002`, `_003`, etc. Existing files and
+symlinks are never overwritten. No desktop history, PNG metadata, sidecars,
+prompt index, or separate Higgsfield archive is written by this workflow.
+
+Image JSON events are:
+
+```json
+{"status":"started","mediaType":"image","provider":"nano-banana","model":"gemini-3.1-flash-image-preview","platform":"gemini","requestId":"local-uuid"}
+{"status":"image","mediaType":"image","provider":"nano-banana","model":"gemini-3.1-flash-image-preview","requestId":"local-uuid","index":1,"outputPath":"/absolute/path/contact.png","bytes":12345,"width":1024,"height":1024}
+{"status":"completed","mediaType":"image","provider":"nano-banana","model":"gemini-3.1-flash-image-preview","platform":"gemini","requestId":"local-uuid","outputPaths":["/absolute/path/contact.png"],"imageCount":1}
+```
+
+`started` is emitted before calling the provider; it records a local attempt,
+not confirmed provider acceptance. The request ID is not resumable. Image
+generation is synchronous and has no `status`, `wait`, or `--no-wait` command.
+Save each `image` event: files already published remain if a later image fails.
+Dry runs emit one `validated` event with provider, platform, model, options,
+reference count, and requested count. Errors use the common JSON/exit-1 format.
+Known credentials, prompt text, and reference payloads are redacted from bounded
+provider error messages; do not share diagnostics without reviewing them.
+
+The CLI adds no generation retries. The shared Higgsfield adapter retains its
+existing bounded create retry policy; direct API image routes submit once.
+After an interruption or ambiguous provider error, inspect the provider account
+before manually rerunning a paid request. No paid generation is performed by
+`--dry-run`; it checks local validation, not remote access or API acceptance.
+
+## Seedance and Grok video
+
+The model ID selects the video provider. Seedance uses `[ark].api_platform`
+(`ark` or `higgsfield`) by default. Optional `--platform` overrides the route
+for that command without changing config. Google only accepts `gemini`, and
+Grok video only accepts `xai`; the Grok image platform setting does not route
+Grok video through Higgsfield.
+
+Ark reads `[ark].api_key`, `base_url`, `proxy_enabled`, `proxy_url`, and
+`timeout_seconds`. Grok uses the equivalent `[xai]` settings and key. Seedance
+through Higgsfield uses `[higgsfield].cli_path`, its authenticated workspace,
+Higgsfield proxy settings, and the app's Ark/Seedance timeout. Dry runs do not
+require credentials or execute Higgsfield; Seedance dry runs read settings to
+report the configured route.
+
+| Model ID | Duration | Resolution | Maximum references |
+| --- | --- | --- | --- |
+| `doubao-seedance-2-0-260128` | 4–15 s | 480p/720p/1080p | 9 |
+| `doubao-seedance-2-0-fast-260128` | 4–15 s | 480p/720p | 9 |
+| `doubao-seedance-2-0-mini-260615` | 4–15 s | 480p/720p | 9 |
+| `doubao-seedance-2-5-260628` | 4–30 s | 480p/720p/1080p | 30 |
+| `grok-imagine-video-1.5` | 1–15 s | 480p/720p/1080p | 7 |
+
+All five models default to five seconds at 16:9. Seedance defaults to 720p;
+Grok defaults to 480p. Seedance ratios: `16:9`, `9:16`, `4:3`, `3:4`, `1:1`,
+`21:9`. Grok ratios: `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`.
+Grok reference and start/end-frame modes support at most 720p. Both providers
+accept PNG/JPEG/WebP images and text, starting-frame, frame-pair, or reference
+input modes; references cannot be mixed with frames. Ark asset IDs and
+video/audio reference inputs are not CLI options in this workflow.
+
+`--generate-audio true|false` controls audio for Seedance/Grok. Omission keeps
+the adapter/provider default. Google models reject this flag.
+
+```bash
+sozocraft-cli video generate \
+  --model doubao-seedance-2-5-260628 \
+  --prompt-file ./prompts/pixel-walk.txt \
+  --start-image ./assets/contact.png --end-image ./assets/contact.png \
+  --duration 5 --resolution 720p --generate-audio false --dry-run
+
+sozocraft-cli video generate \
+  --model grok-imagine-video-1.5 \
+  --prompt-file ./prompts/pixel-walk.txt \
+  --start-image ./assets/contact.png --end-image ./assets/contact.png \
+  --duration 5 --resolution 720p --generate-audio false --dry-run
+```
+
+Generation emits `submitted` with `provider`, `platform`, `model`, and
+`operation`. Store that tuple immediately. For example:
+
+```json
+{"status":"submitted","provider":"seedance","platform":"ark","model":"doubao-seedance-2-5-260628","operation":"provider-task-id"}
+```
+
+Seedance `status` and `wait` require `--platform ark|higgsfield` from that event.
+This keeps recovery on the original provider if config changes later. Grok
+status/wait use `xai`; Google uses `gemini`. Use the same model and operation:
+
+```bash
+sozocraft-cli video status \
+  --model doubao-seedance-2-5-260628 --platform ark \
+  --operation 'provider-task-id'
+sozocraft-cli video wait \
+  --model doubao-seedance-2-5-260628 --platform ark \
+  --operation 'provider-task-id' --output ./outputs/walk.mp4
+```
+
+Use `--no-wait` to submit once without polling/downloading. Native Ark and xAI
+return task/request IDs; Higgsfield returns a job ID. Status and wait never
+create a new generation. The existing Higgsfield video adapter may inspect
+recent history to recover an ambiguous create result; it does not retry create.
+Downloads retain the app's URL, redirect, size, and MP4 validation. A failed
+download leaves the provider job available for a later wait; partial output is
+removed on normal errors, and existing destinations are never overwritten.
+
+## Video agent workflow
 
 1. Prepare a plain UTF-8 prompt and optional PNG/JPEG images.
 2. Run the intended command with `--dry-run` and inspect the JSON result.
 3. Submit one generation and capture stdout as JSON lines.
-4. Save the `model` and `operation` from the `submitted` event immediately.
+4. Save `model`, `platform`, and `operation` from `submitted` immediately.
 5. Use the completed `outputPath` to inspect the MP4 or extract test frames.
 6. If local monitoring fails, use `video status` or `video wait` for that same
-   model and operation. Do not automatically submit the generation again.
+   tuple. Seedance requires `--platform`. Do not automatically submit again.
 
 The CLI sends prompt text as written. It does not expand PromptCraft DSL or
 library includes. Choose exactly one of `--prompt TEXT` and `--prompt-file FILE`.
@@ -154,7 +355,7 @@ sozocraft-cli video generate \
   --duration 8 --resolution 720p --dry-run
 ```
 
-### Input modes and supported options
+### Google input modes and supported options
 
 | Input | Flags | Constraints |
 | --- | --- | --- |
@@ -178,7 +379,7 @@ the uploaded pixel-art bytes.
 
 ## JSON protocol and exit codes
 
-Except for `--help`, stdout contains newline-delimited JSON, flushed after each
+Except for help (`--help`/`-h`) and version (`--version`/`-V`), stdout contains newline-delimited JSON, flushed after each
 event. Parse each line independently; do not treat all stdout as one JSON object.
 Exit code 0 means the command succeeded, including a pending `status` result or
 a submitted `--no-wait` job. Exit code 1 means an argument, validation, config,
@@ -187,11 +388,11 @@ provider, monitoring, or download error. Provider failure is also an error.
 Normal blocking generation emits:
 
 ```json
-{"status":"submitted","model":"veo-3.1-generate-preview","operation":"models/veo-3.1-generate-preview/operations/example"}
-{"status":"completed","model":"veo-3.1-generate-preview","operation":"models/veo-3.1-generate-preview/operations/example","outputPath":"/absolute/path/pixel-walk.mp4","bytes":123456}
+{"status":"submitted","provider":"google-veo","platform":"gemini","model":"veo-3.1-generate-preview","operation":"models/veo-3.1-generate-preview/operations/example"}
+{"status":"completed","provider":"google-veo","platform":"gemini","model":"veo-3.1-generate-preview","operation":"models/veo-3.1-generate-preview/operations/example","outputPath":"/absolute/path/pixel-walk.mp4","bytes":123456}
 ```
 
-`--dry-run` emits one `validated` event containing `model`, `inputMode`,
+Video `--dry-run` emits one `validated` event containing `provider`, `platform`, `model`, `inputMode`,
 `options`, and `inputImageCount`, with no network requests or output writes.
 `status` emits `pending` or `completed` with the model and operation;
 `completed` from `status` means the provider has finished, not that a local
@@ -203,7 +404,7 @@ file has been downloaded. Errors emit:
 
 Capture events even when the process exits nonzero: a submitted operation may
 still be running. Successful events do not contain prompts, image payloads,
-credentials, or temporary video URLs. The local Gemini key is redacted from
+credentials, or temporary video URLs. The selected provider key is redacted from
 provider errors. Avoid sharing provider error text without reviewing it.
 
 ## Submit, inspect, and resume

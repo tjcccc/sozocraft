@@ -24,10 +24,14 @@ reference mode is fixed at 8 seconds.
 
 Headless agents use `sozocraft-cli video generate/status/wait`, bypassing the
 renderer and desktop history. `cli/arguments.rs` parses options and resume IDs;
-`cli/video.rs` validates `VideoGenerationRequest`, loads the shared Gemini config,
-dispatches to `google_veo.rs` or `google_omni.rs`, emits JSON events, and publishes
-a local MP4 without overwriting. Start with `docs/agent-cli.md` for usage.
+`cli/video.rs` validates `VideoGenerationRequest`, loads shared provider config,
+and reuses `video_provider.rs` for Veo/Omni, Seedance (Ark/Higgsfield), and Grok
+requests. It emits JSON events and publishes MP4 without overwriting.
+`cli/video_models.rs` selects models/platforms and validates job IDs; preserve
+the returned model/platform/operation tuple and specify Seedance platform on resume. Start with `docs/agent-cli.md` for usage.
 
 - New generation option: frontend state/defaults in `useGeneration.ts`, control visibility in `GenerationPanel.tsx`, request types in `src/types.ts`, Rust request types/defaults/validation in `models.rs`, metadata write in `lib.rs`, and provider payload builders.
 - New provider/model or task to add a new image provider: frontend provider catalog and settings platform controls, backend supported-model arrays and dispatch, local config/defaults, docs, and tests.
 - Output-path behavior: `src/utils/outputTemplate.ts` for UI validation and `src-tauri/src/filename_template.rs` for authoritative path resolution.
+
+Headless image generation starts in `cli/image_arguments.rs`, validates model/platform/options and decoded references in `cli/image_request.rs`, and executes in `cli/image.rs` using shared desktop provider dispatch. It reads configured routing and credentials, emits started/image/completed JSON, and publishes decoded PNGs through `cli/output.rs`. It does not write desktop history or the prompt index; its local request ID is not resumable.

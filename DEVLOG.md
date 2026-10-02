@@ -1,5 +1,38 @@
 # DEVLOG
 
+## 2026-10-02
+
+- Added CLI `--version` / `-V` using the app's package version, with regression
+  coverage that verifies both flags work even with malformed local config.
+  All 175 Rust tests passed; reinstalled the release CLI and verified both flags
+  print `sozocraft-cli 0.25.1`. Changed files pass formatting checks; the full
+  formatting check still reports existing differences elsewhere in the repo.
+
+- Added `pnpm cli:install` / `npm run cli:install` for release CLI updates.
+  The installer works from any directory, supports custom roots, verifies the
+  installed binary, and reports missing/stale PATH entries without editing
+  shell startup files or local app configuration. Validated Node syntax, pnpm
+  and npm entry points, isolated installer smoke checks, and a real release
+  reinstall from outside the repository. No generation APIs were called.
+
+- Extended `video generate/status/wait` to all four existing Seedance models
+  through Ark or Higgsfield and Grok Imagine Video 1.5 through xAI. Added
+  model-specific defaults, reference limits, audio control, provider-aware
+  output filenames, and explicit platform recovery. Extracted shared video
+  provider dispatch for desktop/CLI reuse and added local API/process mocks.
+  Validation: 174 Rust tests passed; reinstalled and hash-verified the release
+  CLI. Twelve installed video route/model dry runs and an image regression
+  dry run passed. No paid generation calls were submitted.
+
+- Added `sozocraft-cli image generate` with configured image-provider/platform
+  routing, local credentials, PNG/JPEG references, model-specific options, and
+  dry-run validation. Reused desktop provider adapters and filename templates;
+  publish decoded PNGs without overwriting or changing desktop history. Added
+  agent guidance and local mock coverage for Gemini, OpenAI, OpenRouter, and xAI.
+  Validation: 169 Rust tests passed; reinstalled the release CLI and verified
+  its hash, current-config dry run, seven image route dry runs, and three video
+  model dry runs. No paid generation calls were submitted.
+
 ## 2026-10-01
 
 - Allowed the Omni CLI to combine starting/ending keyframes with up to six

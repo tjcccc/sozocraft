@@ -458,7 +458,7 @@ fn gcd(mut a: u64, mut b: u64) -> u64 {
     a
 }
 
-fn normalize_openai_image_size(size: &str) -> Option<&str> {
+pub(crate) fn normalize_openai_image_size(size: &str) -> Option<&str> {
     let size = size.trim();
     if size == "auto" {
         return Some(size);

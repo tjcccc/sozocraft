@@ -369,7 +369,7 @@ fn validate_api_base_url(base_url: &str) -> Result<(), XaiVideoError> {
     Ok(())
 }
 
-fn validate_request_id(request_id: &str) -> Result<(), XaiVideoError> {
+pub(crate) fn validate_request_id(request_id: &str) -> Result<(), XaiVideoError> {
     if request_id.is_empty()
         || request_id.len() > 128
         || !request_id

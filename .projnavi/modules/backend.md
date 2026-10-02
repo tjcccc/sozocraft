@@ -10,7 +10,7 @@ The Rust backend is the trust boundary for Tauri commands, provider request cons
 - `src-tauri/src/models.rs` defines serialized app state/settings, generation request/response types, defaults, supported provider IDs, supported model IDs, and core request validation.
 - Provider clients are split by route: `gemini.rs`, `openai_image.rs`, `xai_image.rs`, and `higgsfield.rs`.
 - `src-tauri/src/local_config.rs` stores local config and API keys under `~/.sozocraft/config.toml`.
-- `src-tauri/src/cli/arguments.rs` and `cli/video.rs` expose headless agent video generation, status, and wait commands for Veo 3.1, Veo 3.1 Lite, and Gemini Omni Flash 1.1, reusing the Google adapters and shared local config. `docs/agent-cli.md` describes the JSON protocol and job recovery.
+- `src-tauri/src/cli/` exposes headless image generation and video generation/status/wait. Image argument parsing and validation live in `image_arguments.rs`/`image_request.rs`; `image.rs` reuses desktop image dispatch and configured Gemini, OpenAI/OpenRouter, xAI, or Higgsfield routing. `video.rs` owns Veo/Omni, Seedance (Ark/Higgsfield), and Grok video monitoring; `video_models.rs` validates model/platform/job selections and `video_provider.rs` shares desktop/CLI dispatch. `input.rs`/`output.rs` share reading and atomic publication. Start with `docs/agent-cli.md` for JSON events and recovery rules.
 - `src-tauri/src/app_state.rs` stores non-secret app state under the platform data directory.
 - `src-tauri/src/file_access.rs`, `filename_template.rs`, `reference_image_cache.rs`, and `image_meta.rs` are boundary helpers for local files, output paths, reference images, and PNG metadata.
 

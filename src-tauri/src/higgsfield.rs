@@ -354,7 +354,7 @@ fn build_generate_args(
     args
 }
 
-fn validate_request_options(request: &GenerationRequest) -> Result<(), String> {
+pub(crate) fn validate_request_options(request: &GenerationRequest) -> Result<(), String> {
     let Some(aspect_ratio) = clean_option(request.options.aspect_ratio.as_deref()) else {
         return Ok(());
     };
