@@ -17,6 +17,7 @@ mod local_config;
 mod macos_app_icon;
 mod models;
 mod openai_image;
+mod pixellab;
 mod prompt_library;
 mod quick_prompts;
 mod reference_image_cache;

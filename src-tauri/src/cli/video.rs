@@ -203,7 +203,7 @@ async fn execute_with_settings(
             .await
         }
         Command::Help | Command::Version => Ok(()),
-        Command::Image(_) => Err("Expected a video command.".to_string()),
+        Command::Image(_) | Command::PixelLab(_) => Err("Expected a video command.".to_string()),
     }
 }
 

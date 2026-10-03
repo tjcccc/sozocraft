@@ -1,0 +1,387 @@
+{
+  "source": "https://api.pixellab.ai/v2/openapi.json",
+  "verified": "2026-10-03",
+  "components": {
+    "schemas": {
+      "CreateCharacterV3Request": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1
+          },
+          "reference_image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Base64Image"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "image_size": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V3OutputImageSize"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "view": {
+            "type": "string",
+            "enum": [
+              "low top-down",
+              "high top-down",
+              "side"
+            ],
+            "default": "low top-down"
+          },
+          "template_id": {
+            "type": "string",
+            "default": "mannequin"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "no_background": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true
+          },
+          "outline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "single color black outline"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "medium detail"
+          },
+          "enhance_prompt": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "description"
+        ]
+      },
+      "CreateCharacterAnimationRequest": {
+        "properties": {
+          "character_id": {
+            "type": "string"
+          },
+          "animation_group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "animation_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "action_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "async_mode": {
+            "anyOf": [
+              {
+                "type": "boolean",
+                "const": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "template",
+                  "skeleton-v3",
+                  "v3",
+                  "pro"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_animation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "frame_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 16.0,
+                "minimum": 4.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 8
+          },
+          "custom_start_frame": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Base64Image"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end_frame": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Base64Image"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "keep_first_frame": {
+            "type": "boolean",
+            "default": true
+          },
+          "text_guidance_scale": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 8.0
+          },
+          "outline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "directions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isometric": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": false
+          },
+          "color_image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Base64Image"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "force_colors": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": false
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enhance_prompt": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "character_id"
+        ]
+      },
+      "Base64Image": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "base64",
+            "default": "base64"
+          },
+          "base64": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "default": "png"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "base64"
+        ]
+      },
+      "V3OutputImageSize": {
+        "properties": {
+          "width": {
+            "type": "integer",
+            "maximum": 256.0,
+            "minimum": 32.0
+          },
+          "height": {
+            "type": "integer",
+            "maximum": 256.0,
+            "minimum": 32.0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "width",
+          "height"
+        ]
+      }
+    }
+  }
+}

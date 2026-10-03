@@ -1,5 +1,35 @@
 # DEVLOG
 
+## 2026-10-03
+
+- Checkpoint release `0.27.0` for the PixelLab agent CLI. Synchronized package,
+  Rust, Tauri, and Cargo lockfile versions. Updated the repository's pnpm pin
+  and package-manager lockfile to `12.8.1` and documented the Corepack setup.
+  Checkpoint validation: 185 Rust tests, 42 frontend tests, and the frontend
+  production build passed. Reused the implementation's live read-only balance
+  check and formatting checks; no paid API calls were made.
+
+- PixelLab support is intended primarily for AI-agent automation through the
+  CLI. Human users can use the official PixelLab website; the desktop UI has
+  no PixelLab provider controls. README and agent guidance make this scope explicit.
+- Added CLI-only `pixellab` balance, paginated character listing/details, v3
+  character creation with optional PNG reference, character animation (including
+  v3 and skeleton-v3), job status, and public ZIP export. Ported the Python
+  workbench into a focused Rust provider, with a locally validated subset of
+  the official REST schemas and no Python subprocess or desktop configuration.
+- PixelLab uses the raw `PIXELLAB_API_KEY` environment token, verified HTTPS,
+  bounded requests/downloads, disabled retries/redirects, redacted JSON events,
+  resumable per-direction job IDs, and atomic ZIP publication without replacing
+  existing outputs. Added offline provider/CLI regression tests and agent usage
+  guidance. Source workbench/game projects remain untouched; no paid generations,
+  version changes, commits, or pushes were performed during implementation.
+- Validation: all 185 Rust tests passed (10 new PixelLab tests), including API
+  mocks, dry runs, timeout/no-retry behavior, credential redaction, PNG validation,
+  and public-download headers. Changed PixelLab/parser/test files pass rustfmt;
+  `git diff --check` and projnavi verification pass. The original workbench's
+  character example passes a Rust dry run. A live read-only balance check
+  succeeded; paid creation/animation and real ZIP exports remain untested live.
+
 ## 2026-10-02
 
 - Bumped to `0.26.0` for the expanded headless image/video CLI. Synchronized

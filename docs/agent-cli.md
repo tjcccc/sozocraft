@@ -1,4 +1,4 @@
-# SozoCraft image and video CLI for agents
+# SozoCraft image, video, and PixelLab CLI for agents
 
 Use `sozocraft-cli image generate` for PNG images through the app's existing
 image providers and configured platform. Use `sozocraft-cli video generate`
@@ -81,7 +81,8 @@ in `/models` is normalized to the API root for video calls.
 
 All three Google video models use the Gemini key even when the app's image API platform is set to
 Higgsfield. Video model selection is explicit and does not change app settings.
-There are no API-key command-line flags or environment overrides. Do not print,
+Image/video commands have no API-key command-line flags or environment overrides.
+PixelLab uses its own environment token, described below. Do not print,
 copy into prompts, or commit the config file. Missing credentials or invalid
 config return a JSON error. `--dry-run` does not require credentials.
 
@@ -199,6 +200,182 @@ existing bounded create retry policy; direct API image routes submit once.
 After an interruption or ambiguous provider error, inspect the provider account
 before manually rerunning a paid request. No paid generation is performed by
 `--dry-run`; it checks local validation, not remote access or API acceptance.
+
+## PixelLab characters and animation (CLI only)
+
+This integration is intended primarily for AI agents that need scriptable
+character creation, rotations, animation, and job recovery. Human users can
+create and manage artwork on [the official PixelLab website](https://pixellab.ai).
+PixelLab is available only through the headless CLI; SozoCraft's desktop UI has
+no PixelLab provider selection or controls.
+
+`sozocraft-cli pixellab` ports the Python workbench into Rust; no Python process,
+MCP tool invocation, desktop settings, history, or game assets are involved.
+The API origin is fixed to `https://api.pixellab.ai/v2`. Export the **raw**
+`PIXELLAB_API_KEY` token in the calling environment; the client adds `Bearer `
+only to authenticated request headers. Tokens containing whitespace or an existing
+Bearer prefix are rejected. There is no API-key argument or persisted PixelLab
+config. The CLI does not source shell files or load `.env` files.
+
+```bash
+sozocraft-cli pixellab balance
+sozocraft-cli pixellab characters --limit 50 --offset 0
+sozocraft-cli pixellab character CHARACTER_UUID
+sozocraft-cli pixellab job JOB_UUID
+sozocraft-cli pixellab download CHARACTER_UUID --output ./outputs/character.zip
+```
+
+`characters` defaults to 50 items at offset 0; limit is 1–100. Character/job IDs
+must be UUIDs and are normalized locally. `job` performs one read, returning
+`pending`, `completed`, or `failed`. Failed jobs emit their sanitized result and
+then the common JSON error with exit code 1. A completed job means remote
+completion; use `download` separately to retrieve the ZIP.
+
+Every PixelLab command accepts `--dry-run`. Dry runs validate local inputs, emit
+one `validated` JSON event with method, route, model, and sanitized options, and
+require no credentials, config, network, or output writes. They do not confirm
+account access or model availability. Request files must be regular JSON-object
+files, at most 8 MiB; unknown fields and invalid types/ranges are rejected using
+a bundled subset of the official REST schema verified on 2026-10-03. Update
+`src-tauri/src/pixellab/request_schemas.json` when the supported API changes.
+MCP parameters such as `reference_image_url`, `confirm_cost`, and `ai_freedom`
+are not REST request fields for these routes.
+
+### Create eight rotations
+
+Save a request file such as `character.json`:
+
+```json
+{
+  "name": "Warrior rotation trial",
+  "description": "An adult swordswoman in a navy robe holding a drawn katana",
+  "image_size": {"width": 128, "height": 128},
+  "view": "low top-down",
+  "template_id": "mannequin",
+  "no_background": true,
+  "seed": 42
+}
+```
+
+```bash
+sozocraft-cli pixellab create-character --request character.json --dry-run
+sozocraft-cli pixellab create-character \
+  --request character.json --reference ./assets/south.png --dry-run
+```
+
+Creation calls `/create-character-v3`, producing eight directional rotations.
+Without a reference, `image_size` ranges from 32–256 pixels on each axis,
+with a provider default of 64×64. Non-square sprites are padded to a square.
+References must be straight-on, south-facing PNGs, at most 256×256 and 2 MiB.
+The CLI decodes them with bounded memory and preserves the original bytes.
+Facing is an artistic requirement and cannot be checked locally. Reference-mode
+`image_size` is advisory; output geometry follows the uploaded image. Use either
+`--reference` or `reference_image` in JSON, never both. Inline images use
+`{"base64":"..."}` (raw base64 or a PNG data URL); the same PNG restrictions
+apply. Prompt enhancement cannot be combined with a character reference.
+
+### Animate the trial character
+
+Use the actual character UUID in `walk.json`:
+
+```json
+{
+  "character_id": "123e4567-e89b-12d3-a456-426614174000",
+  "animation_name": "Alert walk east",
+  "mode": "v3",
+  "action_description": "An alert walk in place, preserving costume and sword shape",
+  "directions": ["east"],
+  "frame_count": 8,
+  "keep_first_frame": false
+}
+```
+
+For the trial's skeleton walk, use:
+
+```json
+{
+  "character_id": "123e4567-e89b-12d3-a456-426614174000",
+  "animation_name": "Template walk east",
+  "mode": "skeleton-v3",
+  "template_animation_id": "walking-8-frames",
+  "directions": ["east"]
+}
+```
+
+```bash
+sozocraft-cli pixellab animate --request walk.json --dry-run
+```
+
+Animation calls `/characters/animations`. Supported REST modes are `v3`,
+`skeleton-v3` (documented beta), `template`, and `pro`; remote entitlement and
+availability still depend on PixelLab. Omitted mode selects `template` when
+`template_animation_id` is provided, otherwise `v3`. Template/skeleton modes
+require an available template ID and use its frame count. Custom v3/pro modes
+require nonempty `action_description` and no template ID. V3 frame count is an
+even integer from 4–16, default 8. `keep_first_frame: false` stores exactly the
+generated frame count; its default true adds the reference frame. Frame count,
+custom start/end frames, `keep_first_frame`, and prompt enhancement are accepted
+only for v3. Pro has provider-controlled frame counts and higher costs; this
+command does not add an MCP cost-confirmation mechanism.
+
+`directions` accepts distinct compass names: south, north, east, west,
+south-east, south-west, north-east, north-west. Omission defaults to south for
+custom animation and all character directions for templates. V3
+`custom_start_frame` and `end_frame` use inline base64 PNGs and require a single
+direction (omission means south). Locally supplied start/end dimensions must
+match; matching a stored server rotation is checked by the provider. PNG palette
+references (`color_image`) use the same 2 MiB/256×256 CLI limit. Skeleton data
+estimation and arbitrary frame-skeleton submission are outside this command group.
+
+### JSON events, recovery, and downloads
+
+Remove `--dry-run` only when a paid submission is intended. Submissions return
+immediately without polling or downloading. Save stdout as JSON lines. Creation
+emits an event like this (additional sanitized `data` fields may be present):
+
+```json
+{"status":"submitted","provider":"pixellab","platform":"pixellab","model":"v3","characterId":"CHARACTER_UUID","operation":"JOB_UUID","operations":null,"animationGroupId":null,"directions":null,"data":{"character_id":"CHARACTER_UUID","background_job_id":"JOB_UUID","status":"processing"}}
+```
+
+Animation emits `operations` with **all** per-direction `background_job_ids`,
+`directions`, `characterId`, `model`, and `animationGroupId` when returned;
+`operation` is null for that multi-job response. Preserve the IDs and check each
+with `pixellab job UUID`. To add directions to an existing animation, pass its
+`animation_group_id` and repeat its `animation_name` in a new reviewed request;
+this is another paid submission, whereas status/download are read-only.
+The nested `data` preserves the API's snake_case fields. Read commands emit
+`completed` with `data`; job reads also include `operation` and normalize the
+provider job state into the event's `status`. Errors use the shared JSON/exit-1
+protocol. Credentials, prompt fields, and base64 payloads are removed/redacted
+from successful output; provider error bodies are never printed.
+
+Verified HTTPS, a 60-second per-request timeout, disabled redirects, and disabled
+retries apply to every PixelLab request. A timeout or interruption during create
+may leave accepted jobs running. No request is automatically resubmitted.
+If no ID was returned, inspect `characters` and the PixelLab account before
+manually submitting again. Multi-direction requests can partially succeed;
+inspect the account for accepted directions/jobs even if the HTTP call fails.
+
+ZIP downloads use the public `/characters/{UUID}/zip` endpoint, require no key,
+and **never send Authorization**, even when a token is available. HTTP 423 means
+assets are still processing; check jobs and retry the download later. A new
+explicit `.zip` output path is required. Downloads stream into a hidden temporary
+file, enforce a 512 MiB cap and conventional ZIP header/end-record checks, then
+publish atomically without overwriting any file or symlink. Parent folders are
+created only for real downloads. Normal errors remove the temporary file;
+forced termination may leave a `.sozocraft-cli-*.part` file. Publication requires
+hard-link support. Archives are saved without extraction or decompression;
+these structural checks do not verify every entry's CRC or artistic validity.
+
+The export contains rotation PNGs, animation frames grouped by animation and
+direction, and metadata. Preserve canvas sizes and use a fixed pivot/offset when
+consuming frames: the reference Godot trial has 128×128 rotations and 192×192
+animation canvases. Its 12 FPS is a preview choice, not provider metadata. This
+CLI does not normalize sprites, choose timing, or install assets into Godot.
+
+Official references: [REST OpenAPI schema](https://api.pixellab.ai/v2/openapi.json)
+and [PixelLab MCP documentation](https://api.pixellab.ai/mcp/docs). REST schemas
+are authoritative for request files; MCP descriptions supply workflow context.
 
 ## Seedance and Grok video
 

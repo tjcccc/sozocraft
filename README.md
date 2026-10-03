@@ -26,7 +26,7 @@ The current app includes:
 ## Requirements
 
 - Node.js 24+
-- pnpm 10+
+- pnpm 12.8.1 (pinned in `package.json`; use Corepack)
 - Rust 1.94+
 - Tauri desktop prerequisites for your OS
 
@@ -96,6 +96,12 @@ pnpm dev
 ```
 
 ## Agent CLI
+
+PixelLab support is CLI-only and intended primarily for AI agents automating
+character rotation and animation workflows. Human users can work directly on
+[the official PixelLab website](https://pixellab.ai). SozoCraft's desktop UI has
+no PixelLab controls. Agent setup, commands, and job recovery are documented in
+[the PixelLab CLI guide](docs/agent-cli.md#pixellab-characters-and-animation-cli-only).
 
 Install or update the release CLI with `pnpm cli:install` (or `npm run cli:install`).
 The installer verifies the command and reports PATH setup issues. For Rust-only

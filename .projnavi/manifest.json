@@ -1,7 +1,7 @@
 {
   "version": 1,
   "projnaviVersion": "0.5.0",
-  "generatedAt": "2026-10-02T04:01:05.793Z",
+  "generatedAt": "2026-10-03T03:13:04.477Z",
   "root": ".",
   "files": {
     "AGENTS.md": {
@@ -10,13 +10,13 @@
       "category": "docs"
     },
     "DEVLOG.md": {
-      "hash": "26e938b1a6024db2ca488cc8314200c6bad538778793dcc1b22aa4c73fd86c08",
-      "size": 41312,
+      "hash": "34484e4106b40055caa86d3c3a30175fd7b2d8a195ebc7bcc522c36adeec1830",
+      "size": 43360,
       "category": "docs"
     },
     "docs/agent-cli.md": {
-      "hash": "f2316a908968330f2e448f1267a13b8b39f40cbb6944a5eaa39717d6b3687ed8",
-      "size": 24351,
+      "hash": "d785924ea7331595818a491763f35243e3a341ea8514fbdc3418705d4be49c30",
+      "size": 33498,
       "category": "docs"
     },
     "docs/architecture.md": {
@@ -25,13 +25,13 @@
       "category": "docs"
     },
     "package.json": {
-      "hash": "1d606842e5b76cdc203775673f78b350f63c0e8a524af3a52b2fe4f0598f7d7c",
+      "hash": "769550804817dc143a9bdcee7deb626c53db199057b61a02253ac0ffd133c749",
       "size": 1264,
       "category": "config"
     },
     "pnpm-lock.yaml": {
-      "hash": "f93650c5ddfa0e7a6e925c0bb5eeac5e3209884b86a9ad0b6820d386a8417b33",
-      "size": 64897,
+      "hash": "93e15ef26041fa9b43d31bd575cdc76360cb6af6472049a7916397908e4d4443",
+      "size": 69457,
       "category": "source"
     },
     "pnpm-workspace.yaml": {
@@ -40,8 +40,8 @@
       "category": "config"
     },
     "README.md": {
-      "hash": "040b221e4f68e6657f8b0c7c45e8bfee746a283c5d87048320c3925c6202cafc",
-      "size": 27095,
+      "hash": "3b7392643ea20b22fe7cbe9faec76b18383cb42bcd79ef12337b985f9bbfcfe5",
+      "size": 27543,
       "category": "docs"
     },
     "scripts/install-cli.mjs": {
@@ -59,8 +59,13 @@
       "size": 222,
       "category": "source"
     },
+    "src-tauri/src/pixellab/request_schemas.json": {
+      "hash": "c90214b0d375c357e3b4737441fcb37be0030ad10cb1c845f01e817c040cfbe0",
+      "size": 8609,
+      "category": "source"
+    },
     "src-tauri/tauri.conf.json": {
-      "hash": "ea5e9c6f4425e962d92d50193304d5d93f49bdc0ba7e739ff2ee3a88504a26f9",
+      "hash": "9a6786753842ca3998c76d955ebbe9b6cb5745c26ec58fe4c78f2d4432fa09fb",
       "size": 1347,
       "category": "source"
     },
@@ -72,6 +77,11 @@
     "src-tauri/tests/image_cli.rs": {
       "hash": "212eaeabbfd5942f43d41ed06f518271953f7596fe25a83e1c7861dcf6d863a3",
       "size": 8926,
+      "category": "test"
+    },
+    "src-tauri/tests/pixellab_cli.rs": {
+      "hash": "921631ce13a325c3bc6a19e65cba49f4fbe67d7646f45507e22a852e33525cd4",
+      "size": 4919,
       "category": "test"
     },
     "src-tauri/tests/video_cli.rs": {
@@ -371,7 +381,7 @@
       ]
     },
     "package.json": {
-      "hash": "1d606842e5b76cdc203775673f78b350f63c0e8a524af3a52b2fe4f0598f7d7c",
+      "hash": "769550804817dc143a9bdcee7deb626c53db199057b61a02253ac0ffd133c749",
       "size": 1264,
       "category": "config",
       "claimIds": [
@@ -379,8 +389,8 @@
       ]
     },
     "README.md": {
-      "hash": "040b221e4f68e6657f8b0c7c45e8bfee746a283c5d87048320c3925c6202cafc",
-      "size": 27095,
+      "hash": "3b7392643ea20b22fe7cbe9faec76b18383cb42bcd79ef12337b985f9bbfcfe5",
+      "size": 27543,
       "category": "docs",
       "claimIds": [
         "module.prompt-library"
@@ -409,8 +419,8 @@
       "claimIds": []
     },
     "src-tauri/src/lib.rs": {
-      "hash": "861eb6f17132d3dc0a82a4564656c9d4f5d306fa3baeb264cf1dc7e4ba000245",
-      "size": 36582,
+      "hash": "cdde35bb24cb2c79b3ed2a0124ad444a71e171b8de54c58e348ff314546363fc",
+      "size": 36596,
       "category": "evidence",
       "claimIds": [
         "flow.generation",
@@ -519,7 +529,7 @@
     }
   },
   "inventory": {
-    "summary": "Detected Node package sozocraft. Indexed 61 relevant files. Detected 11 test files.",
+    "summary": "Detected Node package sozocraft. Indexed 63 relevant files. Detected 12 test files.",
     "packageName": "sozocraft",
     "packageScripts": [
       "build",
@@ -544,12 +554,13 @@
     "fileCounts": {
       "docs": 7,
       "config": 4,
-      "source": 39,
-      "test": 11
+      "source": 40,
+      "test": 12
     },
     "tests": [
       "src-tauri/tests/agent_cli.rs",
       "src-tauri/tests/image_cli.rs",
+      "src-tauri/tests/pixellab_cli.rs",
       "src-tauri/tests/video_cli.rs",
       "src/components/PromptEditor.test.tsx",
       "src/components/QuickPromptPanel.test.tsx",

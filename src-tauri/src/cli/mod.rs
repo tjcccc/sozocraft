@@ -4,13 +4,15 @@ mod image_arguments;
 mod image_request;
 mod input;
 mod output;
+mod pixellab;
+mod pixellab_arguments;
 mod video;
 mod video_models;
 
 use serde_json::Value;
 use std::{ffi::OsString, io::Write};
 
-const HELP: &str = "SozoCraft agent CLI (image and video generation)
+const HELP: &str = "SozoCraft agent CLI (image, video, and PixelLab generation)
 
 Usage:
   sozocraft-cli --version (or -V)
@@ -18,6 +20,19 @@ Usage:
   sozocraft-cli video generate --prompt TEXT [options]
   sozocraft-cli video status --operation NAME [--model ID] [--platform ID]
   sozocraft-cli video wait --operation NAME [--model ID] [--platform ID] [--output FILE] [--max-wait SECONDS]
+
+PixelLab (CLI-only; raw PIXELLAB_API_KEY environment token):
+  pixellab balance [--dry-run]
+  pixellab characters [--limit 1..100] [--offset N] [--dry-run]
+  pixellab character UUID [--dry-run]
+  pixellab create-character --request FILE [--reference PNG] [--dry-run]
+  pixellab animate --request FILE [--dry-run]
+  pixellab job UUID [--dry-run]
+  pixellab download UUID --output NEW.zip [--dry-run]
+  Request files use REST JSON fields. Creation: v3 (8 rotations).
+  Animation modes: v3, skeleton-v3, template, pro. Submissions return immediately;
+  save operation/operations and characterId. job/download never resubmit.
+  Downloads are public and send no credentials. No automatic retries.
 
 Image generate options:
   --provider ID         nano-banana, gpt-image, grok-imagine (default: app config)
@@ -75,6 +90,7 @@ pub async fn run(args: impl IntoIterator<Item = OsString>) -> u8 {
             return 0;
         }
         Ok(arguments::Command::Image(options)) => image::execute(options).await,
+        Ok(arguments::Command::PixelLab(options)) => pixellab::execute(options).await,
         Ok(command) => video::execute(command).await,
         Err(error) => Err(error),
     };

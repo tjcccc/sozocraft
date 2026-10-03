@@ -7,6 +7,7 @@ pub(super) enum Command {
     Help,
     Version,
     Image(super::image_arguments::GenerateImage),
+    PixelLab(super::pixellab_arguments::PixelLab),
     Generate(Generate),
     Status {
         operation: String,
@@ -56,12 +57,15 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
     if args == ["--version"] || args == ["-V"] {
         return Ok(Command::Version);
     }
+    if args.first().map(String::as_str) == Some("pixellab") {
+        return super::pixellab_arguments::parse(&args);
+    }
     if args.first().map(String::as_str) == Some("image") {
         return super::image_arguments::parse(&args);
     }
     if args.first().map(String::as_str) != Some("video") {
         return Err(
-            "Expected image generate, video generate, video status, or video wait. Use --help."
+            "Expected image generate, video generate/status/wait, or pixellab commands. Use --help."
                 .to_string(),
         );
     }
@@ -71,7 +75,7 @@ pub(super) fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command,
     let action = args.get(1).map(String::as_str).unwrap_or_default();
     if !["generate", "status", "wait"].contains(&action) {
         return Err(
-            "Expected image generate, video generate, video status, or video wait. Use --help."
+            "Expected image generate, video generate/status/wait, or pixellab commands. Use --help."
                 .to_string(),
         );
     }
