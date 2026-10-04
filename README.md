@@ -452,6 +452,14 @@ proxy/timeout values inherit the GPT-Image (OpenAI) values once.
   [Meta's Muse Image docs](https://dev.meta.ai/docs/image-generation) and
   [OpenRouter's model page](https://openrouter.ai/meta/muse-image).
 
+- Seedream 5.0 (ByteDance) in three tiers: `bytedance-seed/seedream-5-0-pro`,
+  `-flash`, and `-lite`. All accept up to 14 reference images and 18 aspect
+  ratios (`auto`, `1:1`, `1:2`, `2:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`,
+  `9:16`, `16:9`, `9:19.5`, `19.5:9`, `9:20`, `20:9`, `9:21`, `21:9`), sent as
+  OpenRouter `aspect_ratio`. Resolution is 1K/2K for Pro and Flash and 2K/4K
+  for Lite. In hands-on tests, all three tiers were good for text-to-image,
+  while only Pro held identity well from references.
+
 The OpenRouter base URL must use https (plain http is accepted only for
 localhost gateways), and the desktop renderer cannot override it for this route.
 

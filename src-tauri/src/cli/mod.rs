@@ -43,8 +43,10 @@ Image generate options:
   --reference FILE      Repeat for PNG/JPEG references, subject to model limits
   --aspect-ratio RATIO  Model-supported ratio; GPT native uses --size instead.
                         Muse Image: auto 1:1 2:3 3:2 3:4 4:3 9:16 16:9 21:9 9:21
+                        Seedream 5.0: auto plus 17 ratios (see docs/agent-cli.md)
   --size SIZE           Gemini: 512/1K/2K/4K; GPT native: WIDTHxHEIGHT/auto;
-                        xAI: 1k/2k; Higgsfield: 1k/2k/4k
+                        xAI: 1k/2k; Higgsfield: 1k/2k/4k;
+                        Seedream 5.0 Pro/Flash: 1K/2K, Lite: 2K/4K
   --quality LEVEL       Model-supported quality; Higgsfield Grok: std/pro
   --thinking-level LEVEL Gemini Flash 3.1 only: minimal/high
   --output FILE         New .png file (default: configured filename template)

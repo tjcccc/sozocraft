@@ -184,6 +184,11 @@ const XAI_GROK_IMAGE_MODELS: ProviderModelConfig[] = [
   },
 ];
 
+const SEEDREAM_ASPECT_RATIOS = [
+  "auto", "1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4",
+  "9:16", "16:9", "9:19.5", "19.5:9", "9:20", "20:9", "9:21", "21:9",
+];
+
 // Mirrors src-tauri/src/experimental_image.rs, which validates every request.
 const EXPERIMENTAL_IMAGE_MODELS: ProviderModelConfig[] = [
   {
@@ -196,6 +201,20 @@ const EXPERIMENTAL_IMAGE_MODELS: ProviderModelConfig[] = [
     maxReferenceImages: 10,
     defaults: { aspectRatio: "auto", imageSize: null, quality: null },
   },
+  ...([
+    ["pro", "Pro", ["1K", "2K"]],
+    ["flash", "Flash", ["1K", "2K"]],
+    ["lite", "Lite", ["2K", "4K"]],
+  ] as const).map(([tier, label, resolutions]) => ({
+    id: `bytedance-seed/seedream-5-0-${tier}`,
+    label: `Seedream 5.0 ${label}`,
+    productName: `Seedream 5.0 ${label} (ByteDance)`,
+    aspectRatios: SEEDREAM_ASPECT_RATIOS,
+    imageSizes: [...resolutions],
+    qualityLevels: null,
+    maxReferenceImages: 14,
+    defaults: { aspectRatio: "auto", imageSize: "2K", quality: null },
+  })),
 ];
 
 export const IMAGE_PROVIDERS: Record<ImageProviderId, ProviderConfig> = {

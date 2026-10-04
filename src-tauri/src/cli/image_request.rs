@@ -298,6 +298,13 @@ mod tests {
         value.provider = Some("gpt-image".to_string());
         value.model = Some("meta/muse-image".to_string());
         assert!(build(&value, &settings).is_err());
+
+        let mut seedream = options("bytedance-seed/seedream-5-0-lite");
+        seedream.aspect_ratio = Some("20:9".to_string());
+        seedream.size = Some("4K".to_string());
+        assert_eq!(build(&seedream, &settings).unwrap().provider, "experimental");
+        seedream.size = Some("1K".to_string());
+        assert!(build(&seedream, &settings).is_err());
     }
     #[test]
     fn rejects_corrupt_references_and_excess_model_reference_count() {

@@ -55,7 +55,16 @@ describe("image model platform catalogs", () => {
   it("offers Muse Image in Experimental with its own controls and OpenRouter routing", () => {
     expect(getProviderModels("experimental", "openrouter").map((model) => model.id)).toEqual([
       "meta/muse-image",
+      "bytedance-seed/seedream-5-0-pro",
+      "bytedance-seed/seedream-5-0-flash",
+      "bytedance-seed/seedream-5-0-lite",
     ]);
+    expect(normalizeProviderOptions(
+      "experimental",
+      "bytedance-seed/seedream-5-0-lite",
+      { ...options, aspectRatio: "9:19.5", imageSize: "1K" },
+      "openrouter",
+    )).toMatchObject({ aspectRatio: "9:19.5", imageSize: "2K", maxReferenceImages: 14 });
     const controls = getProviderControlConfig("experimental", "meta/muse-image", "openrouter");
     expect(controls.aspectRatios).toContain("9:21");
     expect(controls.imageSizes).toBeNull();

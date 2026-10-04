@@ -18,15 +18,26 @@ pub const PLATFORM: &str = "openrouter";
 const OPENROUTER_API_BASE: &str = "https://openrouter.ai/api/v1";
 const MAX_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 
+/// How a model receives the selected aspect ratio.
+pub enum AspectRatioParam {
+    /// Send the mapped `WxH` `size` (the model ignores `aspect_ratio`).
+    Size,
+    /// Send OpenRouter's `aspect_ratio` field as selected.
+    AspectRatio,
+}
+
 pub struct ExperimentalImageModel {
     pub id: &'static str,
     /// Provider segment used in output filenames.
     pub filename_provider: &'static str,
     /// Model segment used in output filenames.
     pub filename_model: &'static str,
-    /// Aspect ratio choices and the `size` sent for each; `None` lets the
-    /// model pick its default shape.
+    pub aspect_ratio_param: AspectRatioParam,
+    /// Aspect ratio choices and, for `AspectRatioParam::Size`, the `size` sent
+    /// for each; `None` lets the model pick its default shape.
     pub aspect_ratios: &'static [(&'static str, Option<&'static str>)],
+    /// OpenRouter `resolution` choices; empty when the model has none.
+    pub resolutions: &'static [&'static str],
     pub max_reference_images: usize,
     /// OpenRouter provider slug that receives `moderation: "low"`, matching
     /// the app's GPT Image policy; `None` leaves moderation at the default.
@@ -46,31 +57,90 @@ impl ExperimentalImageModel {
     }
 }
 
-pub const MODELS: &[ExperimentalImageModel] = &[ExperimentalImageModel {
-    id: "meta/muse-image",
-    filename_provider: "meta",
-    filename_model: "muse-image",
-    // Muse treats `aspect_ratio` as a loose hint (it snapped 16:9 to 3:2 in
-    // live tests), but honors a `WxH` size as the target shape at its own
-    // resolution (1920x1080 returned 2048x1152).
-    aspect_ratios: &[
-        ("auto", None),
-        ("1:1", Some("1024x1024")),
-        ("2:3", Some("1024x1536")),
-        ("3:2", Some("1536x1024")),
-        ("3:4", Some("1152x1536")),
-        ("4:3", Some("1536x1152")),
-        ("9:16", Some("1080x1920")),
-        ("16:9", Some("1920x1080")),
-        ("21:9", Some("2016x864")),
-        ("9:21", Some("864x2016")),
-    ],
-    max_reference_images: 10,
-    // Meta's native API accepts `auto` and `low`. OpenRouter currently drops
-    // this option for Muse (an invalid value still returned 200), so it has no
-    // effect today; it is kept to match the GPT Image policy if forwarding lands.
-    low_moderation_provider: Some("meta"),
-}];
+const SEEDREAM_ASPECT_RATIOS: &[(&str, Option<&str>)] = &[
+    ("auto", None),
+    ("1:1", None),
+    ("1:2", None),
+    ("2:1", None),
+    ("2:3", None),
+    ("3:2", None),
+    ("3:4", None),
+    ("4:3", None),
+    ("4:5", None),
+    ("5:4", None),
+    ("9:16", None),
+    ("16:9", None),
+    ("9:19.5", None),
+    ("19.5:9", None),
+    ("9:20", None),
+    ("20:9", None),
+    ("9:21", None),
+    ("21:9", None),
+];
+
+const fn seedream(
+    id: &'static str,
+    filename_model: &'static str,
+    resolutions: &'static [&'static str],
+) -> ExperimentalImageModel {
+    ExperimentalImageModel {
+        id,
+        filename_provider: "bytedance",
+        filename_model,
+        aspect_ratio_param: AspectRatioParam::AspectRatio,
+        aspect_ratios: SEEDREAM_ASPECT_RATIOS,
+        resolutions,
+        max_reference_images: 14,
+        low_moderation_provider: None,
+    }
+}
+
+// Seedream values come from OpenRouter's published `/api/v1/images/models`
+// parameters; Muse publishes none, so its values come from live tests.
+pub const MODELS: &[ExperimentalImageModel] = &[
+    ExperimentalImageModel {
+        id: "meta/muse-image",
+        filename_provider: "meta",
+        filename_model: "muse-image",
+        aspect_ratio_param: AspectRatioParam::Size,
+        // Muse treats `aspect_ratio` as a loose hint (it snapped 16:9 to 3:2 in
+        // live tests), but honors a `WxH` size as the target shape at its own
+        // resolution (1920x1080 returned 2048x1152).
+        aspect_ratios: &[
+            ("auto", None),
+            ("1:1", Some("1024x1024")),
+            ("2:3", Some("1024x1536")),
+            ("3:2", Some("1536x1024")),
+            ("3:4", Some("1152x1536")),
+            ("4:3", Some("1536x1152")),
+            ("9:16", Some("1080x1920")),
+            ("16:9", Some("1920x1080")),
+            ("21:9", Some("2016x864")),
+            ("9:21", Some("864x2016")),
+        ],
+        resolutions: &[],
+        max_reference_images: 10,
+        // Meta's native API accepts `auto` and `low`. OpenRouter currently drops
+        // this option for Muse (an invalid value still returned 200), so it has no
+        // effect today; it is kept to match the GPT Image policy if forwarding lands.
+        low_moderation_provider: Some("meta"),
+    },
+    seedream(
+        "bytedance-seed/seedream-5-0-pro",
+        "seedream-5-0-pro",
+        &["1K", "2K"],
+    ),
+    seedream(
+        "bytedance-seed/seedream-5-0-flash",
+        "seedream-5-0-flash",
+        &["1K", "2K"],
+    ),
+    seedream(
+        "bytedance-seed/seedream-5-0-lite",
+        "seedream-5-0-lite",
+        &["2K", "4K"],
+    ),
+];
 
 pub const DEFAULT_MODEL: &str = "meta/muse-image";
 
@@ -104,15 +174,18 @@ pub fn validate_request(request: &GenerationRequest) -> Result<(), String> {
             ));
         }
     }
-    if options
+    if let Some(resolution) = options
         .image_size
         .as_deref()
-        .is_some_and(|value| !value.is_empty())
+        .filter(|value| !value.is_empty())
     {
-        return Err(format!(
-            "{} does not accept an image size option.",
-            model.id
-        ));
+        if !model.resolutions.contains(&resolution) {
+            return Err(if model.resolutions.is_empty() {
+                format!("{} does not accept an image size option.", model.id)
+            } else {
+                format!("Unsupported resolution for {}: {resolution}", model.id)
+            });
+        }
     }
     if options
         .quality
@@ -216,16 +289,32 @@ fn build_request_body(request: &GenerationRequest) -> Value {
         "n": 1,
         "output_format": "png",
     });
-    let size = request
-        .options
+    let Some(model) = model(&request.model) else {
+        return body;
+    };
+    let options = &request.options;
+    if let Some(ratio) = options
         .aspect_ratio
         .as_deref()
-        .zip(model(&request.model))
-        .and_then(|(ratio, model)| model.size_for_aspect_ratio(ratio));
-    if let Some(size) = size {
-        body["size"] = json!(size);
+        .filter(|value| !value.is_empty())
+    {
+        match model.aspect_ratio_param {
+            AspectRatioParam::Size => {
+                if let Some(size) = model.size_for_aspect_ratio(ratio) {
+                    body["size"] = json!(size);
+                }
+            }
+            AspectRatioParam::AspectRatio => body["aspect_ratio"] = json!(ratio),
+        }
     }
-    if let Some(provider) = model(&request.model).and_then(|model| model.low_moderation_provider) {
+    if let Some(resolution) = options
+        .image_size
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    {
+        body["resolution"] = json!(resolution);
+    }
+    if let Some(provider) = model.low_moderation_provider {
         body["provider"] = json!({ "options": { provider: { "moderation": "low" } } });
     }
     let references = request.reference_images.as_deref().unwrap_or_default();
@@ -341,6 +430,34 @@ mod tests {
         let mut model = request();
         model.model = "openai/gpt-image-2".to_string();
         assert!(validate_request(&model).is_err());
+    }
+
+    #[test]
+    fn seedream_tiers_send_aspect_ratio_and_tier_specific_resolution() {
+        let mut pro = request();
+        pro.model = "bytedance-seed/seedream-5-0-pro".to_string();
+        pro.options.aspect_ratio = Some("9:19.5".to_string());
+        pro.options.image_size = Some("2K".to_string());
+        assert!(validate_request(&pro).is_ok());
+        let body = build_request_body(&pro);
+        assert_eq!(body["aspect_ratio"], "9:19.5");
+        assert_eq!(body["resolution"], "2K");
+        assert!(body.get("size").is_none());
+        assert!(body.get("provider").is_none());
+
+        pro.options.image_size = Some("4K".to_string());
+        assert!(validate_request(&pro).is_err());
+        let mut lite = pro;
+        lite.model = "bytedance-seed/seedream-5-0-lite".to_string();
+        assert!(validate_request(&lite).is_ok());
+        lite.options.image_size = Some("1K".to_string());
+        assert!(validate_request(&lite).is_err());
+        assert_eq!(
+            model("bytedance-seed/seedream-5-0-flash")
+                .unwrap()
+                .max_reference_images,
+            14
+        );
     }
 
     #[test]

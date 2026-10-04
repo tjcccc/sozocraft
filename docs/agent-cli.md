@@ -145,6 +145,7 @@ IDs are rejected. CLI flags do not change config or desktop state.
 | `grok-imagine` | xAI | `grok-imagine-image-2.0` | 5 |
 | `grok-imagine` | Higgsfield | `grok_image` | 5 |
 | `experimental` | OpenRouter (always) | `meta/muse-image` | 10 |
+| `experimental` | OpenRouter (always) | `bytedance-seed/seedream-5-0-pro`, `bytedance-seed/seedream-5-0-flash`, `bytedance-seed/seedream-5-0-lite` | 14 |
 
 Gemini uses `[gemini].api_key`; OpenAI uses `[openai].api_key`; OpenRouter uses
 `[openrouter].api_key`; xAI uses `[xai].api_key`. The configured base URL, proxy
@@ -172,10 +173,14 @@ Optional image flags are checked against the selected model:
   `/api/v1/images`, with the ratio sent as a `WxH` `size`; Muse keeps the shape
   but chooses the pixel resolution (16:9 returned 2048x1152). Requests send
   Meta `moderation: "low"`, but OpenRouter does not forward it today, so Meta's
-  default moderation applies; rejected prompts return HTTP 400. Muse reasons before rendering, so allow
-  a generous OpenRouter timeout. Meta's moderation returns HTTP 400 for
-  rejected prompts; do not retry those unchanged. OpenRouter requires an 18+ confirmation on the account
+  default moderation applies; rejected prompts return HTTP 400 and should not
+  be retried unchanged. Muse reasons before rendering, so allow a generous
+  OpenRouter timeout. OpenRouter requires an 18+ confirmation on the account
   before Muse Image can be used.
+- `experimental` Seedream 5.0: `--aspect-ratio` accepts `auto 1:1 1:2 2:1 2:3
+  3:2 3:4 4:3 4:5 5:4 9:16 16:9 9:19.5 19.5:9 9:20 20:9 9:21 21:9`; `--size`
+  is the resolution, `1K/2K` for Pro and Flash and `2K/4K` for Lite;
+  `--quality` and `--thinking-level` are rejected.
 
 Omitted image options are left to the provider's defaults; temporary desktop
 generation controls are not loaded. Unsupported options fail before generation.

@@ -2,6 +2,19 @@
 
 ## 2026-10-04
 
+- Checkpoint release `0.30.0` for Seedream 5.0 Pro, Flash, and Lite in the
+  Experimental image mode. Synchronized package, Rust, Tauri, and Cargo
+  lockfile versions.
+
+- Added Seedream 5.0 Pro, Flash, and Lite to the Experimental image mode via
+  OpenRouter's Images API, using its published parameters: 18 aspect ratios
+  sent as `aspect_ratio`, tier-specific `resolution` (Pro/Flash 1K/2K, Lite
+  2K/4K), and up to 14 references. The shared model table now declares how
+  each model takes aspect ratio (Muse keeps the `size` mapping) and its
+  resolutions; desktop and CLI validation share it. Chosen after hands-on tests
+  on Higgsfield, where Flux 3 and Ideogram 4.5 failed identity consistency.
+  Mock-tested only; no live Seedream calls were made.
+
 - Checkpoint release `0.29.0` for the Experimental image mode with Meta Muse
   Image and the shared OpenRouter platform settings. Synchronized package,
   Rust, Tauri, and Cargo lockfile versions. Also fixed the footer platform
