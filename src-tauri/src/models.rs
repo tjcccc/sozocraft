@@ -70,6 +70,9 @@ pub struct AppSettings {
     pub grok_api_platform: String,
     #[serde(default = "default_proxy_enabled")]
     pub xai_proxy_enabled: bool,
+    /// Shared by every OpenRouter route (Experimental and GPT-Image).
+    #[serde(default = "default_proxy_enabled")]
+    pub openrouter_proxy_enabled: bool,
     #[serde(default = "default_seedance_api_platform")]
     pub seedance_api_platform: String,
     #[serde(default = "default_seedance_video_model")]
@@ -102,6 +105,8 @@ pub struct AppSettings {
     pub openai_timeout_seconds: u64,
     #[serde(default = "default_timeout_seconds")]
     pub xai_timeout_seconds: u64,
+    #[serde(default = "default_timeout_seconds")]
+    pub openrouter_timeout_seconds: u64,
     #[serde(default = "default_timeout_seconds")]
     pub ark_timeout_seconds: u64,
 }
@@ -204,6 +209,7 @@ impl Default for AppSettings {
             openai_proxy_enabled: true,
             grok_api_platform: default_grok_api_platform(),
             xai_proxy_enabled: true,
+            openrouter_proxy_enabled: true,
             seedance_api_platform: default_seedance_api_platform(),
             seedance_default_model: default_seedance_video_model(),
             ark_proxy_enabled: false,
@@ -220,12 +226,23 @@ impl Default for AppSettings {
             gemini_timeout_seconds: 180,
             openai_timeout_seconds: 180,
             xai_timeout_seconds: 180,
+            openrouter_timeout_seconds: 180,
             ark_timeout_seconds: 180,
         }
     }
 }
 
 impl AppSettings {
+    pub fn openrouter_proxy_url(&self) -> Option<&str> {
+        if !self.openrouter_proxy_enabled {
+            return None;
+        }
+        self.proxy_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+    }
+
     pub fn effective_higgsfield_proxy_url(&self) -> Option<&str> {
         if !self.higgsfield_proxy_enabled {
             return None;
@@ -538,7 +555,7 @@ impl VideoGenerationOptions {
 
 impl GenerationRequest {
     pub fn validate(&self) -> Result<(), String> {
-        if !["nano-banana", "gpt-image", "grok-imagine"].contains(&self.provider.as_str()) {
+        if !IMAGE_PROVIDERS.contains(&self.provider.as_str()) {
             return Err(format!("Unsupported image provider: {}", self.provider));
         }
         if self.prompt.trim().is_empty()
@@ -553,13 +570,13 @@ impl GenerationRequest {
         if !(1..=8).contains(&self.batch_count) {
             return Err("Batch count must be between 1 and 8.".to_string());
         }
-        if !supported_models(&self.provider).contains(&self.model.as_str()) {
+        if !supported_model(&self.provider, &self.model) {
             return Err(format!(
                 "Unsupported {} image model: {}",
                 self.provider, self.model
             ));
         }
-        if !["nano-banana", "gpt-image", "grok-imagine"].contains(&self.provider.as_str())
+        if !IMAGE_PROVIDERS.contains(&self.provider.as_str())
             && self
                 .reference_images
                 .as_ref()
@@ -612,6 +629,9 @@ impl GenerationRequest {
                     self.model, quality
                 ));
             }
+        }
+        if self.provider == crate::experimental_image::PROVIDER_ID {
+            crate::experimental_image::validate_request(self)?;
         }
         if self.output_template.trim().is_empty() {
             return Err("Output filename template cannot be empty.".to_string());
@@ -721,12 +741,20 @@ pub const OPENAI_IMAGE_MODELS: [&str; 9] = [
 
 pub const XAI_IMAGE_MODELS: [&str; 2] = ["grok-imagine-image-2.0", "grok_image"];
 
-fn supported_models(provider: &str) -> &'static [&'static str] {
+pub const IMAGE_PROVIDERS: [&str; 4] = [
+    "nano-banana",
+    "gpt-image",
+    "grok-imagine",
+    crate::experimental_image::PROVIDER_ID,
+];
+
+fn supported_model(provider: &str, model: &str) -> bool {
     match provider {
-        "nano-banana" => &NANO_BANANA_MODELS,
-        "gpt-image" => &OPENAI_IMAGE_MODELS,
-        "grok-imagine" => &XAI_IMAGE_MODELS,
-        _ => &[],
+        "nano-banana" => NANO_BANANA_MODELS.contains(&model),
+        "gpt-image" => OPENAI_IMAGE_MODELS.contains(&model),
+        "grok-imagine" => XAI_IMAGE_MODELS.contains(&model),
+        crate::experimental_image::PROVIDER_ID => crate::experimental_image::model(model).is_some(),
+        _ => false,
     }
 }
 
@@ -743,6 +771,9 @@ fn max_reference_images_for_provider(provider: &str, model: &str) -> usize {
     match provider {
         "gpt-image" => 16,
         "grok-imagine" => 5,
+        crate::experimental_image::PROVIDER_ID => {
+            crate::experimental_image::model(model).map_or(0, |model| model.max_reference_images)
+        }
         "nano-banana" if HIGGSFIELD_NANO_BANANA_MODELS.contains(&model) => 8,
         _ => max_reference_images(model),
     }

@@ -16,6 +16,8 @@ struct LocalConfig {
     #[serde(default)]
     openrouter: OpenRouterConfig,
     #[serde(default)]
+    experimental: ExperimentalConfig,
+    #[serde(default)]
     xai: XaiConfig,
     #[serde(default)]
     ark: ArkConfig,
@@ -73,6 +75,16 @@ struct OpenRouterConfig {
     api_key: String,
     #[serde(default)]
     base_url: Option<String>,
+    #[serde(default)]
+    proxy_enabled: Option<bool>,
+    #[serde(default)]
+    timeout_seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct ExperimentalConfig {
+    #[serde(default)]
+    default_model: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -151,7 +163,10 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
     let Ok(config) = load_config() else {
         return defaults;
     };
+    settings_from_config(config, defaults)
+}
 
+fn settings_from_config(config: LocalConfig, defaults: AppSettings) -> AppSettings {
     let default_provider = config
         .app
         .default_provider
@@ -182,6 +197,11 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .filter(|value| !value.trim().is_empty())
             .map(|value| normalize_grok_model(&grok_api_platform, value))
             .unwrap_or_else(|| default_grok_model(&grok_api_platform)),
+        crate::experimental_image::PROVIDER_ID => config
+            .experimental
+            .default_model
+            .filter(|value| crate::experimental_image::model(value).is_some())
+            .unwrap_or_else(|| crate::experimental_image::DEFAULT_MODEL.to_string()),
         _ => config
             .gemini
             .default_model
@@ -259,6 +279,13 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .xai
             .proxy_enabled
             .unwrap_or(defaults.xai_proxy_enabled),
+        // Before the shared OpenRouter platform existed, GPT-Image's OpenRouter
+        // route used the OpenAI proxy and timeout; carry those values forward.
+        openrouter_proxy_enabled: config
+            .openrouter
+            .proxy_enabled
+            .or(config.openai.proxy_enabled)
+            .unwrap_or(defaults.openrouter_proxy_enabled),
         seedance_api_platform: normalize_seedance_api_platform(
             config.ark.api_platform,
             defaults.seedance_api_platform,
@@ -308,6 +335,11 @@ pub fn load_settings(defaults: AppSettings) -> AppSettings {
             .xai
             .timeout_seconds
             .unwrap_or(defaults.xai_timeout_seconds),
+        openrouter_timeout_seconds: config
+            .openrouter
+            .timeout_seconds
+            .or(config.openai.timeout_seconds)
+            .unwrap_or(defaults.openrouter_timeout_seconds),
         ark_timeout_seconds: config
             .ark
             .timeout_seconds
@@ -325,6 +357,9 @@ pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
     match settings.default_provider.as_str() {
         "gpt-image" => config.openai.default_model = Some(settings.default_model.clone()),
         "grok-imagine" => config.xai.default_model = Some(settings.default_model.clone()),
+        crate::experimental_image::PROVIDER_ID => {
+            config.experimental.default_model = Some(settings.default_model.clone())
+        }
         _ => config.gemini.default_model = Some(settings.default_model.clone()),
     }
     config.gemini.api_platform = Some(normalize_nano_banana_api_platform(
@@ -362,6 +397,8 @@ pub fn save_settings(settings: &AppSettings) -> io::Result<()> {
     config.gemini.proxy_enabled = Some(settings.gemini_proxy_enabled);
     config.openai.proxy_enabled = Some(settings.openai_proxy_enabled);
     config.xai.proxy_enabled = Some(settings.xai_proxy_enabled);
+    config.openrouter.proxy_enabled = Some(settings.openrouter_proxy_enabled);
+    config.openrouter.timeout_seconds = Some(settings.openrouter_timeout_seconds);
     config.ark.proxy_enabled = Some(settings.ark_proxy_enabled);
     config.gemini.timeout_seconds = Some(settings.gemini_timeout_seconds);
     config.openai.timeout_seconds = Some(settings.openai_timeout_seconds);
@@ -706,6 +743,50 @@ fn normalize_grok_model(platform: &str, model: String) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn openrouter_platform_settings_migrate_from_openai_then_persist_separately() {
+        let legacy: LocalConfig = toml::from_str(
+            "[openai]\nproxy_enabled = false\ntimeout_seconds = 240\n[openrouter]\napi_key = \"k\"\n",
+        )
+        .unwrap();
+        let settings = settings_from_config(legacy, AppSettings::default());
+        assert!(!settings.openrouter_proxy_enabled);
+        assert_eq!(settings.openrouter_timeout_seconds, 240);
+
+        let current: LocalConfig = toml::from_str(
+            "[openai]\nproxy_enabled = false\ntimeout_seconds = 240\n\
+             [openrouter]\nproxy_enabled = true\ntimeout_seconds = 600\n",
+        )
+        .unwrap();
+        let settings = settings_from_config(current, AppSettings::default());
+        assert!(settings.openrouter_proxy_enabled);
+        assert_eq!(settings.openrouter_timeout_seconds, 600);
+        assert_eq!(settings.openai_timeout_seconds, 240);
+    }
+
+    #[test]
+    fn experimental_default_model_loads_from_its_own_section() {
+        let config: LocalConfig = toml::from_str(
+            "[app]\ndefault_provider = \"experimental\"\n\
+             [gemini]\ndefault_model = \"gemini-2.5-flash-image\"\n\
+             [experimental]\ndefault_model = \"meta/muse-image\"\n",
+        )
+        .unwrap();
+        let settings = settings_from_config(config, AppSettings::default());
+        assert_eq!(settings.default_provider, "experimental");
+        assert_eq!(settings.default_model, "meta/muse-image");
+
+        let unknown: LocalConfig = toml::from_str(
+            "[app]\ndefault_provider = \"experimental\"\n\
+             [experimental]\ndefault_model = \"retired/model\"\n",
+        )
+        .unwrap();
+        assert_eq!(
+            settings_from_config(unknown, AppSettings::default()).default_model,
+            "meta/muse-image"
+        );
+    }
 
     #[test]
     fn seedance_2_5_default_model_is_preserved() {

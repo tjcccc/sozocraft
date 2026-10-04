@@ -34,6 +34,13 @@ SozoCraft is a Tauri 2 + React/TypeScript desktop app with a Rust backend.
 - For savegame checkpoints, use a minor bump for new capabilities and a patch
   bump for compatible fixes, unless the user specifies a version or bump.
 
+## Desktop and CLI parity
+
+- Desktop and CLI features stay in sync. When adding or changing a generation
+  feature (provider, model, option, or platform) in one, implement it in the
+  other in the same change, sharing Rust validation and dispatch rather than
+  duplicating them.
+
 ## Headless generation
 
 Before using the image or video CLI, read `docs/agent-cli.md` for its config, model options,

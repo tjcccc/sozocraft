@@ -35,12 +35,14 @@ PixelLab (CLI-only; raw PIXELLAB_API_KEY environment token):
   Downloads are public and send no credentials. No automatic retries.
 
 Image generate options:
-  --provider ID         nano-banana, gpt-image, grok-imagine (default: app config)
+  --provider ID         nano-banana, gpt-image, grok-imagine, experimental
+                        (default: app config); experimental uses OpenRouter
   --model ID            Existing app model ID; infers provider if --provider omitted
   --prompt TEXT         Plain prompt text (no DSL expansion)
   --prompt-file FILE    UTF-8 .txt/.md file, or - for stdin; replaces --prompt
   --reference FILE      Repeat for PNG/JPEG references, subject to model limits
-  --aspect-ratio RATIO  Model-supported ratio; GPT native uses --size instead
+  --aspect-ratio RATIO  Model-supported ratio; GPT native uses --size instead.
+                        Muse Image: auto 1:1 2:3 3:2 3:4 4:3 9:16 16:9 21:9 9:21
   --size SIZE           Gemini: 512/1K/2K/4K; GPT native: WIDTHxHEIGHT/auto;
                         xAI: 1k/2k; Higgsfield: 1k/2k/4k
   --quality LEVEL       Model-supported quality; Higgsfield Grok: std/pro

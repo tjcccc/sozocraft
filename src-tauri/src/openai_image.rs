@@ -518,7 +518,7 @@ fn reference_image_filename(image: &ReferenceImageInput, index: usize) -> String
     }
 }
 
-fn parse_response(json: Value) -> Result<OpenAiImageResponse, OpenAiImageError> {
+pub(crate) fn parse_response(json: Value) -> Result<OpenAiImageResponse, OpenAiImageError> {
     let mut images = Vec::new();
     let mut response_format = "unknown";
 

@@ -54,6 +54,9 @@ export function usesHiggsfieldTask(task: QueuedGenerationTask) {
   if (task.request.provider === "gpt-image") {
     return task.settings.openaiApiPlatform === "higgsfield";
   }
+  if (task.request.provider === "experimental") {
+    return false;
+  }
   return task.settings.grokApiPlatform === "higgsfield";
 }
 

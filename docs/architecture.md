@@ -66,6 +66,9 @@
 - `src-tauri/src/video_generation.rs` owns text-, image-, and reference-to-video
   job orchestration, local MP4 and JSON metadata persistence, history state
   (saved before submission and again once a job ID exists), and failure logging.
+- `src-tauri/src/experimental_image.rs` owns the Experimental image mode: the
+  trial-model capability table shared by desktop and CLI validation, and the
+  OpenRouter Images API client with settings-owned, https-only endpoints.
 - `src-tauri/src/video_recovery.rs` settles batches interrupted by a restart and
   resumes stored Higgsfield video jobs by batch ID without resubmitting them.
 - `src-tauri/src/image_meta.rs` handles PNG conversion and metadata embedding.

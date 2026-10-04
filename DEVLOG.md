@@ -2,6 +2,38 @@
 
 ## 2026-10-04
 
+- Checkpoint release `0.29.0` for the Experimental image mode with Meta Muse
+  Image and the shared OpenRouter platform settings. Synchronized package,
+  Rust, Tauri, and Cargo lockfile versions. Also fixed the footer platform
+  label and a duplicated provider-platform helper that fell through for
+  Experimental.
+
+- Added an Experimental image mode (fourth image tab, flask mark) for trying
+  other providers' models before promoting them to their own mode. It starts
+  with Meta Muse Image (`meta/muse-image`) through OpenRouter's Images API:
+  up to 10 references, nine aspect ratios, no size/quality, one request per
+  batch image. One Rust capability table drives desktop and CLI validation;
+  `sozocraft-cli image generate --provider experimental` matches the desktop.
+- Added a shared Settings > Platforms > OpenRouter section (key, base URL,
+  proxy, timeout) used by Experimental models and GPT-Image's OpenRouter route.
+  New `[openrouter]` proxy/timeout values fall back once to the old `[openai]`
+  values. The Experimental endpoint comes only from Rust settings and must be
+  https (http only for localhost).
+- Documented the desktop/CLI parity rule in AGENTS.md and CLAUDE.md.
+- Validation: all Rust tests pass, including a mock end-to-end CLI run, plus
+  45 frontend tests and the production build. Live checks ($0.02, approved):
+  OpenRouter refuses chat completions for Muse (now uses `/api/v1/images`) and
+  requires an 18+ account confirmation. Text-only 16:9 returned 1920x1280
+  (3:2) in 14 s; a reference edit at 9:16 returned 1280x1920 (2:3) in 53 s and
+  preserved the source. OpenRouter's `aspect_ratio` only snaps to 1:1, 2:3,
+  or 3:2 (four more calls, $0.04), while a `WxH` `size` is honored (1920x1080
+  returned 2048x1152, $0.01), so the aspect-ratio control now sends `size`,
+  with `auto` as default. Meta's moderation rejects suggestive prompts with
+  HTTP 400. Requests send `provider.options.meta.moderation: "low"`, but probes
+  ($0.04, harmless prompts) showed OpenRouter ignores it: `none`, and an
+  invalid value either nested or top-level, all returned 200. Moderation cannot
+  be adjusted through OpenRouter today; `low` is kept for parity with GPT Image.
+
 - Checkpoint release `0.28.0` for restart-safe Higgsfield video recovery.
   Synchronized package, Rust, Tauri, and Cargo lockfile versions; TODO.md now
   reflects verified status, and the remaining TODO items are postponed.

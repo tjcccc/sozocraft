@@ -11,10 +11,11 @@ import {
   getProviderConfig,
   getProviderModels,
   normalizeProviderOptions,
+  settingsPlatformForProvider,
 } from "../models/imageProviders";
-import type { ImageProviderApiPlatform, ImageProviderId } from "../models/imageProviders";
 import { Field, PanelHeader, ToggleSwitch } from "./common";
 import { ReferenceImagesField } from "./ReferenceImagesField";
+import experimentalIconUrl from "../assets/experimental.svg";
 import grokIconUrl from "../assets/grok.svg";
 import nanoBananaIconUrl from "../assets/nanobanana-color.svg";
 import openaiIconUrl from "../assets/openai.svg";
@@ -23,6 +24,7 @@ const PROVIDER_ICON_URLS: Record<(typeof IMAGE_PROVIDER_IDS)[number], string> = 
   "nano-banana": nanoBananaIconUrl,
   "gpt-image": openaiIconUrl,
   "grok-imagine": grokIconUrl,
+  experimental: experimentalIconUrl,
 };
 
 export function GenerationPanel(props: {
@@ -270,17 +272,4 @@ function qualityLevelDisplayName(level: string) {
     return "Quality";
   }
   return level;
-}
-
-function settingsPlatformForProvider(
-  settings: AppSettings,
-  provider: ImageProviderId,
-): ImageProviderApiPlatform {
-  if (provider === "nano-banana") {
-    return settings.nanoBananaApiPlatform;
-  }
-  if (provider === "grok-imagine") {
-    return settings.grokApiPlatform;
-  }
-  return settings.openaiApiPlatform;
 }

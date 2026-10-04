@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react";
 import { saveCurrentPrompt } from "../api";
 import type { AppSettings, GenerationRequest, ReferenceImageInput } from "../types";
-import { getProviderControlConfig } from "../models/imageProviders";
-import type { ImageProviderApiPlatform, ImageProviderId } from "../models/imageProviders";
+import { getProviderControlConfig, settingsPlatformForProvider } from "../models/imageProviders";
+import type { ImageProviderId } from "../models/imageProviders";
 import { isSupportedImagePath, pathToReferenceImage } from "../utils/referenceImages";
 import type { EnqueueGenerationTask } from "./useGenerationQueue";
 
@@ -23,6 +23,7 @@ const EMPTY_REFERENCE_IMAGES: ReferenceImagesByProvider = {
   "nano-banana": [],
   "gpt-image": [],
   "grok-imagine": [],
+  experimental: [],
 };
 
 const DEFAULT_GENERATION_OPTIONS: GenerationOptionsByProvider = {
@@ -53,6 +54,16 @@ const DEFAULT_GENERATION_OPTIONS: GenerationOptionsByProvider = {
     temperature: -1,
     topP: 0.95,
     quality: "medium",
+    thinkingLevel: "",
+    unlimited: false,
+  },
+  experimental: {
+    batchCount: 1,
+    aspectRatio: "auto",
+    imageSize: "",
+    temperature: -1,
+    topP: 0.95,
+    quality: "",
     thinkingLevel: "",
     unlimited: false,
   },
@@ -220,6 +231,10 @@ function maxReferenceImagesForSettings(settings: AppSettings): number {
 }
 
 function baseUrlForSettings(settings: AppSettings) {
+  if (settings.defaultProvider === "experimental") {
+    // Rust reads the OpenRouter endpoint from settings for this route.
+    return null;
+  }
   if (settings.defaultProvider === "gpt-image") {
     if (settings.openaiApiPlatform === "higgsfield") {
       return null;
@@ -232,19 +247,6 @@ function baseUrlForSettings(settings: AppSettings) {
     return settings.grokApiPlatform === "higgsfield" ? null : settings.xaiBaseUrl;
   }
   return settings.nanoBananaApiPlatform === "higgsfield" ? null : settings.optionalBaseUrl;
-}
-
-function settingsPlatformForProvider(
-  settings: AppSettings,
-  provider: ImageProviderId,
-): ImageProviderApiPlatform {
-  if (provider === "nano-banana") {
-    return settings.nanoBananaApiPlatform;
-  }
-  if (provider === "grok-imagine") {
-    return settings.grokApiPlatform;
-  }
-  return settings.openaiApiPlatform;
 }
 
 function shouldRequestUnlimited(settings: AppSettings, options: GenerationOptionState) {

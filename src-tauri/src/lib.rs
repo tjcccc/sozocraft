@@ -2,6 +2,7 @@ mod app_state;
 pub mod cli;
 mod ark_assets;
 mod error_log;
+mod experimental_image;
 mod file_access;
 mod filename_template;
 mod gemini;
@@ -729,11 +730,16 @@ fn filename_provider<'a>(request: &'a GenerationRequest, settings: &AppSettings)
         "nano-banana" => "gemini",
         "gpt-image" => "openai",
         "grok-imagine" => "xai",
+        experimental_image::PROVIDER_ID => experimental_image::model(&request.model)
+            .map_or("openrouter", |model| model.filename_provider),
         value => value,
     }
 }
 
 fn filename_model(model: &str) -> &str {
+    if let Some(experimental) = experimental_image::model(model) {
+        return experimental.filename_model;
+    }
     match model {
         "gemini-3-pro-image-preview" => "nano-banana-pro",
         "gemini-3.1-flash-image-preview" => "nano-banana-2",
@@ -750,11 +756,18 @@ fn filename_model(model: &str) -> &str {
     }
 }
 
+/// True for every request that authenticates with the shared OpenRouter
+/// platform settings (key, base URL, proxy, timeout).
+fn uses_openrouter_platform(provider: &str, settings: &AppSettings) -> bool {
+    provider == experimental_image::PROVIDER_ID
+        || (provider == "gpt-image" && settings.openai_api_platform == "openrouter")
+}
+
 fn effective_base_url<'a>(provider: &str, settings: &'a AppSettings) -> Option<&'a str> {
+    if uses_openrouter_platform(provider, settings) {
+        return settings.openrouter_base_url.as_deref();
+    }
     match provider {
-        "gpt-image" if settings.openai_api_platform == "openrouter" => {
-            settings.openrouter_base_url.as_deref()
-        }
         "gpt-image" => settings.openai_base_url.as_deref(),
         "grok-imagine" => settings.xai_base_url.as_deref(),
         _ => settings.optional_base_url.as_deref(),
@@ -762,6 +775,9 @@ fn effective_base_url<'a>(provider: &str, settings: &'a AppSettings) -> Option<&
 }
 
 fn provider_timeout(provider: &str, settings: &AppSettings) -> u64 {
+    if uses_openrouter_platform(provider, settings) {
+        return settings.openrouter_timeout_seconds;
+    }
     match provider {
         "gpt-image" => settings.openai_timeout_seconds,
         "grok-imagine" => settings.xai_timeout_seconds,
@@ -770,15 +786,13 @@ fn provider_timeout(provider: &str, settings: &AppSettings) -> u64 {
 }
 
 fn provider_proxy(provider: &str, settings: &AppSettings) -> Option<String> {
-    let enabled = match provider {
-        "gpt-image" => settings.openai_proxy_enabled,
-        "grok-imagine" => settings.xai_proxy_enabled,
-        _ => settings.gemini_proxy_enabled,
-    };
-    enabled.then(|| settings.proxy_url.clone()).flatten()
+    provider_proxy_ref(provider, settings).map(str::to_string)
 }
 
 fn provider_proxy_ref<'a>(provider: &str, settings: &'a AppSettings) -> Option<&'a str> {
+    if uses_openrouter_platform(provider, settings) {
+        return settings.openrouter_proxy_url();
+    }
     let enabled = match provider {
         "gpt-image" => settings.openai_proxy_enabled,
         "grok-imagine" => settings.xai_proxy_enabled,
@@ -833,6 +847,7 @@ fn generation_platform(request: &GenerationRequest, settings: &AppSettings) -> S
         "nano-banana" => settings.nano_banana_api_platform.clone(),
         "gpt-image" => settings.openai_api_platform.clone(),
         "grok-imagine" => settings.grok_api_platform.clone(),
+        experimental_image::PROVIDER_ID => experimental_image::PLATFORM.to_string(),
         _ => "native".to_string(),
     }
 }
@@ -970,6 +985,21 @@ async fn generate_with_provider(
                 metadata: response.metadata,
             })
         }
+        experimental_image::PROVIDER_ID => {
+            let api_key = local_config::get_openrouter_api_key().map_err(|err| err.to_string())?;
+            let response = experimental_image::generate(request, settings, &api_key).await?;
+            Ok(ProviderResponse {
+                images: response
+                    .images
+                    .into_iter()
+                    .map(|bytes| ProviderGeneratedImage {
+                        bytes,
+                        source_filename: None,
+                    })
+                    .collect(),
+                metadata: response.metadata,
+            })
+        }
         value => Err(format!("Unsupported image provider: {value}")),
     }
 }
@@ -979,6 +1009,7 @@ fn no_image_data_error(provider: &str, metadata: &serde_json::Value) -> String {
         "nano-banana" => gemini::no_image_data_error(metadata),
         "gpt-image" => "OpenAI returned no image data.".to_string(),
         "grok-imagine" => "xAI returned no image data.".to_string(),
+        experimental_image::PROVIDER_ID => "OpenRouter returned no image data.".to_string(),
         _ => "Provider returned no image data.".to_string(),
     }
 }

@@ -4,14 +4,19 @@ import {
   normalizeGeminiImageOptions,
 } from "./geminiImageModels";
 
-export type ImageProviderId = "nano-banana" | "gpt-image" | "grok-imagine";
+import type { AppSettings } from "../types";
+
+export type ImageProviderId = "nano-banana" | "gpt-image" | "grok-imagine" | "experimental";
 export type NanoBananaApiPlatform = "gemini" | "higgsfield";
 export type GptImageApiPlatform = "openai" | "openrouter" | "higgsfield";
 export type GrokImagineApiPlatform = "xai" | "higgsfield";
+/** Experimental models are trial integrations, all routed through OpenRouter. */
+export type ExperimentalApiPlatform = "openrouter";
 export type ImageProviderApiPlatform =
   | NanoBananaApiPlatform
   | GptImageApiPlatform
-  | GrokImagineApiPlatform;
+  | GrokImagineApiPlatform
+  | ExperimentalApiPlatform;
 
 export type ProviderModelConfig = {
   id: string;
@@ -179,6 +184,20 @@ const XAI_GROK_IMAGE_MODELS: ProviderModelConfig[] = [
   },
 ];
 
+// Mirrors src-tauri/src/experimental_image.rs, which validates every request.
+const EXPERIMENTAL_IMAGE_MODELS: ProviderModelConfig[] = [
+  {
+    id: "meta/muse-image",
+    label: "Muse Image (Meta)",
+    productName: "Muse Image (Meta)",
+    aspectRatios: ["auto", "1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9", "9:21"],
+    imageSizes: null,
+    qualityLevels: null,
+    maxReferenceImages: 10,
+    defaults: { aspectRatio: "auto", imageSize: null, quality: null },
+  },
+];
+
 export const IMAGE_PROVIDERS: Record<ImageProviderId, ProviderConfig> = {
   "nano-banana": {
     id: "nano-banana",
@@ -260,6 +279,24 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ProviderConfig> = {
       thinkingLevel: null,
     },
   },
+  experimental: {
+    id: "experimental",
+    label: "Experimental",
+    providerName: "OpenRouter",
+    models: EXPERIMENTAL_IMAGE_MODELS,
+    aspectRatios: [],
+    imageSizes: null,
+    qualityLevels: null,
+    thinkingLevels: null,
+    maxReferenceImages: 0,
+    defaults: {
+      model: "meta/muse-image",
+      aspectRatio: "auto",
+      imageSize: null,
+      quality: null,
+      thinkingLevel: null,
+    },
+  },
 };
 
 export const NANO_BANANA_PLATFORM_MODELS: Record<NanoBananaApiPlatform, string> = {
@@ -279,6 +316,23 @@ export const GROK_IMAGE_PLATFORM_MODELS: Record<GrokImagineApiPlatform, string> 
 };
 
 export const IMAGE_PROVIDER_IDS = Object.keys(IMAGE_PROVIDERS) as ImageProviderId[];
+
+/** The API platform the settings route a provider's requests through. */
+export function settingsPlatformForProvider(
+  settings: AppSettings,
+  provider: ImageProviderId,
+): ImageProviderApiPlatform {
+  if (provider === "nano-banana") {
+    return settings.nanoBananaApiPlatform;
+  }
+  if (provider === "grok-imagine") {
+    return settings.grokApiPlatform;
+  }
+  if (provider === "experimental") {
+    return "openrouter";
+  }
+  return settings.openaiApiPlatform;
+}
 
 export function getProviderConfig(provider: string): ProviderConfig {
   return IMAGE_PROVIDERS[isImageProviderId(provider) ? provider : "nano-banana"];

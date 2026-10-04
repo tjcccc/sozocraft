@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getProviderModels, normalizeProviderOptions } from "./imageProviders";
+import type { AppSettings } from "../types";
+import {
+  getProviderControlConfig,
+  getProviderModels,
+  normalizeProviderOptions,
+  settingsPlatformForProvider,
+} from "./imageProviders";
 
 const options = { aspectRatio: "auto", imageSize: "auto", quality: "max", thinkingLevel: "" };
 
@@ -44,5 +50,22 @@ describe("image model platform catalogs", () => {
         .toMatchObject({ model: "grok-imagine-image-2.0", quality: "auto", imageSize: "1k" });
     }
     expect(getProviderModels("grok-imagine", "higgsfield").map((model) => model.id)).toEqual(["grok_image"]);
+  });
+
+  it("offers Muse Image in Experimental with its own controls and OpenRouter routing", () => {
+    expect(getProviderModels("experimental", "openrouter").map((model) => model.id)).toEqual([
+      "meta/muse-image",
+    ]);
+    const controls = getProviderControlConfig("experimental", "meta/muse-image", "openrouter");
+    expect(controls.aspectRatios).toContain("9:21");
+    expect(controls.imageSizes).toBeNull();
+    expect(controls.qualityLevels).toBeNull();
+    expect(controls.maxReferenceImages).toBe(10);
+    expect(normalizeProviderOptions("experimental", "meta/muse-image", options, "openrouter"))
+      .toMatchObject({ model: "meta/muse-image", aspectRatio: "auto", imageSize: "", quality: "" });
+    expect(settingsPlatformForProvider(
+      { grokApiPlatform: "higgsfield", openaiApiPlatform: "openai" } as AppSettings,
+      "experimental",
+    )).toBe("openrouter");
   });
 });

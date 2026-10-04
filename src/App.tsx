@@ -927,6 +927,9 @@ function platformForMetadata(
     }
     return settings.grokApiPlatform;
   }
+  if (provider === "experimental") {
+    return "openrouter";
+  }
   return "openai";
 }
 
@@ -939,6 +942,9 @@ function providerPlatformDisplayName(settings: AppSettings) {
       return "Higgsfield";
     }
     return settings.openaiApiPlatform === "openrouter" ? "OpenRouter" : "OpenAI";
+  }
+  if (settings.defaultProvider === "experimental") {
+    return "OpenRouter";
   }
   return settings.grokApiPlatform === "higgsfield" ? "Higgsfield" : "xAI";
 }

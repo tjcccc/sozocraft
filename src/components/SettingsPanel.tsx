@@ -23,6 +23,10 @@ import type { ImageProviderApiPlatform } from "../models/imageProviders";
 import { getVideoProviderConfig } from "../models/videoProviders";
 import { validateOutputTemplate } from "../utils/outputTemplate";
 import { Field, ToggleSwitch } from "./common";
+import { OpenRouterSettings } from "./OpenRouterSettings";
+
+const OPENROUTER_PLATFORM_NOTE =
+  "API key, base URL, proxy, and timeout are set in Platforms > OpenRouter.";
 
 export function SettingsPanel({
   apiKey,
@@ -128,6 +132,7 @@ export function SettingsPanel({
         </nav>
         <a href="#settings-platforms">Platforms</a>
         <nav className="settings-provider-nav" aria-label="Platform settings">
+          <a href="#settings-platform-openrouter">OpenRouter</a>
           <a href="#settings-platform-higgsfield">Higgsfield CLI</a>
         </nav>
       </aside>
@@ -394,6 +399,9 @@ export function SettingsPanel({
                 ? onSaveOpenrouterKey
                 : onSaveOpenaiKey
             }
+            platformNote={
+              settings.openaiApiPlatform === "openrouter" ? OPENROUTER_PLATFORM_NOTE : undefined
+            }
             providerId="gpt-image"
             proxyEnabled={settings.openaiProxyEnabled}
             setApiKey={
@@ -479,6 +487,34 @@ export function SettingsPanel({
             }
             timeoutSeconds={settings.xaiTimeoutSeconds}
           />
+          <fieldset className="provider-settings" id="settings-provider-experimental">
+            <legend>Experimental</legend>
+            <Field label="Default Model" className="field-full">
+              <select
+                value={
+                  settings.defaultProvider === "experimental"
+                    ? settings.defaultModel
+                    : getProviderConfig("experimental").defaults.model
+                }
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    defaultProvider: "experimental",
+                    defaultModel: event.target.value,
+                  })
+                }
+              >
+                {getProviderModels("experimental", "openrouter").map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.productName}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <p className="provider-settings-note">
+              Trial models from other providers, routed through OpenRouter. {OPENROUTER_PLATFORM_NOTE}
+            </p>
+          </fieldset>
           <fieldset className="provider-settings" id="settings-provider-seedance">
             <legend>Seedance Video</legend>
             <Field label="API Platform">
@@ -563,6 +599,22 @@ export function SettingsPanel({
         </div>
         <div className="settings-section" id="settings-platforms">
           <h2>Platforms</h2>
+          <OpenRouterSettings
+            apiKey={openrouterApiKey}
+            apiKeySaved={openrouterApiKeySaved}
+            baseUrl={gptImageBaseUrls.openrouterBaseUrl}
+            onSaveKey={onSaveOpenrouterKey}
+            setApiKey={setOpenrouterApiKey}
+            setBaseUrl={(value) =>
+              setSettings({
+                ...settings,
+                openaiBaseUrl: gptImageBaseUrls.openaiBaseUrl,
+                openrouterBaseUrl: value,
+              })
+            }
+            setSettings={setSettings}
+            settings={settings}
+          />
           <fieldset className="provider-settings" id="settings-platform-higgsfield">
             <legend>Higgsfield CLI</legend>
             <Field label="CLI Path">
@@ -654,6 +706,7 @@ function ProviderSettings({
   keyPlaceholder,
   onSaveKey,
   onApiPlatformChange,
+  platformNote,
   providerId,
   proxyEnabled,
   setApiKey,
@@ -672,6 +725,8 @@ function ProviderSettings({
   keyPlaceholder: string;
   onSaveKey: () => void;
   onApiPlatformChange?: (platform: string) => void;
+  /** When set, connection fields live in a shared platform section instead. */
+  platformNote?: string;
   providerId: (typeof IMAGE_PROVIDER_IDS)[number];
   proxyEnabled: boolean;
   setApiKey: (value: string) => void;
@@ -685,6 +740,7 @@ function ProviderSettings({
   const models = getProviderModels(providerId, (apiPlatform ?? "openai") as ImageProviderApiPlatform);
   const activeModel = defaultModel ?? models[0]?.id ?? provider.defaults.model;
   const usesHiggsfield = apiPlatform === "higgsfield";
+  const usesSharedPlatform = Boolean(platformNote);
 
   return (
     <fieldset className="provider-settings" id={`settings-provider-${providerId}`}>
@@ -703,7 +759,7 @@ function ProviderSettings({
           </select>
         </Field>
       ) : null}
-      {!usesHiggsfield ? (
+      {!usesHiggsfield && !usesSharedPlatform ? (
         <Field label="API Key">
           <div className="template-row">
             <input
@@ -728,7 +784,7 @@ function ProviderSettings({
         </Field>
       ) : null}
       <div className={`provider-settings-grid${usesHiggsfield ? " higgsfield-grid" : ""}`}>
-        {!usesHiggsfield ? (
+        {!usesHiggsfield && !usesSharedPlatform ? (
           <Field label="Base URL">
             <input
               placeholder={
@@ -747,14 +803,16 @@ function ProviderSettings({
             />
           </Field>
         ) : null}
-        <Field label="Timeout">
-          <input
-            min={10}
-            type="number"
-            value={timeoutSeconds}
-            onChange={(event) => setTimeoutSeconds(Number(event.target.value))}
-          />
-        </Field>
+        {!usesSharedPlatform ? (
+          <Field label="Timeout">
+            <input
+              min={10}
+              type="number"
+              value={timeoutSeconds}
+              onChange={(event) => setTimeoutSeconds(Number(event.target.value))}
+            />
+          </Field>
+        ) : null}
         <Field label="Default Model" className="field-full">
           <select
             value={activeModel}
@@ -768,13 +826,14 @@ function ProviderSettings({
           </select>
         </Field>
       </div>
-      {!usesHiggsfield ? (
+      {!usesHiggsfield && !usesSharedPlatform ? (
         <ToggleSwitch
           checked={proxyEnabled}
           label="Use proxy"
           onChange={setProxyEnabled}
         />
       ) : null}
+      {platformNote ? <p className="provider-settings-note">{platformNote}</p> : null}
     </fieldset>
   );
 }

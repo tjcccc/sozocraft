@@ -245,3 +245,50 @@ fn corrupt_provider_image_leaves_no_output_or_partial_file() {
     assert_eq!(result[1]["status"], "error");
     assert_eq!(fs::read_dir(workspace.0.join("images")).unwrap().count(), 0);
 }
+
+#[test]
+fn experimental_muse_image_uses_openrouter_images_api_with_shared_platform_settings() {
+    let mut png = Vec::new();
+    image::DynamicImage::new_rgba8(4, 2)
+        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+        .unwrap();
+    let encoded = general_purpose::STANDARD.encode(&png);
+    let body = json!({"data":[{"b64_json":encoded,"media_type":"image/png"}]});
+    let (endpoint, server) = mock_provider(body.to_string());
+    let workspace = Workspace::new(&format!(
+        "[openrouter]\napi_key='test-only-key'\nbase_url='{endpoint}/api/v1'\nproxy_enabled=false\n"
+    ));
+    let reference = workspace.0.join("reference.png");
+    fs::write(&reference, &png).unwrap();
+    let output = workspace.run(&[
+        "--model",
+        "meta/muse-image",
+        "--prompt",
+        "pixel sprite",
+        "--aspect-ratio",
+        "21:9",
+        "--reference",
+        reference.to_str().unwrap(),
+        "--output",
+        "images/muse.png",
+    ]);
+    assert!(
+        output.status.success(),
+        "{} {:?}",
+        String::from_utf8_lossy(&output.stderr),
+        events(&output)
+    );
+    let request = server.join().unwrap();
+    assert!(request.starts_with("POST /api/v1/images "), "{request}");
+    assert!(request.contains("test-only-key"));
+    assert!(request.contains(r#""size":"2016x864""#), "{request}");
+    assert!(request.contains(r#""moderation":"low""#), "{request}");
+    assert!(request.contains(r#""input_references""#), "{request}");
+    assert!(request.contains(&format!("data:image/png;base64,{encoded}")));
+    let result = events(&output);
+    assert_eq!(result[0]["provider"], "experimental");
+    assert_eq!(result[0]["platform"], "openrouter");
+    assert_eq!(result[1]["width"], 4);
+    assert_eq!(result[2]["status"], "completed");
+    assert!(workspace.0.join("images/muse.png").exists());
+}

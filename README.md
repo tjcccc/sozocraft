@@ -17,6 +17,8 @@ The current app includes:
 - Gemini and Higgsfield CLI image generation for Nano Banana / Nano Banana Pro
 - OpenAI GPT-Image text-to-image generation
 - xAI Grok Imagine text-to-image generation
+- Experimental image mode for trying other providers' models through
+  OpenRouter, starting with Meta Muse Image
 - Seedance, Grok Imagine, and Google Veo text-, image-, and reference-to-video
   generation with local MP4 output
 - local output saving
@@ -201,6 +203,11 @@ timeout_seconds = 180
 [openrouter]
 api_key = "your_openrouter_api_key_here"
 base_url = "https://openrouter.ai/api/v1"
+proxy_enabled = true
+timeout_seconds = 180
+
+[experimental]
+default_model = "meta/muse-image"
 
 [xai]
 api_key = "your_xai_api_key_here"
@@ -416,6 +423,37 @@ This is fixed in the request, independent of quality. The API offers no `none`
 value; provider safety checks still apply.
 
 See [OpenRouter image generation](https://openrouter.ai/docs/guides/overview/multimodal/image-generation).
+
+## Experimental Models
+
+The Experimental tab is a staging area for image models from other providers.
+Pick a model from its Model list; a model that proves useful can later become
+its own image mode. Every Experimental model uses the shared Platforms >
+OpenRouter settings (API key, base URL, proxy, and timeout), which GPT-Image
+also uses when its platform is OpenRouter. Older configs without OpenRouter
+proxy/timeout values inherit the GPT-Image (OpenAI) values once.
+
+- `meta/muse-image` (Meta Muse Image): text-to-image and editing with up to 10
+  reference images, aspect ratios `auto` (default), `1:1`, `2:3`, `3:2`, `3:4`,
+  `4:3`, `9:16`, `16:9`, `21:9`, and `9:21`, no size or quality controls, and
+  $0.01 per image.
+  Requests use OpenRouter's `/api/v1/images` endpoint; batches run one request
+  per image. SozoCraft sends each aspect ratio as Muse's `size` (`WxH`), which
+  sets the shape while Muse picks its own resolution (16:9 returned 2048x1152).
+  OpenRouter's `aspect_ratio` field only snaps to 1:1, 2:3, or 3:2, so it is not
+  used. Requests set Meta's `moderation` to `low` through OpenRouter provider
+  options to match the GPT Image policy, but OpenRouter does not currently
+  forward it: `low`, `none`, and invalid values all returned 200, so Meta's
+  default moderation applies. Reference edits preserved
+  the source composition. Generation took 14-53 seconds. Meta applies strict
+  content moderation (HTTP 400 "content management policy"), including to
+  suggestive but non-explicit prompts. OpenRouter requires an 18+ age
+  confirmation in the account's preferences before the model can be used. See
+  [Meta's Muse Image docs](https://dev.meta.ai/docs/image-generation) and
+  [OpenRouter's model page](https://openrouter.ai/meta/muse-image).
+
+The OpenRouter base URL must use https (plain http is accepted only for
+localhost gateways), and the desktop renderer cannot override it for this route.
 
 ## Grok Imagine Models
 

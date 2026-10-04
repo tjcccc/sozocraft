@@ -27,7 +27,7 @@ export type HiggsfieldStatus = {
 };
 
 export type AppSettings = {
-  defaultProvider: "nano-banana" | "gpt-image" | "grok-imagine";
+  defaultProvider: "nano-banana" | "gpt-image" | "grok-imagine" | "experimental";
   defaultModel: string;
   outputDirectory: string;
   outputTemplate: string;
@@ -44,6 +44,7 @@ export type AppSettings = {
   openaiProxyEnabled: boolean;
   grokApiPlatform: GrokImagineApiPlatform;
   xaiProxyEnabled: boolean;
+  openrouterProxyEnabled: boolean;
   seedanceApiPlatform: SeedanceApiPlatform;
   seedanceDefaultModel: string;
   arkProxyEnabled: boolean;
@@ -60,6 +61,7 @@ export type AppSettings = {
   geminiTimeoutSeconds: number;
   openaiTimeoutSeconds: number;
   xaiTimeoutSeconds: number;
+  openrouterTimeoutSeconds: number;
   arkTimeoutSeconds: number;
 };
 
@@ -84,7 +86,7 @@ export type ImageTextMetadata = Record<string, string>;
 
 export type GenerationRequest = {
   taskId?: string | null;
-  provider: "nano-banana" | "gpt-image" | "grok-imagine";
+  provider: "nano-banana" | "gpt-image" | "grok-imagine" | "experimental";
   model: string;
   prompt: string;
   promptSnapshot?: string | null;

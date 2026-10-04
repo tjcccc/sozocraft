@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import type { AppSettings } from "../types";
-import { normalizeProviderOptions } from "../models/imageProviders";
-import type { ImageProviderApiPlatform, ImageProviderId } from "../models/imageProviders";
+import { normalizeProviderOptions, settingsPlatformForProvider } from "../models/imageProviders";
 
 export function useModelOptions({
   aspectRatio,
@@ -58,17 +57,4 @@ export function useModelOptions({
     setThinkingLevel,
     thinkingLevel,
   ]);
-}
-
-function settingsPlatformForProvider(
-  settings: AppSettings,
-  provider: ImageProviderId,
-): ImageProviderApiPlatform {
-  if (provider === "nano-banana") {
-    return settings.nanoBananaApiPlatform;
-  }
-  if (provider === "grok-imagine") {
-    return settings.grokApiPlatform;
-  }
-  return settings.openaiApiPlatform;
 }

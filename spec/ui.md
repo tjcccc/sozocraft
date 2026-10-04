@@ -72,6 +72,13 @@ The current design uses:
   not support them in the current implementation.
 - Reference-image thumbnails wrap onto additional rows within the generation
   panel; do not introduce a horizontal thumbnail scrollbar.
+- Image provider tabs are Nano Banana, GPT-Image, Grok Imagine, and Experimental.
+  Experimental uses a monochrome flask mark and starts with a Model select, since
+  it hosts trial models from several providers; its other controls follow the
+  selected model.
+- Settings > Platforms lists shared connections (OpenRouter, Higgsfield CLI).
+  Providers that use a shared platform show a short note pointing to it instead
+  of repeating key, base URL, proxy, and timeout fields.
 - Video provider tabs appear as Seedance, Grok Imagine, and Google Video. The
   existing Grok selection remains the initial active provider for compatibility.
   Each provider preserves its own input images and control values while tabs

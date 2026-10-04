@@ -3,7 +3,7 @@ use super::{
     input::{read_image, read_prompt},
 };
 use crate::{
-    file_access,
+    experimental_image, file_access,
     models::{
         AppSettings, GenerationOptions, GenerationRequest, NANO_BANANA_MODELS, OPENAI_IMAGE_MODELS,
         XAI_IMAGE_MODELS,
@@ -25,22 +25,24 @@ pub(super) fn build(
     if inferred.is_some_and(|value| value != provider) {
         return Err("Model does not belong to the selected image provider.".to_string());
     }
-    let platform = match provider {
-        "nano-banana" => &settings.nano_banana_api_platform,
-        "gpt-image" => &settings.openai_api_platform,
-        "grok-imagine" => &settings.grok_api_platform,
-        _ => {
-            return Err(
-                "Supported image providers: nano-banana, gpt-image, grok-imagine.".to_string(),
-            )
-        }
-    };
-    let fallback = match (provider, platform.as_str()) {
+    let platform =
+        match provider {
+            "nano-banana" => &settings.nano_banana_api_platform,
+            "gpt-image" => &settings.openai_api_platform,
+            "grok-imagine" => &settings.grok_api_platform,
+            experimental_image::PROVIDER_ID => experimental_image::PLATFORM,
+            _ => return Err(
+                "Supported image providers: nano-banana, gpt-image, grok-imagine, experimental."
+                    .to_string(),
+            ),
+        };
+    let fallback = match (provider, platform) {
         ("nano-banana", "higgsfield") => "nano_banana_2",
         ("nano-banana", _) => "gemini-3-pro-image-preview",
         ("gpt-image", "higgsfield") => "gpt_image_2",
         ("gpt-image", "openrouter") => "openai/gpt-image-2",
         ("gpt-image", _) => "gpt-image-2",
+        (experimental_image::PROVIDER_ID, _) => experimental_image::DEFAULT_MODEL,
         (_, "higgsfield") => "grok_image",
         _ => "grok-imagine-image-2.0",
     };
@@ -119,12 +121,18 @@ fn model_provider(model: &str) -> Result<&'static str, String> {
         Ok("gpt-image")
     } else if XAI_IMAGE_MODELS.contains(&model) {
         Ok("grok-imagine")
+    } else if experimental_image::model_ids().any(|id| id == model) {
+        Ok(experimental_image::PROVIDER_ID)
     } else {
         Err("Unsupported image model. See docs/agent-cli.md.".to_string())
     }
 }
 
 fn validate_options(request: &GenerationRequest, platform: &str) -> Result<(), String> {
+    if request.provider == experimental_image::PROVIDER_ID {
+        // GenerationRequest::validate already applied the experimental model table.
+        return experimental_image::validate_request(request);
+    }
     let options = &request.options;
     let model = request.model.as_str();
     if platform == "higgsfield" {
@@ -256,6 +264,40 @@ mod tests {
         value.quality = Some("medium".to_string());
         value.size = Some("2k".to_string());
         assert!(build(&value, &settings).is_ok());
+    }
+    #[test]
+    fn experimental_models_route_to_openrouter_and_reject_foreign_options() {
+        // Other providers' platforms must not affect the experimental route.
+        let mut settings = AppSettings::default();
+        settings.grok_api_platform = "higgsfield".to_string();
+        let mut value = options("meta/muse-image");
+        let request = build(&value, &settings).unwrap();
+        assert_eq!(request.provider, "experimental");
+        assert_eq!(
+            crate::generation_platform(&request, &settings),
+            "openrouter"
+        );
+
+        value.model = None;
+        value.provider = Some("experimental".to_string());
+        assert_eq!(build(&value, &settings).unwrap().model, "meta/muse-image");
+
+        value.aspect_ratio = Some("9:21".to_string());
+        assert!(build(&value, &settings).is_ok());
+        value.aspect_ratio = Some("auto".to_string());
+        assert!(build(&value, &settings).is_ok());
+        value.aspect_ratio = Some("5:4".to_string());
+        assert!(build(&value, &settings).is_err());
+        value.aspect_ratio = None;
+        value.size = Some("2k".to_string());
+        assert!(build(&value, &settings).is_err());
+        value.size = None;
+        value.quality = Some("high".to_string());
+        assert!(build(&value, &settings).is_err());
+        value.quality = None;
+        value.provider = Some("gpt-image".to_string());
+        value.model = Some("meta/muse-image".to_string());
+        assert!(build(&value, &settings).is_err());
     }
     #[test]
     fn rejects_corrupt_references_and_excess_model_reference_count() {

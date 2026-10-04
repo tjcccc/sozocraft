@@ -144,10 +144,13 @@ IDs are rejected. CLI flags do not change config or desktop state.
 | `gpt-image` | Higgsfield | `gpt_image_2`, `gpt_image_2_5_flare`, `gpt_image_2_5_sunburst` | 16 |
 | `grok-imagine` | xAI | `grok-imagine-image-2.0` | 5 |
 | `grok-imagine` | Higgsfield | `grok_image` | 5 |
+| `experimental` | OpenRouter (always) | `meta/muse-image` | 10 |
 
 Gemini uses `[gemini].api_key`; OpenAI uses `[openai].api_key`; OpenRouter uses
 `[openrouter].api_key`; xAI uses `[xai].api_key`. The configured base URL, proxy
-toggle/URL, and provider timeout are honored. Higgsfield uses the configured CLI
+toggle/URL, and provider timeout are honored. Every OpenRouter route (GPT-Image
+on OpenRouter and all `experimental` models) uses the shared `[openrouter]`
+base URL, `proxy_enabled`, and `timeout_seconds`. Higgsfield uses the configured CLI
 path, its existing authenticated workspace, and Higgsfield proxy settings.
 Image `--dry-run` reads settings but does not require API keys, start provider
 processes, make network requests, or create outputs.
@@ -163,6 +166,16 @@ Optional image flags are checked against the selected model:
   Higgsfield GPT excludes `auto`. xAI accepts `auto/low/medium`;
   Higgsfield Grok accepts `std/pro`. Nano Banana has no quality flag.
 - `--thinking-level`: `minimal/high` for Gemini 3.1 Flash only.
+- `experimental` (`meta/muse-image`): `--aspect-ratio` accepts
+  `auto 1:1 2:3 3:2 3:4 4:3 9:16 16:9 21:9 9:21`; `--size`, `--quality`, and
+  `--thinking-level` are rejected. Requests go to OpenRouter's
+  `/api/v1/images`, with the ratio sent as a `WxH` `size`; Muse keeps the shape
+  but chooses the pixel resolution (16:9 returned 2048x1152). Requests send
+  Meta `moderation: "low"`, but OpenRouter does not forward it today, so Meta's
+  default moderation applies; rejected prompts return HTTP 400. Muse reasons before rendering, so allow
+  a generous OpenRouter timeout. Meta's moderation returns HTTP 400 for
+  rejected prompts; do not retry those unchanged. OpenRouter requires an 18+ confirmation on the account
+  before Muse Image can be used.
 
 Omitted image options are left to the provider's defaults; temporary desktop
 generation controls are not loaded. Unsupported options fail before generation.

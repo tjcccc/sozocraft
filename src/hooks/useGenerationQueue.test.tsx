@@ -49,6 +49,8 @@ const settings: AppSettings = {
   geminiTimeoutSeconds: 180,
   openaiTimeoutSeconds: 180,
   xaiTimeoutSeconds: 180,
+  openrouterProxyEnabled: true,
+  openrouterTimeoutSeconds: 180,
   arkTimeoutSeconds: 180,
 };
 
@@ -141,6 +143,12 @@ describe("shared generation queue", () => {
       settings: { ...settings, grokApiPlatform: "higgsfield" },
       request: { ...request, provider: "grok-imagine" },
     })).toBe(false);
+    expect(canStopTask({
+      id: "experimental",
+      mediaType: "image",
+      settings: { ...settings, grokApiPlatform: "higgsfield", openaiApiPlatform: "higgsfield" },
+      request: { ...request, provider: "experimental", model: "meta/muse-image" },
+    })).toBe(true);
     expect(canStopTask({
       id: "direct",
       mediaType: "image",
