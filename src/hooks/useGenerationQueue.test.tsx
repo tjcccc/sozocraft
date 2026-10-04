@@ -5,16 +5,20 @@ import {
   generateImages,
   generateVideo,
   loadAppState,
+  resumeVideo,
   saveAppSettings,
 } from "../api";
 import type { AppSettings, GenerationBatch } from "../types";
+import { canResumeVideoBatch } from "../utils/history";
 import { canStopTask, useGenerationQueue } from "./useGenerationQueue";
+import { useInterruptedVideoResume } from "./useInterruptedVideoResume";
 
 vi.mock("../api", () => ({
   cancelGenerationTask: vi.fn(),
   generateImages: vi.fn(),
   generateVideo: vi.fn(),
   loadAppState: vi.fn(),
+  resumeVideo: vi.fn(),
   saveAppSettings: vi.fn(),
 }));
 
@@ -222,5 +226,73 @@ describe("shared generation queue", () => {
     expect(cancelGenerationTask).not.toHaveBeenCalled();
 
     await act(async () => resolveVideo?.(videoBatch));
+  });
+
+  it("resumes a stored video job once without resubmitting or saving settings", async () => {
+    let resolveResume: ((batch: GenerationBatch) => void) | undefined;
+    vi.mocked(resumeVideo).mockImplementation(
+      () => new Promise((resolve) => { resolveResume = resolve; }),
+    );
+    const setBatches = vi.fn();
+    const { result } = renderHook(() =>
+      useGenerationQueue({
+        setBatches,
+        setExpandedBatchId: vi.fn(),
+        setMessage: vi.fn(),
+        setPreviewBatchId: vi.fn(),
+        setStatus: vi.fn(),
+      }),
+    );
+
+    act(() => result.current.resumeVideoBatch("batch-video"));
+    await waitFor(() => expect(resumeVideo).toHaveBeenCalledOnce());
+    act(() => result.current.resumeVideoBatch("batch-video"));
+
+    const taskId = vi.mocked(resumeVideo).mock.calls[0][0];
+    expect(vi.mocked(resumeVideo).mock.calls[0][1]).toBe("batch-video");
+    expect(result.current.runningTask?.id).toBe(taskId);
+    expect(result.current.resumingBatchIds.has("batch-video")).toBe(true);
+    expect(result.current.canStopRunningTask).toBe(false);
+    expect(result.current.queuedCount).toBe(0);
+    expect(generateVideo).not.toHaveBeenCalled();
+    expect(saveAppSettings).not.toHaveBeenCalled();
+
+    await act(async () => resolveResume?.(videoBatch));
+    await waitFor(() => expect(result.current.runningTask).toBeNull());
+    expect(resumeVideo).toHaveBeenCalledOnce();
+  });
+
+  it("auto-resumes only interrupted Higgsfield jobs after history loads", () => {
+    const higgsfieldJob = { provider: "seedance", platform: "higgsfield" };
+    const running: GenerationBatch = {
+      ...videoBatch,
+      id: "running",
+      status: "running",
+      providerRequestId: "3f2b8c1e-7a4d-4e9b-9c2a-1d5e6f7a8b9c",
+      videoJob: higgsfieldJob,
+    };
+    const failed: GenerationBatch = { ...running, id: "failed", status: "failed" };
+    const ark: GenerationBatch = {
+      ...running,
+      id: "ark",
+      videoJob: { provider: "seedance", platform: "volcengine-ark" },
+    };
+    const unsubmitted: GenerationBatch = { ...running, id: "unsubmitted", providerRequestId: null };
+    expect(canResumeVideoBatch(failed)).toBe(true);
+    expect(canResumeVideoBatch({ ...running, status: "completed" })).toBe(false);
+    expect(canResumeVideoBatch(ark)).toBe(false);
+    expect(canResumeVideoBatch(unsubmitted)).toBe(false);
+
+    const resumeVideoBatch = vi.fn();
+    const batches = [running, failed, ark, unsubmitted];
+    const { rerender } = renderHook(
+      ({ loaded }) => useInterruptedVideoResume({ batches, loaded, resumeVideoBatch }),
+      { initialProps: { loaded: false } },
+    );
+    expect(resumeVideoBatch).not.toHaveBeenCalled();
+    rerender({ loaded: true });
+    rerender({ loaded: true });
+    expect(resumeVideoBatch).toHaveBeenCalledTimes(1);
+    expect(resumeVideoBatch).toHaveBeenCalledWith("running");
   });
 });

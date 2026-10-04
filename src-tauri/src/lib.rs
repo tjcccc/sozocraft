@@ -24,6 +24,7 @@ mod reference_image_cache;
 mod seedance_video;
 mod video_generation;
 mod video_provider;
+mod video_recovery;
 mod xai_image;
 mod xai_video;
 
@@ -53,6 +54,7 @@ use xai_image::XaiImageClient;
 #[derive(Default)]
 struct GenerationRuntime {
     cancellations: Mutex<HashMap<String, watch::Sender<bool>>>,
+    active_video_batches: video_recovery::ActiveVideoBatches,
 }
 
 #[derive(Debug, Serialize)]
@@ -371,7 +373,33 @@ async fn generate_video(
         cancellations.insert(task_id.clone(), sender);
     }
 
-    let result = video_generation::generate(request, receiver).await;
+    let result = video_generation::generate(request, receiver, &runtime.active_video_batches).await;
+    if let Ok(mut cancellations) = runtime.cancellations.lock() {
+        cancellations.remove(&task_id);
+    }
+    result
+}
+
+/// Resumes monitoring a stored Higgsfield video job by batch id. The provider
+/// job id and platform are read from Rust-owned history, never the renderer.
+#[tauri::command]
+async fn resume_video(
+    runtime: TauriState<'_, GenerationRuntime>,
+    task_id: String,
+    batch_id: String,
+) -> Result<GenerationBatch, String> {
+    Uuid::parse_str(&task_id).map_err(|_| "Invalid task id.".to_string())?;
+    Uuid::parse_str(&batch_id).map_err(|_| "Invalid video batch id.".to_string())?;
+    let (sender, receiver) = watch::channel(false);
+    {
+        let mut cancellations = runtime
+            .cancellations
+            .lock()
+            .map_err(|_| "Generation cancellation state is unavailable.".to_string())?;
+        cancellations.insert(task_id.clone(), sender);
+    }
+
+    let result = video_recovery::resume(&batch_id, receiver, &runtime.active_video_batches).await;
     if let Ok(mut cancellations) = runtime.cancellations.lock() {
         cancellations.remove(&task_id);
     }
@@ -424,6 +452,7 @@ async fn generate_images_inner(
         images: Vec::new(),
         videos: Vec::new(),
         provider_request_id: None,
+        video_job: None,
         created_at,
         completed_at: None,
         error: None,
@@ -961,6 +990,13 @@ fn short_id(id: &str) -> String {
 pub fn run() {
     let app = tauri::Builder::default()
         .manage(GenerationRuntime::default())
+        .setup(|_| {
+            // Runs once per process, before the renderer can start new tasks.
+            if let Err(error) = video_recovery::reconcile_interrupted_batches_on_startup() {
+                eprintln!("Failed to reconcile interrupted generation tasks: {error}");
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             quick_prompts::load_quick_prompts,
             quick_prompts::save_quick_prompts,
@@ -999,6 +1035,7 @@ pub fn run() {
             cancel_generation_task,
             generate_images,
             generate_video,
+            resume_video,
             prepare_video_preview,
             get_config_status,
             check_higgsfield_status

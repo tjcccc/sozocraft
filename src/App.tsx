@@ -18,6 +18,7 @@ import {
 import { useAppState } from "./hooks/useAppState";
 import { useGeneration } from "./hooks/useGeneration";
 import { useGenerationQueue } from "./hooks/useGenerationQueue";
+import { useInterruptedVideoResume } from "./hooks/useInterruptedVideoResume";
 import { useHistoryDate } from "./hooks/useHistoryDate";
 import { useImagePreviews } from "./hooks/useImagePreviews";
 import { useModelOptions } from "./hooks/useModelOptions";
@@ -174,6 +175,11 @@ export function App() {
     setMessage,
     setPreviewBatchId,
     setStatus,
+  });
+  useInterruptedVideoResume({
+    batches,
+    loaded: settings !== null,
+    resumeVideoBatch: generationQueue.resumeVideoBatch,
   });
   const generation = useGeneration({
     enqueueTask: generationQueue.enqueueTask,
@@ -790,11 +796,14 @@ export function App() {
             imageDataUrls={imageDataUrls}
             mediaType={mode}
             previewBatch={previewBatch}
+            monitoringNewVideo={generationQueue.monitoringNewVideo}
+            resumingBatchIds={generationQueue.resumingBatchIds}
             setExpandedBatchId={setExpandedBatchId}
             setHistoryDate={setHistoryDate}
             setPreviewBatchId={setPreviewBatchId}
             videoUrls={videoUrls}
             onPreviewImages={openLightbox}
+            onResumeVideo={generationQueue.resumeVideoBatch}
           />
         </section>
       )}

@@ -822,9 +822,38 @@ pub struct GenerationBatch {
     pub videos: Vec<OutputVideo>,
     #[serde(default)]
     pub provider_request_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_job: Option<VideoJobContext>,
     pub created_at: DateTime<Utc>,
     pub completed_at: Option<DateTime<Utc>>,
     pub error: Option<String>,
+}
+
+/// Submission details kept with a video batch so monitoring can resume after a
+/// restart without resubmitting the paid job. Input images are recorded by
+/// name and MIME type only; their bytes are never persisted in app state.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoJobContext {
+    pub provider: VideoProvider,
+    pub platform: String,
+    pub rendered_prompt: String,
+    pub input_mode: VideoInputMode,
+    #[serde(default)]
+    pub starting_image: Option<serde_json::Value>,
+    #[serde(default)]
+    pub ending_image: Option<serde_json::Value>,
+    #[serde(default)]
+    pub reference_images: Vec<serde_json::Value>,
+    pub options: VideoGenerationOptions,
+}
+
+impl VideoJobContext {
+    pub fn input_image_count(&self) -> usize {
+        usize::from(self.starting_image.is_some())
+            + usize::from(self.ending_image.is_some())
+            + self.reference_images.len()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

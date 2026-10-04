@@ -1,5 +1,37 @@
 # DEVLOG
 
+## 2026-10-04
+
+- Checkpoint release `0.28.0` for restart-safe Higgsfield video recovery.
+  Synchronized package, Rust, Tauri, and Cargo lockfile versions; TODO.md now
+  reflects verified status, and the remaining TODO items are postponed.
+
+- Added restart-safe Higgsfield video recovery. Video batches are now saved
+  before submission and again once the provider job ID is known, along with a
+  resume context (platform, rendered prompt, input mode, input-image names and
+  MIME types, options); no image bytes are stored. Polling, download, and
+  finalize are shared by fresh and resumed jobs, so resume never calls create.
+- On launch, interrupted Higgsfield jobs auto-resume. Jobs on other platforms
+  are marked failed with their request ID. Jobs interrupted before the provider
+  confirmed them are marked failed with a warning not to resubmit blindly.
+  Failed, stopped, or running Higgsfield jobs with a stored ID show a Resume
+  action in history.
+- The `resume_video` command accepts only task and batch IDs. Rust checks
+  media type, status, platform, and job ID, pins Higgsfield routing even if
+  Settings changed, and rejects duplicate monitoring of one batch. Higgsfield
+  job IDs may no longer start with `-`, because they are passed as CLI
+  arguments.
+- Video history writes now reload state before inserting or updating the
+  batch, and are serialized with each other, instead of writing back the state
+  loaded when the job started. This keeps long video jobs from reverting
+  settings or history changed meanwhile. Settings, prompt, and image-history
+  writes do not share that lock yet. The prompt is updated only at submission.
+- Resume is hidden on a running batch while this process is still monitoring a
+  new video submission. A duplicate resume of a completed batch does nothing.
+- Validation: 192 Rust tests passed (7 new), plus 44 frontend tests (2 new)
+  and the production build. Changed Rust code passes rustfmt. Not exercised
+  against a live interrupted Higgsfield job; no paid generations were made.
+
 ## 2026-10-03
 
 - Checkpoint release `0.27.0` for the PixelLab agent CLI. Synchronized package,

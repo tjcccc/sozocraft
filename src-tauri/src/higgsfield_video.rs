@@ -593,6 +593,7 @@ pub(crate) fn validate_job_id(value: &str) -> Result<(), String> {
     }
     if !value.is_empty()
         && value.len() <= 128
+        && !value.starts_with('-')
         && value
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
@@ -678,7 +679,7 @@ fn without_result_urls(mut value: Value) -> Value {
 mod tests {
     use super::{
         build_create_args, is_ambiguous_create_error, is_safe_result_url, job_matches_request,
-        recent_job_ids, video_job_id_from_metadata, TempInputFiles,
+        recent_job_ids, validate_job_id, video_job_id_from_metadata, TempInputFiles,
     };
     use crate::models::{
         VideoGenerationOptions, VideoGenerationRequest, VideoInputMode, VideoProvider,
@@ -784,6 +785,15 @@ mod tests {
         .unwrap();
         assert_eq!(args[2], "seedance_2_0_mini");
         assert!(!args.contains(&"--mode".to_string()));
+    }
+
+    #[test]
+    fn rejects_job_ids_that_could_be_cli_options() {
+        assert!(validate_job_id("3f2b8c1e-7a4d-4e9b-9c2a-1d5e6f7a8b9c").is_ok());
+        assert!(validate_job_id("job_123-abc").is_ok());
+        assert!(validate_job_id("--json").is_err());
+        assert!(validate_job_id("-h").is_err());
+        assert!(validate_job_id("job 1").is_err());
     }
 
     #[test]

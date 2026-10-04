@@ -13,6 +13,14 @@ export function batchTitle(batch: GenerationBatch): string {
   return `${date} ${time} - ${shortId(batch.id)}${suffix}`;
 }
 
+/** Mirrors the native resume check; Rust re-validates every resume request. */
+export function canResumeVideoBatch(batch: GenerationBatch): boolean {
+  return batch.mediaType === "video"
+    && batch.status !== "completed"
+    && Boolean(batch.providerRequestId)
+    && batch.videoJob?.platform === "higgsfield";
+}
+
 function shortId(id: string) {
   return id.slice(0, 6);
 }

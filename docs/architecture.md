@@ -64,8 +64,10 @@
   for raw Higgsfield image and video results, including original provider
   filenames and archive-root path validation.
 - `src-tauri/src/video_generation.rs` owns text-, image-, and reference-to-video
-  job orchestration, local MP4 and JSON metadata persistence, terminal history
-  state, and failure logging.
+  job orchestration, local MP4 and JSON metadata persistence, history state
+  (saved before submission and again once a job ID exists), and failure logging.
+- `src-tauri/src/video_recovery.rs` settles batches interrupted by a restart and
+  resumes stored Higgsfield video jobs by batch ID without resubmitting them.
 - `src-tauri/src/image_meta.rs` handles PNG conversion and metadata embedding.
 - `src-tauri/src/local_config.rs` manages `~/.sozocraft/config.toml`.
 - `src-tauri/src/macos_app_icon.rs` keeps the running macOS Dock icon synchronized

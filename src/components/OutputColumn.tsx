@@ -4,12 +4,13 @@ import {
   ChevronRight,
   ChevronUp,
   Image as ImageIcon,
+  RotateCw,
   Video,
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { GenerationBatch, GenerationMediaType } from "../types";
 import { localDateString } from "../utils/dates";
-import { batchTitle } from "../utils/history";
+import { batchTitle, canResumeVideoBatch } from "../utils/history";
 import { clamp } from "../utils/math";
 import { ImageTile, PanelHeader, StatusText } from "./common";
 import type { LightboxImage } from "./ImageLightbox";
@@ -24,12 +25,15 @@ export function OutputColumn({
   historyDate,
   imageDataUrls,
   mediaType,
+  monitoringNewVideo,
   previewBatch,
+  resumingBatchIds,
   setExpandedBatchId,
   setHistoryDate,
   setPreviewBatchId,
   videoUrls,
   onPreviewImages,
+  onResumeVideo,
 }: {
   batches: GenerationBatch[];
   errorMessage: string | null;
@@ -40,12 +44,15 @@ export function OutputColumn({
   historyDate: string;
   imageDataUrls: Record<string, string>;
   mediaType: GenerationMediaType;
+  monitoringNewVideo: boolean;
   previewBatch?: GenerationBatch;
+  resumingBatchIds: Set<string>;
   setExpandedBatchId: (id: string | null) => void;
   setHistoryDate: (date: string) => void;
   setPreviewBatchId: (id: string | null) => void;
   videoUrls: Record<string, string>;
   onPreviewImages: (images: LightboxImage[], index: number) => void;
+  onResumeVideo: (batchId: string) => void;
 }) {
   const panelRef = useRef<HTMLElement>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -208,6 +215,19 @@ export function OutputColumn({
                       ) : null}
                       {batch.status === "cancelled" && batch.error ? (
                         <div className="batch-cancel-detail">{batch.error}</div>
+                      ) : null}
+                      {canResumeVideoBatch(batch)
+                        && !resumingBatchIds.has(batch.id)
+                        && !(monitoringNewVideo && batch.status === "running") ? (
+                        <button
+                          className="history-resume-button"
+                          onClick={() => onResumeVideo(batch.id)}
+                          title="Check the existing Higgsfield job and download its video without resubmitting"
+                          type="button"
+                        >
+                          <RotateCw size={12} />
+                          Resume
+                        </button>
                       ) : null}
                     </div>
                   ) : null}

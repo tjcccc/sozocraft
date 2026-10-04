@@ -2,7 +2,10 @@
 
 ## v0.1.x Stabilization
 
-- Save per-image sidecar metadata JSON next to each output image, including prompt source, final prompt snapshot, provider, model, generation options, filename template, timestamps, and response metadata.
+- Output metadata: desktop images are always saved as PNG with metadata embedded
+  in PNG text chunks; MP4s keep a separate `.mp4.json` sidecar (no in-file MP4
+  metadata). Raw Higgsfield archive copies stay unmodified. Remaining: add the
+  prompt source and filename template fields to both.
 
 ## Prompt Workflow
 
@@ -12,9 +15,7 @@
 ## Output Workflow
 
 - Add image context actions: reveal in Finder, copy path, copy prompt, and open metadata.
-- Add output gallery filtering by provider/model/status/date.
 - Add safe cleanup controls for failed batches and missing local files.
-- Replace base64 output previews with safe file-backed preview URLs, likely by copying generated preview assets into a scoped temp/cache directory and serving only that directory through a narrow Tauri asset/protocol path.
 
 ## Architecture Roadmap
 
@@ -26,10 +27,13 @@
 
 ## Video Roadmap
 
-- Complete Higgsfield CLI Seedance video qualification across Standard, Fast,
-  and Mini, including reference inputs, result polling/download, and recovery
-  from interrupted or previously misclassified jobs.
-- Add restart-safe recovery for in-flight provider video request ids.
+- Complete live Higgsfield CLI Seedance video qualification across Standard,
+  Fast, and Mini, including reference inputs, result polling/download, and the
+  restart/Resume recovery path (implemented and unit-tested, not yet exercised
+  against a live interrupted job).
+- Extend restart-safe video resume beyond Higgsfield to Ark, xAI, Veo, and Omni
+  request ids. Those jobs are currently marked failed on restart with their
+  provider request id recorded.
 - Add progress reporting from provider polling responses.
 - Add video editing and video extension as separate milestones.
 - Add provider-side cancellation where a video API exposes a supported endpoint.

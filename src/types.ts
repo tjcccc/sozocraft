@@ -174,6 +174,11 @@ export type OutputVideo = {
   metadata?: Record<string, unknown> | null;
 };
 
+export type VideoJobContext = {
+  provider: string;
+  platform: string;
+};
+
 export type GenerationBatch = {
   id: string;
   mediaType: GenerationMediaType;
@@ -184,6 +189,7 @@ export type GenerationBatch = {
   images: OutputImage[];
   videos: OutputVideo[];
   providerRequestId?: string | null;
+  videoJob?: VideoJobContext | null;
   createdAt: string;
   completedAt?: string | null;
   error?: string | null;

@@ -99,6 +99,10 @@ export function generateVideo(request: VideoGenerationRequest) {
   return invoke<GenerationBatch>("generate_video", { request });
 }
 
+export function resumeVideo(taskId: string, batchId: string) {
+  return invoke<GenerationBatch>("resume_video", { taskId, batchId });
+}
+
 export function cancelGenerationTask(taskId: string) {
   return invoke<boolean>("cancel_generation_task", { taskId });
 }

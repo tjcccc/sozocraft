@@ -4,6 +4,7 @@ import {
   generateImages,
   generateVideo,
   loadAppState,
+  resumeVideo,
   saveAppSettings,
 } from "../api";
 import type { AppStatus } from "../components/common";
@@ -29,10 +30,20 @@ type QueuedVideoTask = {
   settings: AppSettings;
 };
 
-export type QueuedGenerationTask = QueuedImageTask | QueuedVideoTask;
+/** Resumes monitoring a submitted Higgsfield video job; never resubmits it. */
+type QueuedVideoResumeTask = {
+  id: string;
+  mediaType: "video";
+  resumeBatchId: string;
+};
+
+export type QueuedGenerationTask = QueuedImageTask | QueuedVideoTask | QueuedVideoResumeTask;
 export type EnqueueGenerationTask = (task: QueuedGenerationTask) => void;
 
 export function usesHiggsfieldTask(task: QueuedGenerationTask) {
+  if ("resumeBatchId" in task) {
+    return true;
+  }
   if (task.mediaType === "video") {
     return task.request.provider === "seedance"
       && task.settings.seedanceApiPlatform === "higgsfield";
@@ -67,12 +78,38 @@ export function useGenerationQueue({
   const [runningTask, setRunningTask] = useState<QueuedGenerationTask | null>(null);
   const processingRef = useRef(false);
   const canStopRunningTask = canStopTask(runningTask);
+  // A fresh video submission persists its running batch before it finishes, so
+  // history can show it as running while this process is still monitoring it.
+  const monitoringNewVideo = Boolean(
+    runningTask && runningTask.mediaType === "video" && !("resumeBatchId" in runningTask),
+  );
+  const resumingBatchIds = new Set(
+    [runningTask, ...queuedTasks].flatMap((task) =>
+      task && "resumeBatchId" in task ? [task.resumeBatchId] : [],
+    ),
+  );
 
   const enqueueTask = useCallback<EnqueueGenerationTask>(
     (task) => {
       setQueuedTasks((current) => [...current, task]);
       setStatus("running");
       setMessage(runningTask ? "Task queued" : runningMessage(task.mediaType));
+    },
+    [runningTask, setMessage, setStatus],
+  );
+
+  const resumeVideoBatch = useCallback(
+    (batchId: string) => {
+      const alreadyQueued = (task: QueuedGenerationTask | null) =>
+        Boolean(task && "resumeBatchId" in task && task.resumeBatchId === batchId);
+      setQueuedTasks((current) => {
+        if (alreadyQueued(runningTask) || current.some(alreadyQueued)) {
+          return current;
+        }
+        return [...current, { id: crypto.randomUUID(), mediaType: "video", resumeBatchId: batchId }];
+      });
+      setStatus("running");
+      setMessage(runningTask ? "Task queued" : "Resuming video");
     },
     [runningTask, setMessage, setStatus],
   );
@@ -95,14 +132,27 @@ export function useGenerationQueue({
   const executeTask = useCallback(
     async (task: QueuedGenerationTask) => {
       setStatus("running");
-      setMessage(runningMessage(task.mediaType));
+      const resumeBatchId = "resumeBatchId" in task ? task.resumeBatchId : null;
+      setMessage(resumeBatchId ? "Resuming video" : runningMessage(task.mediaType));
+      if (resumeBatchId) {
+        setBatches((current) =>
+          current.map((item) =>
+            item.id === resumeBatchId ? { ...item, status: "running", error: null } : item,
+          ),
+        );
+      }
 
       try {
-        await saveAppSettings(task.settings);
-        const batch =
-          task.mediaType === "image"
-            ? await generateImages(task.request)
-            : await generateVideo(task.request);
+        let batch: GenerationBatch;
+        if ("resumeBatchId" in task) {
+          batch = await resumeVideo(task.id, task.resumeBatchId);
+        } else {
+          await saveAppSettings(task.settings);
+          batch =
+            task.mediaType === "image"
+              ? await generateImages(task.request)
+              : await generateVideo(task.request);
+        }
         setBatches((current) => [batch, ...current.filter((item) => item.id !== batch.id)]);
         if (batch.status === "completed") {
           setPreviewBatchId(batch.id);
@@ -147,6 +197,9 @@ export function useGenerationQueue({
     enqueueTask,
     canStopRunningTask,
     queuedCount: queuedTasks.length,
+    monitoringNewVideo,
+    resumeVideoBatch,
+    resumingBatchIds,
     runningTask,
     stopGeneration,
   };

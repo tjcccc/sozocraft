@@ -482,6 +482,14 @@ does not retry the paid create. It searches recent video jobs and resumes only
 when one newly created job exactly matches the request signature. Stop is
 disabled for every running Higgsfield CLI image or video job because the CLI has
 no cancellation command.
+Submitted video jobs are saved to history with their provider job ID before
+polling starts. If SozoCraft closes while a Higgsfield video job is running, it
+resumes monitoring that job on the next launch. Failed or stopped Higgsfield
+video jobs that have a job ID show a Resume action in history. Resume checks
+the existing job and downloads its result; it never submits a new paid job.
+Interrupted jobs on other video platforms are marked failed with their provider
+request ID, and a job interrupted before the provider confirmed it is never
+resubmitted.
 [Higgsfield CLI](https://github.com/higgsfield-ai/cli) documents the command
 workflow and [its model schemas](https://github.com/higgsfield-ai/cli/blob/main/MODELS.md)
 document the Seedance media inputs. Soul IDs are currently image-model inputs,

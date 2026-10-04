@@ -87,6 +87,9 @@ The current design uses:
 - Video mode uses one wrapping Input Images field whose count limit follows the
   active provider. Its output panel uses native video playback and keeps video
   history separate from image history.
+- Expanded video history rows for unfinished Higgsfield jobs with a stored job ID
+  show a small secondary Resume button below any error or stop detail. The
+  button is hidden while that job is queued or running.
 - Video input mode follows per-thumbnail roles. New uploads default to Reference
   except Veo Lite, which assigns frame roles;
   a hover/focus menu assigns Reference where supported or Start frame, and End
