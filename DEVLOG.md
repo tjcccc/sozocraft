@@ -1,5 +1,21 @@
 # DEVLOG
 
+## 2026-10-08
+
+- Checkpoint release `0.31.0` for Nano Banana 2.1 and the image tab layout
+  fix. Synchronized package, Rust, Tauri, and Cargo lockfile versions.
+
+- Added Nano Banana 2.1 (`gemini-nano-banana-2.1`, stable) to the Gemini
+  platform for desktop and CLI: 3.1 Flash aspect ratios, `1K/2K/4K` sizes,
+  `minimal/medium/high` thinking (default `medium`), and 14 references. Output
+  filenames use `nano-banana-2.1`. The docs page does not list the full aspect
+  ratio set, so the 3.1 Flash set is assumed. Mock-tested only.
+- Changing the image model now resets thinking to that model's default
+  (2.1 `medium`, 2 `minimal`); restored settings and tab switches keep the
+  saved level.
+- Fixed the image mode tabs wrapping the fourth tab (Experimental) onto a
+  second row in wide windows; tab columns now follow the tab count.
+
 ## 2026-10-04
 
 - Checkpoint release `0.30.0` for Seedream 5.0 Pro, Flash, and Lite in the

@@ -138,7 +138,8 @@ export function GenerationPanel(props: {
                 aspectRatio: props.aspectRatio,
                 imageSize: props.imageSize,
                 quality: props.quality,
-                thinkingLevel: props.thinkingLevel,
+                // Thinking levels are model-specific; a model change starts from the new model's default.
+                thinkingLevel: "",
               }, activePlatform);
               setModelByProvider((current) => ({
                 ...current,

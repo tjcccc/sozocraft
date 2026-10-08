@@ -324,8 +324,9 @@ search fields disable autocorrect, autocapitalize, and spellcheck.
 
 The Gemini provider enables these models:
 
-- `gemini-3-pro-image-preview`
+- `gemini-nano-banana-2.1`
 - `gemini-3.1-flash-image-preview`
+- `gemini-3-pro-image-preview`
 - `gemini-2.5-flash-image`
 
 The backend uses the Gemini `generateContent` REST API and extracts image bytes from inline image response parts.
@@ -336,6 +337,10 @@ Generation controls are model-aware:
   `2:3`, `3:2`, `3:4`, `4:1`, `4:3`, `4:5`, `5:4`, `8:1`, `9:16`, `16:9`,
   and `21:9`; image sizes `512`, `1K`, `2K`, and `4K`; and thinking levels
   `minimal` or `high`. The UI accepts up to 14 reference images.
+- Nano Banana 2.1 (`gemini-nano-banana-2.1`) uses the 3.1 Flash aspect
+  ratios; image sizes `1K`, `2K`, and `4K` (no `512`); and thinking levels
+  `minimal`, `medium` (default), or `high`. The UI accepts up to 14
+  reference images.
 - Gemini 3 Pro Image Preview supports aspect ratios `1:1`, `2:3`, `3:2`,
   `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, and `21:9`; image sizes
   `1K`, `2K`, and `4K`; thinking is model-managed. The UI accepts up to 14

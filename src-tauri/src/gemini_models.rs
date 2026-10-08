@@ -14,11 +14,15 @@ pub const GEMINI_2_5_FLASH_ASPECT_RATIOS: [&str; 10] = [
 pub const GEMINI_3_PRO_IMAGE_SIZES: [&str; 3] = ["1K", "2K", "4K"];
 pub const GEMINI_3_FLASH_IMAGE_SIZES: [&str; 4] = ["512", "1K", "2K", "4K"];
 pub const GEMINI_3_FLASH_THINKING_LEVELS: [&str; 2] = ["minimal", "high"];
+pub const NANO_BANANA_2_1_IMAGE_SIZES: [&str; 3] = ["1K", "2K", "4K"];
+pub const NANO_BANANA_2_1_THINKING_LEVELS: [&str; 3] = ["minimal", "medium", "high"];
 
 pub fn max_reference_images(model: &str) -> usize {
     match model {
         "gemini-2.5-flash-image" => 3,
-        "gemini-3.1-flash-image-preview" | "gemini-3-pro-image-preview" => 14,
+        "gemini-nano-banana-2.1"
+        | "gemini-3.1-flash-image-preview"
+        | "gemini-3-pro-image-preview" => 14,
         _ => 0,
     }
 }

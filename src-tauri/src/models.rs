@@ -758,7 +758,8 @@ fn supported_model(provider: &str, model: &str) -> bool {
     }
 }
 
-pub const NANO_BANANA_MODELS: [&str; 6] = [
+pub const NANO_BANANA_MODELS: [&str; 7] = [
+    "gemini-nano-banana-2.1",
     "gemini-3-pro-image-preview",
     "gemini-3.1-flash-image-preview",
     "gemini-2.5-flash-image",

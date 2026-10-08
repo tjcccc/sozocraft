@@ -38,6 +38,20 @@ describe("image model platform catalogs", () => {
     }
   });
 
+  it("offers Nano Banana 2.1 on Gemini with medium thinking and no 512 size", () => {
+    expect(getProviderModels("nano-banana", "gemini").map((model) => model.id)).toEqual([
+      "gemini-nano-banana-2.1", "gemini-3.1-flash-image-preview", "gemini-3-pro-image-preview", "gemini-2.5-flash-image",
+    ]);
+    expect(normalizeProviderOptions("nano-banana", "gemini-nano-banana-2.1", {
+      ...options, aspectRatio: "8:1", imageSize: "512", thinkingLevel: "medium",
+    }, "gemini")).toMatchObject({ aspectRatio: "8:1", imageSize: "2K", thinkingLevel: "medium" });
+    expect(normalizeProviderOptions("nano-banana", "gemini-3.1-flash-image-preview", {
+      ...options, thinkingLevel: "medium",
+    }, "gemini").thinkingLevel).toBe("minimal");
+    expect(normalizeProviderOptions("nano-banana", "gemini-nano-banana-2.1", options, "gemini").thinkingLevel)
+      .toBe("medium");
+  });
+
   it("migrates the OpenRouter chat model to direct GPT Image 2", () => {
     expect(normalizeProviderOptions("gpt-image", "openai/gpt-5.4-image-2", options, "openrouter"))
       .toMatchObject({ model: "openai/gpt-image-2", quality: "auto", imageSize: "" });

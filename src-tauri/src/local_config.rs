@@ -713,6 +713,7 @@ fn normalize_nano_banana_model(platform: &str, model: String) -> String {
         (
             "gemini",
             "gemini-3-pro-image-preview"
+            | "gemini-nano-banana-2.1"
             | "gemini-3.1-flash-image-preview"
             | "gemini-2.5-flash-image",
         ) => model,

@@ -176,7 +176,10 @@ fn validate_options(request: &GenerationRequest, platform: &str) -> Result<(), S
     if options.thinking_level.is_some()
         && crate::gemini::supported_thinking_level(request).is_none()
     {
-        return Err("--thinking-level requires Gemini Flash 3.1 and minimal or high.".to_string());
+        return Err(
+            "--thinking-level requires Gemini 3.1 Flash (minimal or high) or Nano Banana 2.1 (minimal, medium, or high)."
+                .to_string(),
+        );
     }
     if let Some(quality) = options.quality.as_deref() {
         let valid = if request.provider == "nano-banana" {
@@ -236,6 +239,12 @@ mod tests {
         value.thinking_level = Some("minimal".to_string());
         assert!(build(&value, &settings).is_ok());
         value.model = Some("gemini-3-pro-image-preview".to_string());
+        assert!(build(&value, &settings).is_err());
+        let mut value = options("gemini-nano-banana-2.1");
+        value.size = Some("4K".to_string());
+        value.thinking_level = Some("medium".to_string());
+        assert!(build(&value, &settings).is_ok());
+        value.size = Some("512".to_string());
         assert!(build(&value, &settings).is_err());
         settings.nano_banana_api_platform = "higgsfield".to_string();
         assert!(build(&value, &settings).is_err());
@@ -302,7 +311,10 @@ mod tests {
         let mut seedream = options("bytedance-seed/seedream-5-0-lite");
         seedream.aspect_ratio = Some("20:9".to_string());
         seedream.size = Some("4K".to_string());
-        assert_eq!(build(&seedream, &settings).unwrap().provider, "experimental");
+        assert_eq!(
+            build(&seedream, &settings).unwrap().provider,
+            "experimental"
+        );
         seedream.size = Some("1K".to_string());
         assert!(build(&seedream, &settings).is_err());
     }

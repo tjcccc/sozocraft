@@ -962,14 +962,11 @@ button {
 
 .tabs {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
     height: 42px;
     padding: 0 14px;
     border-bottom: 1px solid rgba(124, 136, 158, 0.16);
-}
-
-.tabs.video-tabs {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .tabs button {

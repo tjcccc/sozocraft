@@ -97,7 +97,7 @@ export function VideoGenerationPanel({
       data-file-drop-zone="generation"
     >
       <PanelHeader icon={<SlidersHorizontal size={16} />} title="Video Generation" />
-      <div className="tabs video-tabs">
+      <div className="tabs">
         {VIDEO_PROVIDER_IDS.map((providerId) => {
           const config = getVideoProviderConfig(providerId);
           return (

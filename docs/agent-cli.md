@@ -137,7 +137,7 @@ IDs are rejected. CLI flags do not change config or desktop state.
 
 | Provider | Configured platform | Accepted model IDs | Reference limit |
 | --- | --- | --- | --- |
-| `nano-banana` | Gemini | `gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`, `gemini-2.5-flash-image` | 14 for Pro/3.1 Flash; 3 for 2.5 Flash |
+| `nano-banana` | Gemini | `gemini-nano-banana-2.1`, `gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`, `gemini-2.5-flash-image` | 14 for 2.1/Pro/3.1 Flash; 3 for 2.5 Flash |
 | `nano-banana` | Higgsfield | `nano_banana_2`, `nano_banana_flash`, `nano_banana` | 8 |
 | `gpt-image` | OpenAI or OpenRouter | `gpt-image-2`, `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst` | 16 |
 | `gpt-image` | OpenRouter | `openai/gpt-image-2`, `openai/gpt-image-2.5-flare`, `openai/gpt-image-2.5-sunburst` | 16 |
@@ -159,14 +159,15 @@ processes, make network requests, or create outputs.
 Optional image flags are checked against the selected model:
 
 - `--aspect-ratio`: supported model ratios; native GPT uses `--size` instead.
-- `--size`: Gemini Pro `1K/2K/4K`; 3.1 Flash also `512`; absent for 2.5 Flash.
+- `--size`: Gemini Pro and 2.1 `1K/2K/4K`; 3.1 Flash also `512`; absent for 2.5 Flash.
   Native GPT accepts `auto` or validated `WIDTHxHEIGHT`, such as `1536x1024`.
   OpenRouter's `openai/...` IDs use aspect ratio and reject size. xAI accepts
   `1k/2k`; Higgsfield accepts `1k/2k/4k` except `nano_banana` and `grok_image`.
 - `--quality`: GPT `auto/low/medium/high`, with `xhigh/max` for 2.5 variants.
   Higgsfield GPT excludes `auto`. xAI accepts `auto/low/medium`;
   Higgsfield Grok accepts `std/pro`. Nano Banana has no quality flag.
-- `--thinking-level`: `minimal/high` for Gemini 3.1 Flash only.
+- `--thinking-level`: `minimal/high` for Gemini 3.1 Flash;
+  `minimal/medium/high` for Nano Banana 2.1. Rejected for other models.
 - `experimental` (`meta/muse-image`): `--aspect-ratio` accepts
   `auto 1:1 2:3 3:2 3:4 4:3 9:16 16:9 21:9 9:21`; `--size`, `--quality`, and
   `--thinking-level` are rejected. Requests go to OpenRouter's

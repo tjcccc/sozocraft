@@ -2,6 +2,7 @@ use crate::{
     gemini_models::{
         GEMINI_2_5_FLASH_ASPECT_RATIOS, GEMINI_3_FLASH_ASPECT_RATIOS, GEMINI_3_FLASH_IMAGE_SIZES,
         GEMINI_3_FLASH_THINKING_LEVELS, GEMINI_3_PRO_ASPECT_RATIOS, GEMINI_3_PRO_IMAGE_SIZES,
+        NANO_BANANA_2_1_IMAGE_SIZES, NANO_BANANA_2_1_THINKING_LEVELS,
     },
     models::GenerationRequest,
 };
@@ -177,7 +178,9 @@ pub(crate) fn supported_aspect_ratio(request: &GenerationRequest) -> Option<&str
 
     let supported = match request.model.as_str() {
         "gemini-3-pro-image-preview" => GEMINI_3_PRO_ASPECT_RATIOS.as_slice(),
-        "gemini-3.1-flash-image-preview" => GEMINI_3_FLASH_ASPECT_RATIOS.as_slice(),
+        "gemini-nano-banana-2.1" | "gemini-3.1-flash-image-preview" => {
+            GEMINI_3_FLASH_ASPECT_RATIOS.as_slice()
+        }
         "gemini-2.5-flash-image" => GEMINI_2_5_FLASH_ASPECT_RATIOS.as_slice(),
         _ => return None,
     };
@@ -190,6 +193,7 @@ pub(crate) fn supported_image_size(request: &GenerationRequest) -> Option<&str> 
     let supported = match request.model.as_str() {
         "gemini-3-pro-image-preview" => GEMINI_3_PRO_IMAGE_SIZES.as_slice(),
         "gemini-3.1-flash-image-preview" => GEMINI_3_FLASH_IMAGE_SIZES.as_slice(),
+        "gemini-nano-banana-2.1" => NANO_BANANA_2_1_IMAGE_SIZES.as_slice(),
         _ => return None,
     };
 
@@ -197,12 +201,14 @@ pub(crate) fn supported_image_size(request: &GenerationRequest) -> Option<&str> 
 }
 
 pub(crate) fn supported_thinking_level(request: &GenerationRequest) -> Option<&str> {
-    if request.model != "gemini-3.1-flash-image-preview" {
-        return None;
-    }
+    let supported = match request.model.as_str() {
+        "gemini-3.1-flash-image-preview" => GEMINI_3_FLASH_THINKING_LEVELS.as_slice(),
+        "gemini-nano-banana-2.1" => NANO_BANANA_2_1_THINKING_LEVELS.as_slice(),
+        _ => return None,
+    };
 
     let thinking_level = request.options.thinking_level.as_deref()?;
-    GEMINI_3_FLASH_THINKING_LEVELS
+    supported
         .contains(&thinking_level)
         .then_some(thinking_level)
 }
@@ -450,6 +456,31 @@ mod tests {
     }
 
     #[test]
+    fn nano_banana_2_1_payload_accepts_medium_thinking_and_rejects_512() {
+        let mut request = request_for_model("gemini-nano-banana-2.1");
+        request.options.thinking_level = Some("medium".to_string());
+        let body = build_request_body(&request);
+        let config = body.get("generationConfig").unwrap();
+
+        assert_eq!(config["imageConfig"]["aspectRatio"], "1:8");
+        assert_eq!(config["imageConfig"].get("imageSize"), None);
+        assert_eq!(config["thinkingConfig"]["thinkingLevel"], "medium");
+
+        request.options.image_size = Some("4K".to_string());
+        let body = build_request_body(&request);
+        assert_eq!(body["generationConfig"]["imageConfig"]["imageSize"], "4K");
+    }
+
+    #[test]
+    fn flash_3_1_payload_rejects_nano_banana_2_1_medium_thinking() {
+        let mut request = request_for_model("gemini-3.1-flash-image-preview");
+        request.options.thinking_level = Some("medium".to_string());
+        let body = build_request_body(&request);
+
+        assert_eq!(body["generationConfig"].get("thinkingConfig"), None);
+    }
+
+    #[test]
     fn payload_includes_reference_images_as_inline_data() {
         let mut request = request_for_model("gemini-3.1-flash-image-preview");
         request.reference_images = Some(vec![ReferenceImageInput {
@@ -499,7 +530,9 @@ mod tests {
             output_template: "{id}.{extension}".to_string(),
             options: GenerationOptions {
                 aspect_ratio: Some(match model {
-                    "gemini-3.1-flash-image-preview" => "1:8".to_string(),
+                    "gemini-3.1-flash-image-preview" | "gemini-nano-banana-2.1" => {
+                        "1:8".to_string()
+                    }
                     _ => "21:9".to_string(),
                 }),
                 image_size: Some("512".to_string()),

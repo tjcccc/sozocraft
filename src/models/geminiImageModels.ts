@@ -1,9 +1,10 @@
 export type GeminiImageModelId =
+  | "gemini-nano-banana-2.1"
   | "gemini-3.1-flash-image-preview"
   | "gemini-3-pro-image-preview"
   | "gemini-2.5-flash-image";
 
-export type GeminiThinkingLevel = "minimal" | "high";
+export type GeminiThinkingLevel = "minimal" | "medium" | "high";
 
 export type GeminiImageModelConfig = {
   id: GeminiImageModelId;
@@ -27,6 +28,36 @@ export type GeminiImageOptions = {
 };
 
 export const GEMINI_IMAGE_MODELS: Record<GeminiImageModelId, GeminiImageModelConfig> = {
+  "gemini-nano-banana-2.1": {
+    id: "gemini-nano-banana-2.1",
+    label: "Gemini Nano Banana 2.1",
+    productName: "Nano Banana 2.1",
+    aspectRatios: [
+      "Auto",
+      "1:1",
+      "1:4",
+      "1:8",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:1",
+      "4:3",
+      "4:5",
+      "5:4",
+      "8:1",
+      "9:16",
+      "16:9",
+      "21:9",
+    ],
+    imageSizes: ["1K", "2K", "4K"],
+    thinkingLevels: ["minimal", "medium", "high"],
+    maxReferenceImages: 14,
+    defaults: {
+      aspectRatio: "1:1",
+      imageSize: "2K",
+      thinkingLevel: "medium",
+    },
+  },
   "gemini-3.1-flash-image-preview": {
     id: "gemini-3.1-flash-image-preview",
     label: "Gemini 3.1 Flash Image Preview",

@@ -742,6 +742,7 @@ fn filename_model(model: &str) -> &str {
     }
     match model {
         "gemini-3-pro-image-preview" => "nano-banana-pro",
+        "gemini-nano-banana-2.1" => "nano-banana-2.1",
         "gemini-3.1-flash-image-preview" => "nano-banana-2",
         "gemini-2.5-flash-image" => "nano-banana",
         "nano_banana_2" => "nano-banana-pro",
