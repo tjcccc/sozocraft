@@ -1075,26 +1075,26 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building SozoCraft");
 
-    app.run(|app_handle, event| {
-        #[cfg(target_os = "macos")]
-        match event {
-            tauri::RunEvent::Ready => {
-                let theme = app_handle
-                    .get_webview_window("main")
-                    .and_then(|window| window.theme().ok())
-                    .unwrap_or(tauri::Theme::Light);
-                macos_app_icon::set_dock_icon(theme)
-                    .unwrap_or_else(|error| eprintln!("Failed to set macOS Dock icon: {error}"));
-            }
-            tauri::RunEvent::WindowEvent {
-                label,
-                event: tauri::WindowEvent::ThemeChanged(theme),
-                ..
-            } if label == "main" => {
-                macos_app_icon::set_dock_icon(theme)
-                    .unwrap_or_else(|error| eprintln!("Failed to update macOS Dock icon: {error}"));
-            }
-            _ => {}
+    #[cfg(target_os = "macos")]
+    app.run(|app_handle, event| match event {
+        tauri::RunEvent::Ready => {
+            let theme = app_handle
+                .get_webview_window("main")
+                .and_then(|window| window.theme().ok())
+                .unwrap_or(tauri::Theme::Light);
+            macos_app_icon::set_dock_icon(theme)
+                .unwrap_or_else(|error| eprintln!("Failed to set macOS Dock icon: {error}"));
         }
+        tauri::RunEvent::WindowEvent {
+            label,
+            event: tauri::WindowEvent::ThemeChanged(theme),
+            ..
+        } if label == "main" => {
+            macos_app_icon::set_dock_icon(theme)
+                .unwrap_or_else(|error| eprintln!("Failed to update macOS Dock icon: {error}"));
+        }
+        _ => {}
     });
+    #[cfg(not(target_os = "macos"))]
+    app.run(|_app_handle, _event| {});
 }
