@@ -91,6 +91,20 @@ The release command creates the production-optimized application binary. Code
 signing and Apple notarization are separate packaging requirements when the app
 will be distributed to other Macs.
 
+Build a release Fedora `.rpm` package (run on Fedora; Linux bundles cannot be
+cross-built from macOS):
+
+```bash
+pnpm tauri:build:rpm
+sudo dnf install ./src-tauri/target/release/bundle/rpm/SozoCraft-*.rpm
+```
+
+The package installs the binaries to `/usr/bin`, a `SozoCraft.desktop` launcher
+for GNOME Activities, and hicolor icons, and requires `webkit2gtk4.1` and `gtk3`
+at runtime. The launcher's `StartupWMClass` matches the binary name so GNOME
+groups the running window under the launcher icon. Remove it with
+`sudo dnf remove sozo-craft` (Tauri kebab-cases the product name).
+
 Frontend-only development:
 
 ```bash

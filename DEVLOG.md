@@ -1,5 +1,15 @@
 # DEVLOG
 
+## 2026-10-10
+
+- Checkpoint release `0.32.0` for Fedora RPM packaging. Synchronized package,
+  Rust, Tauri, and Cargo lockfile versions.
+- Added `pnpm tauri:build:rpm` for Fedora GNOME release packages. The bundle
+  now declares the `GraphicsAndDesign` category (desktop `Graphics;`), a launcher
+  comment, and explicit RPM runtime requirements (`webkit2gtk4.1`, `gtk3`),
+  because Tauri's RPM bundler does not compute library dependencies. Not yet
+  built or installed on Fedora.
+
 ## 2026-10-08
 
 - Checkpoint release `0.31.0` for Nano Banana 2.1 and the image tab layout
