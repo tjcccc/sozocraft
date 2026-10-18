@@ -1,5 +1,6 @@
 import { KeyRound, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { version } from "../../package.json";
 import { checkHiggsfieldStatus } from "../api";
 import type {
   AppSettings,
@@ -138,6 +139,7 @@ export function SettingsPanel({
       </aside>
 
       <div className="settings-content">
+        <p className="settings-app-version"><strong>SōzōCraft</strong> <span>v{version}</span></p>
         {configStatus ? (
           <div className="config-status">
             <div className="config-status-row field-full">

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "projnaviVersion": "0.4.0",
-  "generatedAt": "2026-10-18T00:57:02.444Z",
+  "generatedAt": "2026-10-18T01:11:24.060Z",
   "root": ".",
   "files": {
     "AGENTS.md": {
@@ -15,8 +15,8 @@
       "category": "docs"
     },
     "DEVLOG.md": {
-      "hash": "20550fbbaf36c2a5b01d62e9021fc40a805a05cb36cb1983b224d9be2866394e",
-      "size": 50108,
+      "hash": "246ea2f484bde64eae47f42c6a1ae61aea85592c1ba16331888f2717f3a98e02",
+      "size": 50390,
       "category": "docs"
     },
     "docs/agent-cli.md": {
@@ -30,7 +30,7 @@
       "category": "docs"
     },
     "package.json": {
-      "hash": "b7d8a6b06579690b3883e8d675c5c11ffe340e8ae3a37d457aa32e04caf9d845",
+      "hash": "46cf6def3f3d6f1b9dcdedae8b8b8eaec583c1d61e0a89ea5ecbaabf8c97819c",
       "size": 1316,
       "category": "config"
     },
@@ -55,8 +55,8 @@
       "category": "source"
     },
     "spec/ui.md": {
-      "hash": "ce304e0402e2e9e628d6adefc0ee462f12274df28c38694e630533c1052941c9",
-      "size": 9392,
+      "hash": "d06e37fa94bc195335dde71ff811cec6b9488cb1d9d0f8468d4871ea4495daa8",
+      "size": 9617,
       "category": "docs"
     },
     "src-tauri/capabilities/default.json": {
@@ -70,7 +70,7 @@
       "category": "source"
     },
     "src-tauri/tauri.conf.json": {
-      "hash": "bd0d35695009c4ee5e03bbe0aa35a39388c58297b4ac05d44a32fd762542fe6f",
+      "hash": "bb13da376b9a819eb4367679f828f5d33710c50587be35abf22cbe5d7d34a286",
       "size": 1636,
       "category": "source"
     },
@@ -165,8 +165,8 @@
       "category": "source"
     },
     "src/components/SettingsPanel.tsx": {
-      "hash": "90a2464657d336d0f89ee5bc87eaf36c792dbb82a7d0568208fa350486bb0fc1",
-      "size": 31481,
+      "hash": "94710396dcba978013bbc9ea1a79c2cfd13743f42314c771e1e83ee39e27770b",
+      "size": 31628,
       "category": "source"
     },
     "src/components/VideoGenerationPanel.test.tsx": {
@@ -396,7 +396,7 @@
       ]
     },
     "package.json": {
-      "hash": "b7d8a6b06579690b3883e8d675c5c11ffe340e8ae3a37d457aa32e04caf9d845",
+      "hash": "46cf6def3f3d6f1b9dcdedae8b8b8eaec583c1d61e0a89ea5ecbaabf8c97819c",
       "size": 1316,
       "category": "config",
       "claimIds": [
@@ -499,8 +499,8 @@
       ]
     },
     "src/components/SettingsPanel.tsx": {
-      "hash": "90a2464657d336d0f89ee5bc87eaf36c792dbb82a7d0568208fa350486bb0fc1",
-      "size": 31481,
+      "hash": "94710396dcba978013bbc9ea1a79c2cfd13743f42314c771e1e83ee39e27770b",
+      "size": 31628,
       "category": "source",
       "claimIds": []
     },

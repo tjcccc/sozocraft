@@ -2186,6 +2186,16 @@ button {
     overflow: auto;
 }
 
+.settings-app-version {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 400;
+}
+
+.settings-app-version span {
+    font-size: 13px;
+}
+
 .settings-section {
     display: flex;
     min-width: 0;

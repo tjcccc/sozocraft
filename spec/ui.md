@@ -43,6 +43,9 @@ The current design uses:
 
 ## Controls
 
+- Settings shows `SōzōCraft v<version>` from the package version as plain text
+  before the config file panel, without a separate section or divider. The
+  label uses a bold 20px app name and a regular-weight 13px version.
 - Use native form controls for settings and generation options unless a richer control is needed.
 - General Settings keeps the primary Output Directory and Filename Template,
   followed by a default-off Higgsfield Output toggle. Its dependent directory

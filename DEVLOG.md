@@ -2,6 +2,10 @@
 
 ## 2026-10-18
 
+- Checkpoint release `0.32.2` for the Settings version label. Synchronized
+  package, Rust, Tauri, and Cargo lockfile versions.
+- Added a plain `SōzōCraft v<version>` label above the config file panel in
+  Settings, sourced from `package.json` so it follows future version bumps.
 - Checkpoint release `0.32.1` for the prompt-index timestamp-only write fix.
   Synchronized package, Rust, Tauri, and Cargo lockfile versions.
 - Prompt-library scans and reads now skip SQLite writes for file timestamp-only
