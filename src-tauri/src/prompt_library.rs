@@ -496,7 +496,6 @@ fn index_file(conn: &Connection, root: &Path, path: &Path) -> Result<PromptListI
             OR prompts.created_at IS NOT excluded.created_at
             OR prompts.updated_at IS NOT excluded.updated_at
             OR prompts.content_hash IS NOT excluded.content_hash
-            OR prompts.file_mtime IS NOT excluded.file_mtime
             OR prompts.schema_version IS NOT excluded.schema_version
             OR prompts.missing IS NOT 0",
         params![
@@ -1479,6 +1478,58 @@ prompt = {
         assert_eq!(last_indexed_at, "sentinel");
 
         fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[test]
+    fn indexing_ignores_timestamp_only_changes_but_detects_content_changes() {
+        let root =
+            std::env::temp_dir().join(format!("sozocraft-prompt-timestamp-{}", Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let id = Uuid::new_v4().to_string();
+        let path = root.join(format!("{id}.md"));
+        fs::write(&path, "Stable body.").unwrap();
+
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        index_file(&conn, &root, &path).unwrap();
+        let changes = conn.total_changes();
+        let modified =
+            fs::metadata(&path).unwrap().modified().unwrap() + std::time::Duration::from_secs(60);
+        let times = fs::FileTimes::new().set_modified(modified);
+        fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_times(times)
+            .unwrap();
+
+        // Sync tools can touch files without changing their content.
+        index_file(&conn, &root, &path).unwrap();
+        index_file(&conn, &root, &path).unwrap();
+        assert_eq!(conn.total_changes(), changes);
+
+        // Content must still be checked even when the timestamp stays the same.
+        fs::write(&path, "Changed body.").unwrap();
+        fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_times(times)
+            .unwrap();
+        index_file(&conn, &root, &path).unwrap();
+        assert_eq!(conn.total_changes(), changes + 1);
+        let hash: String = conn
+            .query_row(
+                "SELECT content_hash FROM prompts WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(hash, content_hash("Changed body."));
+        index_file(&conn, &root, &path).unwrap();
+        assert_eq!(conn.total_changes(), changes + 1);
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]

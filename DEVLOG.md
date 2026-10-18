@@ -1,5 +1,14 @@
 # DEVLOG
 
+## 2026-10-18
+
+- Checkpoint release `0.32.1` for the prompt-index timestamp-only write fix.
+  Synchronized package, Rust, Tauri, and Cargo lockfile versions.
+- Prompt-library scans and reads now skip SQLite writes for file timestamp-only
+  changes. Scans still hash prompt bodies and persist content, metadata, path,
+  and availability changes. Added regression coverage for touched files and
+  content edits with an unchanged timestamp.
+
 ## 2026-10-10
 
 - Checkpoint release `0.32.0` for Fedora RPM packaging. Synchronized package,

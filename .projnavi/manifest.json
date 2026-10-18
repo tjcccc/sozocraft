@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "projnaviVersion": "0.5.0",
-  "generatedAt": "2026-10-08T01:23:53.830Z",
+  "projnaviVersion": "0.4.0",
+  "generatedAt": "2026-10-18T00:57:02.444Z",
   "root": ".",
   "files": {
     "AGENTS.md": {
@@ -15,8 +15,8 @@
       "category": "docs"
     },
     "DEVLOG.md": {
-      "hash": "cd2b1c162191ffffd85e64bbb24ebd82d88a8898aeaa158690f81b4976d72cf3",
-      "size": 49187,
+      "hash": "20550fbbaf36c2a5b01d62e9021fc40a805a05cb36cb1983b224d9be2866394e",
+      "size": 50108,
       "category": "docs"
     },
     "docs/agent-cli.md": {
@@ -30,8 +30,8 @@
       "category": "docs"
     },
     "package.json": {
-      "hash": "81c38d02d8ccd7e254407b74320241e975ff0caf14298229189b78d069fd3fad",
-      "size": 1264,
+      "hash": "b7d8a6b06579690b3883e8d675c5c11ffe340e8ae3a37d457aa32e04caf9d845",
+      "size": 1316,
       "category": "config"
     },
     "pnpm-lock.yaml": {
@@ -45,8 +45,8 @@
       "category": "config"
     },
     "README.md": {
-      "hash": "81e4c70eaa34c22754a6a58502972695362b68e217a6b89dcb3e1231ca2ac01a",
-      "size": 31014,
+      "hash": "2454efb3d6e1fc1403f6170896a3fb651a9d98fc68a153f2b4e41c41ab90089e",
+      "size": 31752,
       "category": "docs"
     },
     "scripts/install-cli.mjs": {
@@ -70,8 +70,8 @@
       "category": "source"
     },
     "src-tauri/tauri.conf.json": {
-      "hash": "87a14d9d22fb7ecd94dfe1ea6f6871d63bd9592f4655359b8acfa8149d97c4a7",
-      "size": 1347,
+      "hash": "bd0d35695009c4ee5e03bbe0aa35a39388c58297b4ac05d44a32fd762542fe6f",
+      "size": 1636,
       "category": "source"
     },
     "src-tauri/tests/agent_cli.rs": {
@@ -396,16 +396,16 @@
       ]
     },
     "package.json": {
-      "hash": "81c38d02d8ccd7e254407b74320241e975ff0caf14298229189b78d069fd3fad",
-      "size": 1264,
+      "hash": "b7d8a6b06579690b3883e8d675c5c11ffe340e8ae3a37d457aa32e04caf9d845",
+      "size": 1316,
       "category": "config",
       "claimIds": [
         "command.validation"
       ]
     },
     "README.md": {
-      "hash": "81e4c70eaa34c22754a6a58502972695362b68e217a6b89dcb3e1231ca2ac01a",
-      "size": 31014,
+      "hash": "2454efb3d6e1fc1403f6170896a3fb651a9d98fc68a153f2b4e41c41ab90089e",
+      "size": 31752,
       "category": "docs",
       "claimIds": [
         "module.prompt-library"
@@ -434,8 +434,8 @@
       "claimIds": []
     },
     "src-tauri/src/lib.rs": {
-      "hash": "eab29ee43fd91210f78c9458be67fd113b30c7a94fa722c7e90aa1a625f89a35",
-      "size": 39599,
+      "hash": "a78219ffa475d4cdc9ed9a36c15ae480e2bebe0dad0d289ec3e21f6909e9fb88",
+      "size": 39583,
       "category": "evidence",
       "claimIds": [
         "flow.generation",
@@ -459,8 +459,8 @@
       ]
     },
     "src-tauri/src/prompt_library.rs": {
-      "hash": "7a74ea6edb57d04809a8dd9624f5a026c88cf2954c8a34ab68e77a40a8fdfdb9",
-      "size": 57591,
+      "hash": "4e49de2fb0d71acfeae3e29f29933e6576f5c11365214d67764648759ededab4",
+      "size": 59502,
       "category": "evidence",
       "claimIds": [
         "module.prompt-library"
@@ -555,6 +555,7 @@
       "preview",
       "tauri",
       "tauri:build:app",
+      "tauri:build:rpm",
       "tauri:dev",
       "test:frontend",
       "typecheck"

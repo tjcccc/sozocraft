@@ -282,6 +282,9 @@ The database can be rebuilt by rescanning the prompt folder. Legacy prompt files
 with YAML frontmatter are still readable; SozoCraft strips that frontmatter from
 the editor and imports its metadata into the database when possible.
 
+Scans and prompt reads skip database writes when only a file's modification
+timestamp changes; content and library metadata changes still update the index.
+
 ```markdown
 character = cinematic portrait of a young woman
 location = neon street at night
