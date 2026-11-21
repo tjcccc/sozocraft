@@ -5,8 +5,8 @@ use super::{
 use crate::{
     experimental_image, file_access,
     models::{
-        AppSettings, GenerationOptions, GenerationRequest, NANO_BANANA_MODELS, OPENAI_IMAGE_MODELS,
-        XAI_IMAGE_MODELS,
+        default_gpt_image_model, is_gpt_image_model, validate_gpt_image_platform, AppSettings,
+        GenerationOptions, GenerationRequest, NANO_BANANA_MODELS, XAI_IMAGE_MODELS,
     },
 };
 use base64::{engine::general_purpose, Engine as _};
@@ -39,9 +39,7 @@ pub(super) fn build(
     let fallback = match (provider, platform) {
         ("nano-banana", "higgsfield") => "nano_banana_2",
         ("nano-banana", _) => "gemini-3-pro-image-preview",
-        ("gpt-image", "higgsfield") => "gpt_image_2",
-        ("gpt-image", "openrouter") => "openai/gpt-image-2",
-        ("gpt-image", _) => "gpt-image-2",
+        ("gpt-image", _) => default_gpt_image_model(platform),
         (experimental_image::PROVIDER_ID, _) => experimental_image::DEFAULT_MODEL,
         (_, "higgsfield") => "grok_image",
         _ => "grok-imagine-image-2.0",
@@ -53,10 +51,8 @@ pub(super) fn build(
             fallback
         }
     });
-    let higgsfield_model = model.contains('_');
-    if higgsfield_model != (platform == "higgsfield")
-        || (model.starts_with("openai/") && platform != "openrouter")
-    {
+    validate_gpt_image_platform(provider, platform, model)?;
+    if model.contains('_') != (platform == "higgsfield") {
         return Err(format!("Model {model} does not match the configured {platform} platform. Select a model for that platform or change the desktop settings."));
     }
     let prompt = match (&options.prompt, &options.prompt_file) {
@@ -117,7 +113,7 @@ pub(super) fn build(
 fn model_provider(model: &str) -> Result<&'static str, String> {
     if NANO_BANANA_MODELS.contains(&model) {
         Ok("nano-banana")
-    } else if OPENAI_IMAGE_MODELS.contains(&model) {
+    } else if is_gpt_image_model(model) {
         Ok("gpt-image")
     } else if XAI_IMAGE_MODELS.contains(&model) {
         Ok("grok-imagine")
@@ -165,7 +161,7 @@ fn validate_options(request: &GenerationRequest, platform: &str) -> Result<(), S
                     && ["1k", "2k", "4k"].contains(&size)
             }
             ("nano-banana", _) => crate::gemini::supported_image_size(request).is_some(),
-            ("gpt-image", "openrouter") if model.starts_with("openai/") => false,
+            ("gpt-image", "openrouter") => false,
             ("gpt-image", _) => crate::openai_image::normalize_openai_image_size(size).is_some(),
             _ => ["1k", "2k"].contains(&size),
         };
@@ -186,10 +182,6 @@ fn validate_options(request: &GenerationRequest, platform: &str) -> Result<(), S
             false
         } else if model == "grok_image" {
             ["std", "pro"].contains(&quality)
-        } else if model == "gpt_image_2" {
-            ["low", "medium", "high"].contains(&quality)
-        } else if model.starts_with("gpt_image_") {
-            ["low", "medium", "high", "xhigh", "max"].contains(&quality)
         } else {
             true
         };
@@ -248,7 +240,7 @@ mod tests {
         assert!(build(&value, &settings).is_err());
         settings.nano_banana_api_platform = "higgsfield".to_string();
         assert!(build(&value, &settings).is_err());
-        let mut value = options("gpt-image-2");
+        let mut value = options("gpt-image-2.6-flare");
         assert_eq!(build(&value, &settings).unwrap().provider, "gpt-image");
         value.provider = Some("nano-banana".to_string());
         assert!(build(&value, &settings).is_err());
@@ -261,7 +253,7 @@ mod tests {
         value.size = Some("1K".to_string());
         assert!(build(&value, &settings).is_err());
         settings.openai_api_platform = "openrouter".to_string();
-        value = options("openai/gpt-image-2");
+        value = options("openai/gpt-image-2.6-sunburst");
         value.size = Some("1536x1024".to_string());
         assert!(build(&value, &settings).is_err());
         value.size = None;

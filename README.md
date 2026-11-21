@@ -209,7 +209,7 @@ timeout_seconds = 180
 [openai]
 api_key = "your_openai_api_key_here"
 api_platform = "openai"
-default_model = "gpt-image-2"
+default_model = "gpt-image-2.6-flare"
 base_url = "https://api.openai.com/v1"
 proxy_enabled = true
 timeout_seconds = 180
@@ -395,23 +395,22 @@ the same optimized bytes across generation runs. Cache entries older than about
 The GPT-Image tab is wired for OpenAI text-to-image and reference-image
 generation:
 
+- `gpt-image-2.6-flare` (default)
+- `gpt-image-2.6-sunburst`
 - `gpt-image-2.5-flare`
 - `gpt-image-2.5-sunburst`
-- `gpt-image-2` (retained as the default)
 
-Both 2.5 variants support `auto`, `low`, `medium`, `high`, `xhigh`, and `max`
-quality. GPT Image 2 retains quality settings through `high`. See the official
-[OpenAI image generation guide](https://developers.openai.com/api/docs/guides/image-generation).
-
-The implementation requests PNG output and
-offers OpenAI's documented popular generation `size` values: `auto`,
+All four models support `auto`, `low`, `medium`, `high`, `xhigh`, and `max`
+quality. SozoCraft requests PNG output. The size menu offers `auto`,
 `1024x1024`, `1536x1024`, `1024x1536`, `2048x2048`, `2048x1152`,
-`3840x2160`, and `2160x3840`. The backend accepts any supported GPT-Image
-resolution that fits OpenAI's documented constraints: maximum edge up to
-3840px, edges divisible by 16, long-to-short edge ratio no greater than 3:1,
-and total pixels between 655,360 and 8,294,400. The UI labels fixed sizes with
-their aspect ratios, such as `2:3 (1024x1536)`. It accepts OpenAI Image API `data[].b64_json`
-responses, OpenAI Responses API `image_generation_call.result` image payloads,
+`3840x2160`, and `2160x3840`. The backend accepts custom sizes within the
+documented constraints. Edges must be divisible by 16 and no longer than 3840
+pixels, the long-to-short ratio must be at most 3:1, and total pixels must be
+between 655,360 and 8,294,400. Resolutions above 2560x1440 are experimental
+with 2.5. See the [OpenAI image generation guide](https://developers.openai.com/api/docs/guides/image-generation).
+
+The UI labels fixed sizes with their aspect ratios, such as `2:3 (1024x1536)`.
+SozoCraft accepts OpenAI Image API `data[].b64_json` responses, OpenAI Responses API `image_generation_call.result` image payloads,
 and OpenRouter chat image outputs under `choices[].message.images[]`. When an
 OpenRouter model API page URL such as
 `https://openrouter.ai/openai/gpt-5.4-image-2/api` is configured as the OpenAI
@@ -425,20 +424,22 @@ OpenAI-compatible Image API endpoints, SozoCraft sends reference-image runs to
 `/images/edits` as multipart `image[]` inputs. OpenRouter models
 use the dedicated Image API described below.
 
-GPT-Image can also be routed through Higgsfield CLI from the provider platform
-setting. Higgsfield CLI requests use CLI-supported aspect ratios, 1K/2K/4K
-resolution buckets, low/medium/high quality options, and app-configured proxy
-environment forwarding. Flare and Sunburst are also selectable on Higgsfield,
-using `gpt_image_2_5` with an explicit `--variant flare` or `--variant sunburst`
-and quality through `max`, per the
+On Higgsfield, the GPT-Image tab offers GPT Image 2.5 Flare (default) and
+Sunburst. SozoCraft calls `gpt_image_2_5` with `--variant flare` or
+`--variant sunburst`, CLI-supported ratios, 1K/2K/4K resolution, and quality
+from `low` through `max`. See the
 [official CLI model schemas](https://github.com/higgsfield-ai/cli/blob/main/MODELS.md).
-OpenRouter offers GPT Image 2 and both 2.5 variants through its dedicated JSON
-`/api/v1/images` endpoint, including reference-image inputs via `input_references`.
-Controls expose the documented aspect ratios and quality through `high` for
-GPT Image 2 or `max` for 2.5; fixed
-pixel sizes are hidden because the per-model endpoint capabilities do not
-advertise them. Saved GPT-5.4 Image 2 selections migrate to the direct
-`openai/gpt-image-2` model, displayed as GPT Image 2.
+
+OpenRouter offers both 2.6 and both 2.5 variants through its dedicated JSON
+`/api/v1/images` endpoint. SozoCraft sends aspect ratios, quality through
+`max`, and reference-image inputs via `input_references`.
+
+Saved GPT Image 2 selections load as 2.6 Flare on OpenAI and OpenRouter and
+2.5 Flare on Higgsfield. The same OpenRouter migration applies to saved
+GPT-5.4 Image 2 model IDs. An OpenAI base URL pinned to an OpenRouter model
+page continues to select the model in that URL. Update the URL when the pinned
+model retires.
+
 GPT-Image generation and editing use `moderation: "low"` on the direct OpenAI
 API and the OpenRouter Image API (via `provider.options.openai.moderation`).
 This is fixed in the request, independent of quality. The API offers no `none`

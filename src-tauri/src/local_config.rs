@@ -1,4 +1,4 @@
-use crate::models::AppSettings;
+use crate::models::{default_gpt_image_model, gpt_image_models, AppSettings};
 use serde::{Deserialize, Serialize};
 use std::{
     fs, io,
@@ -159,8 +159,12 @@ struct PromptsConfig {
     preview_placement: Option<String>,
 }
 
-pub fn load_settings(defaults: AppSettings) -> AppSettings {
+pub fn load_settings(mut defaults: AppSettings) -> AppSettings {
     let Ok(config) = load_config() else {
+        if defaults.default_provider == "gpt-image" {
+            defaults.default_model =
+                normalize_gpt_image_model(&defaults.openai_api_platform, defaults.default_model);
+        }
         return defaults;
     };
     settings_from_config(config, defaults)
@@ -190,7 +194,7 @@ fn settings_from_config(config: LocalConfig, defaults: AppSettings) -> AppSettin
             .default_model
             .filter(|value| !value.trim().is_empty())
             .map(|value| normalize_gpt_image_model(&openai_api_platform, value))
-            .unwrap_or_else(|| default_gpt_image_model(&openai_api_platform)),
+            .unwrap_or_else(|| default_gpt_image_model(&openai_api_platform).to_string()),
         "grok-imagine" => config
             .xai
             .default_model
@@ -692,14 +696,6 @@ fn default_nano_banana_model(platform: &str) -> String {
     }
 }
 
-fn default_gpt_image_model(platform: &str) -> String {
-    match platform {
-        "higgsfield" => "gpt_image_2".to_string(),
-        "openrouter" => "openai/gpt-image-2".to_string(),
-        _ => "gpt-image-2".to_string(),
-    }
-}
-
 fn default_grok_model(platform: &str) -> String {
     match platform {
         "higgsfield" => "grok_image".to_string(),
@@ -722,14 +718,10 @@ fn normalize_nano_banana_model(platform: &str, model: String) -> String {
 }
 
 fn normalize_gpt_image_model(platform: &str, model: String) -> String {
-    match (platform, model.as_str()) {
-        ("higgsfield", "gpt_image_2" | "gpt_image_2_5_flare" | "gpt_image_2_5_sunburst") => model,
-        (
-            "openrouter",
-            "openai/gpt-image-2" | "openai/gpt-image-2.5-flare" | "openai/gpt-image-2.5-sunburst",
-        ) => model,
-        ("openai", "gpt-image-2" | "gpt-image-2.5-flare" | "gpt-image-2.5-sunburst") => model,
-        _ => default_gpt_image_model(platform),
+    if gpt_image_models(platform).contains(&model.as_str()) {
+        model
+    } else {
+        default_gpt_image_model(platform).to_string()
     }
 }
 
@@ -801,41 +793,36 @@ mod tests {
     }
 
     #[test]
-    fn image_model_defaults_preserve_new_variants_and_migrate_legacy_grok() {
-        assert_eq!(
-            normalize_gpt_image_model("openrouter", "openai/gpt-5.4-image-2".to_string()),
-            "openai/gpt-image-2"
-        );
-        for model in [
-            "gpt-image-2",
-            "gpt-image-2.5-flare",
-            "gpt-image-2.5-sunburst",
+    fn gpt_image_model_defaults_preserve_supported_variants_and_migrate_legacy_selections() {
+        for (platform, legacy_model, expected) in [
+            ("openai", "gpt-image-2", "gpt-image-2.6-flare"),
+            (
+                "openrouter",
+                "openai/gpt-image-2",
+                "openai/gpt-image-2.6-flare",
+            ),
+            (
+                "openrouter",
+                "openai/gpt-5.4-image-2",
+                "openai/gpt-image-2.6-flare",
+            ),
+            ("higgsfield", "gpt_image_2", "gpt_image_2_5_flare"),
         ] {
             assert_eq!(
-                normalize_gpt_image_model("openai", model.to_string()),
-                model
+                normalize_gpt_image_model(platform, legacy_model.to_string()),
+                expected
             );
+            for model in gpt_image_models(platform) {
+                assert_eq!(
+                    normalize_gpt_image_model(platform, model.to_string()),
+                    *model
+                );
+            }
         }
-        for model in [
-            "openai/gpt-image-2",
-            "openai/gpt-image-2.5-flare",
-            "openai/gpt-image-2.5-sunburst",
-        ] {
-            assert_eq!(
-                normalize_gpt_image_model("openrouter", model.to_string()),
-                model
-            );
-        }
-        for model in [
-            "gpt_image_2",
-            "gpt_image_2_5_flare",
-            "gpt_image_2_5_sunburst",
-        ] {
-            assert_eq!(
-                normalize_gpt_image_model("higgsfield", model.to_string()),
-                model
-            );
-        }
+    }
+
+    #[test]
+    fn grok_model_defaults_migrate_legacy_selections() {
         for model in [
             "grok-imagine-image",
             "grok-imagine-image-quality",

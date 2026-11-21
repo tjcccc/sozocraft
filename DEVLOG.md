@@ -1,5 +1,16 @@
 # DEVLOG
 
+## 2026-11-21
+
+- Checkpoint release `0.33.0` for GPT Image 2.6 support. Synchronized
+  package, Rust, Tauri, and Cargo lockfile versions.
+
+- Added GPT Image 2.6 Flare and Sunburst for OpenAI and OpenRouter in the
+  desktop app and CLI. Both platforms default to 2.6 Flare and retain the
+  2.5 variants. Higgsfield offers 2.5 Flare and Sunburst only, with Flare as
+  the default. Saved GPT Image 2 selections load as the platform's current
+  Flare default.
+
 ## 2026-10-18
 
 - Checkpoint release `0.32.2` for the Settings version label. Synchronized

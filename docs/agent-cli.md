@@ -131,17 +131,20 @@ Image commands read the provider/platform settings from the same local config.
 Without `--provider` or `--model`, they use `[app].default_provider` and its
 configured default model. `--model` infers the provider; an explicit `--provider`
 must match. Selecting a different provider without a model uses Nano Banana Pro,
-GPT Image 2, or Grok Imagine 2.0, with the corresponding configured platform ID.
+GPT Image 2.6 Flare (2.5 Flare on Higgsfield), or Grok Imagine 2.0, with the
+corresponding configured platform ID.
 The selected provider's platform still comes from config; incompatible model
-IDs are rejected. CLI flags do not change config or desktop state.
+IDs are rejected. Saved GPT Image 2 defaults load as the platform's current Flare
+default. Scripts that explicitly pass an older GPT Image 2 ID must pass a
+supported ID from the table. CLI flags do not change config or desktop state.
 
 | Provider | Configured platform | Accepted model IDs | Reference limit |
 | --- | --- | --- | --- |
 | `nano-banana` | Gemini | `gemini-nano-banana-2.1`, `gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`, `gemini-2.5-flash-image` | 14 for 2.1/Pro/3.1 Flash; 3 for 2.5 Flash |
 | `nano-banana` | Higgsfield | `nano_banana_2`, `nano_banana_flash`, `nano_banana` | 8 |
-| `gpt-image` | OpenAI or OpenRouter | `gpt-image-2`, `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst` | 16 |
-| `gpt-image` | OpenRouter | `openai/gpt-image-2`, `openai/gpt-image-2.5-flare`, `openai/gpt-image-2.5-sunburst` | 16 |
-| `gpt-image` | Higgsfield | `gpt_image_2`, `gpt_image_2_5_flare`, `gpt_image_2_5_sunburst` | 16 |
+| `gpt-image` | OpenAI | `gpt-image-2.6-flare`, `gpt-image-2.6-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst` | 16 |
+| `gpt-image` | OpenRouter | `openai/gpt-image-2.6-flare`, `openai/gpt-image-2.6-sunburst`, `openai/gpt-image-2.5-flare`, `openai/gpt-image-2.5-sunburst` | 16 |
+| `gpt-image` | Higgsfield | `gpt_image_2_5_flare`, `gpt_image_2_5_sunburst` | 16 |
 | `grok-imagine` | xAI | `grok-imagine-image-2.0` | 5 |
 | `grok-imagine` | Higgsfield | `grok_image` | 5 |
 | `experimental` | OpenRouter (always) | `meta/muse-image` | 10 |
@@ -163,7 +166,7 @@ Optional image flags are checked against the selected model:
   Native GPT accepts `auto` or validated `WIDTHxHEIGHT`, such as `1536x1024`.
   OpenRouter's `openai/...` IDs use aspect ratio and reject size. xAI accepts
   `1k/2k`; Higgsfield accepts `1k/2k/4k` except `nano_banana` and `grok_image`.
-- `--quality`: GPT `auto/low/medium/high`, with `xhigh/max` for 2.5 variants.
+- `--quality`: GPT `auto/low/medium/high/xhigh/max`.
   Higgsfield GPT excludes `auto`. xAI accepts `auto/low/medium`;
   Higgsfield Grok accepts `std/pro`. Nano Banana has no quality flag.
 - `--thinking-level`: `minimal/high` for Gemini 3.1 Flash;

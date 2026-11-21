@@ -10,31 +10,34 @@ import {
 const options = { aspectRatio: "auto", imageSize: "auto", quality: "max", thinkingLevel: "" };
 
 describe("image model platform catalogs", () => {
-  it("offers both GPT 2.5 variants and retains GPT 2 on OpenAI and Higgsfield", () => {
+  it("offers both GPT Image versions on OpenAI and OpenRouter, and only 2.5 on Higgsfield", () => {
     expect(getProviderModels("gpt-image", "openai").map((model) => model.id)).toEqual([
-      "gpt-image-2.5-flare", "gpt-image-2.5-sunburst", "gpt-image-2",
-    ]);
-    expect(getProviderModels("gpt-image", "higgsfield").map((model) => model.id)).toEqual([
-      "gpt_image_2_5_flare", "gpt_image_2_5_sunburst", "gpt_image_2",
+      "gpt-image-2.6-flare", "gpt-image-2.6-sunburst", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst",
     ]);
     expect(getProviderModels("gpt-image", "openrouter").map((model) => model.id)).toEqual([
-      "openai/gpt-image-2.5-flare", "openai/gpt-image-2.5-sunburst", "openai/gpt-image-2",
+      "openai/gpt-image-2.6-flare", "openai/gpt-image-2.6-sunburst",
+      "openai/gpt-image-2.5-flare", "openai/gpt-image-2.5-sunburst",
+    ]);
+    expect(getProviderModels("gpt-image", "higgsfield").map((model) => model.id)).toEqual([
+      "gpt_image_2_5_flare", "gpt_image_2_5_sunburst",
     ]);
   });
 
-  it("keeps GPT 2.5 quality and clamps it when returning to GPT 2", () => {
-    for (const model of ["gpt-image-2.5-flare", "gpt-image-2.5-sunburst"]) {
-      expect(normalizeProviderOptions("gpt-image", model, options, "openai")).toMatchObject({ model, quality: "max" });
+  it("keeps extended quality for both GPT Image versions across their platforms", () => {
+    for (const platform of ["openai", "openrouter", "higgsfield"] as const) {
+      for (const { id: model } of getProviderModels("gpt-image", platform)) {
+        expect(normalizeProviderOptions("gpt-image", model, options, platform))
+          .toMatchObject({ model, quality: "max" });
+      }
     }
-    expect(normalizeProviderOptions("gpt-image", "gpt-image-2", options, "openai").quality).toBe("auto");
     expect(normalizeProviderOptions("gpt-image", "gpt_image_2_5_sunburst", options, "higgsfield"))
-      .toMatchObject({ model: "gpt_image_2_5_sunburst", quality: "max", imageSize: "1k" });
+      .toMatchObject({ imageSize: "1k" });
   });
 
-  it("uses documented OpenRouter image controls for both 2.5 variants", () => {
-    for (const model of ["openai/gpt-image-2.5-flare", "openai/gpt-image-2.5-sunburst"]) {
+  it("uses aspect ratios for OpenRouter GPT Image models", () => {
+    for (const { id: model } of getProviderModels("gpt-image", "openrouter")) {
       expect(normalizeProviderOptions("gpt-image", model, { ...options, aspectRatio: "16:9" }, "openrouter"))
-        .toMatchObject({ model, quality: "max", aspectRatio: "16:9", imageSize: "" });
+        .toMatchObject({ model, aspectRatio: "16:9", imageSize: "" });
     }
   });
 
@@ -52,9 +55,17 @@ describe("image model platform catalogs", () => {
       .toBe("medium");
   });
 
-  it("migrates the OpenRouter chat model to direct GPT Image 2", () => {
-    expect(normalizeProviderOptions("gpt-image", "openai/gpt-5.4-image-2", options, "openrouter"))
-      .toMatchObject({ model: "openai/gpt-image-2", quality: "auto", imageSize: "" });
+  it("migrates legacy selections to an available Flare model on the configured platform", () => {
+    expect(normalizeProviderOptions("gpt-image", "gpt-image-2", options, "openai").model)
+      .toBe("gpt-image-2.6-flare");
+    for (const model of ["openai/gpt-image-2", "openai/gpt-5.4-image-2"]) {
+      expect(normalizeProviderOptions("gpt-image", model, options, "openrouter"))
+        .toMatchObject({ model: "openai/gpt-image-2.6-flare", imageSize: "" });
+    }
+    for (const model of ["gpt_image_2", "gpt-image-2.6-sunburst"]) {
+      expect(normalizeProviderOptions("gpt-image", model, options, "higgsfield"))
+        .toMatchObject({ model: "gpt_image_2_5_flare", imageSize: "1k" });
+    }
   });
 
   it("migrates old xAI models and quality to Grok 2.0 while retaining Higgsfield", () => {

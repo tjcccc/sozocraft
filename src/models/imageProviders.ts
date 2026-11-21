@@ -75,7 +75,6 @@ const HIGGSFIELD_NANO_BANANA_ASPECT_RATIOS = [
   "16:9",
   "21:9",
 ];
-const HIGGSFIELD_GPT_IMAGE_ASPECT_RATIOS = ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3"];
 const HIGGSFIELD_GROK_ASPECT_RATIOS = ["1:1", "4:3", "3:4", "16:9", "9:16"];
 const HIGGSFIELD_RESOLUTIONS = ["1k", "2k", "4k"];
 
@@ -115,25 +114,35 @@ const HIGGSFIELD_NANO_BANANA_MODELS: ProviderModelConfig[] = [
   },
 ];
 
+const GPT_IMAGE_VARIANTS = ["flare", "sunburst"] as const;
+const GPT_IMAGE_QUALITIES = ["auto", "low", "medium", "high", "xhigh", "max"];
+const OPENROUTER_GPT_IMAGE_ASPECT_RATIOS = [
+  "auto", "1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "21:9",
+];
+
 const OPENAI_GPT_IMAGE_MODELS: ProviderModelConfig[] = [
-  ...["flare", "sunburst"].map((variant) => ({
-    id: `openai/gpt-image-2.5-${variant}`,
-    label: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
-    productName: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
-    aspectRatios: ["auto", "1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "21:9"],
-    imageSizes: null,
-    qualityLevels: ["auto", "low", "medium", "high", "xhigh", "max"],
-    maxReferenceImages: 16,
-    defaults: { aspectRatio: "auto", imageSize: null, quality: "auto" },
-  })),
-  ...["flare", "sunburst"].map((variant) => ({
-    id: `gpt-image-2.5-${variant}`,
-    label: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
-    productName: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
-    qualityLevels: ["auto", "low", "medium", "high", "xhigh", "max"],
-    maxReferenceImages: 16,
-  })),
-  ...["flare", "sunburst"].map((variant) => ({
+  ...["2.6", "2.5"].flatMap((version) =>
+    GPT_IMAGE_VARIANTS.flatMap((variant) => {
+      const model = {
+        id: `gpt-image-${version}-${variant}`,
+        label: `GPT Image ${version} ${variant === "flare" ? "Flare" : "Sunburst"}`,
+        qualityLevels: GPT_IMAGE_QUALITIES,
+        maxReferenceImages: 16,
+      };
+      return [
+        { ...model, productName: model.label },
+        {
+          ...model,
+          id: `openai/${model.id}`,
+          productName: model.label,
+          aspectRatios: OPENROUTER_GPT_IMAGE_ASPECT_RATIOS,
+          imageSizes: null,
+          defaults: { aspectRatio: "auto", imageSize: null, quality: "auto" },
+        },
+      ];
+    }),
+  ),
+  ...GPT_IMAGE_VARIANTS.map((variant) => ({
     id: `gpt_image_2_5_${variant}`,
     label: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
     productName: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
@@ -143,26 +152,6 @@ const OPENAI_GPT_IMAGE_MODELS: ProviderModelConfig[] = [
     maxReferenceImages: 16,
     defaults: { aspectRatio: "1:1", imageSize: "1k", quality: "low" },
   })),
-  { id: "gpt-image-2", label: "GPT Image 2", productName: "GPT Image 2", maxReferenceImages: 16 },
-  {
-    id: "openai/gpt-image-2",
-    label: "GPT Image 2",
-    productName: "GPT Image 2",
-    aspectRatios: ["auto", "1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "21:9"],
-    imageSizes: null,
-    maxReferenceImages: 16,
-    defaults: { aspectRatio: "auto", imageSize: null, quality: "auto" },
-  },
-  {
-    id: "gpt_image_2",
-    label: "GPT Image 2",
-    productName: "GPT Image 2",
-    aspectRatios: HIGGSFIELD_GPT_IMAGE_ASPECT_RATIOS,
-    imageSizes: HIGGSFIELD_RESOLUTIONS,
-    qualityLevels: ["low", "medium", "high"],
-    maxReferenceImages: 16,
-    defaults: { aspectRatio: "1:1", imageSize: "2k", quality: "high" },
-  },
 ];
 
 const XAI_GROK_IMAGE_MODELS: ProviderModelConfig[] = [
@@ -252,11 +241,11 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ProviderConfig> = {
       "3840x2160",
       "2160x3840",
     ],
-    qualityLevels: ["auto", "low", "medium", "high"],
+    qualityLevels: GPT_IMAGE_QUALITIES,
     thinkingLevels: null,
     maxReferenceImages: 16,
     defaults: {
-      model: "gpt-image-2",
+      model: "gpt-image-2.6-flare",
       aspectRatio: "auto",
       imageSize: "auto",
       quality: "auto",
@@ -324,9 +313,9 @@ export const NANO_BANANA_PLATFORM_MODELS: Record<NanoBananaApiPlatform, string> 
 };
 
 export const GPT_IMAGE_PLATFORM_MODELS: Record<GptImageApiPlatform, string> = {
-  openai: "gpt-image-2",
-  openrouter: "openai/gpt-image-2",
-  higgsfield: "gpt_image_2",
+  openai: "gpt-image-2.6-flare",
+  openrouter: "openai/gpt-image-2.6-flare",
+  higgsfield: "gpt_image_2_5_flare",
 };
 
 export const GROK_IMAGE_PLATFORM_MODELS: Record<GrokImagineApiPlatform, string> = {

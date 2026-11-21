@@ -1,4 +1,4 @@
-use crate::models::{GenerationRequest, ReferenceImageInput};
+use crate::models::{gpt_image_models, GenerationRequest, ReferenceImageInput, GPT_IMAGE_QUALITIES};
 use base64::{engine::general_purpose, Engine as _};
 use reqwest::{multipart, Client, Proxy, RequestBuilder, StatusCode};
 use serde_json::{json, Value};
@@ -167,10 +167,8 @@ fn resolve_endpoint(
     let page_model = openrouter_model_from_page_url(base_url);
     let image_model = page_model.as_deref().unwrap_or(request_model);
     if (platform == OpenAiApiPlatform::OpenRouter || base_url.contains("openrouter.ai"))
-        && matches!(
-            image_model,
-            "openai/gpt-image-2" | "openai/gpt-image-2.5-flare" | "openai/gpt-image-2.5-sunburst"
-        )
+        && (gpt_image_models("openrouter").contains(&image_model)
+            || page_model.as_deref() == Some("openai/gpt-image-2"))
     {
         let api_base = if page_model.is_some() {
             OPENROUTER_ENDPOINT
@@ -247,9 +245,12 @@ fn openrouter_model_from_page_url(base_url: &str) -> Option<String> {
 }
 
 fn supports_image_quality(model: &str, quality: &str) -> bool {
-    ["auto", "low", "medium", "high"].contains(&quality)
-        || (matches!(model, "gpt-image-2.5-flare" | "gpt-image-2.5-sunburst")
-            && ["xhigh", "max"].contains(&quality))
+    let qualities = if model == "openai/gpt-image-2" {
+        &GPT_IMAGE_QUALITIES[..4]
+    } else {
+        GPT_IMAGE_QUALITIES
+    };
+    qualities.contains(&quality)
 }
 
 fn build_image_api_request_body(request: &GenerationRequest) -> Value {
@@ -296,7 +297,7 @@ fn build_openrouter_image_request_body(request: &GenerationRequest, model: &str)
         }
     }
     if let Some(quality) = request.options.quality.as_deref() {
-        if supports_image_quality(model.strip_prefix("openai/").unwrap_or(model), quality) {
+        if supports_image_quality(model, quality) {
             body["quality"] = json!(quality);
         }
     }
@@ -464,7 +465,7 @@ pub(crate) fn normalize_openai_image_size(size: &str) -> Option<&str> {
         return Some(size);
     }
     let (width, height) = parse_image_size(size)?;
-    if is_valid_gpt_image_2_size(width, height) {
+    if is_valid_gpt_image_size(width, height) {
         Some(size)
     } else {
         None
@@ -476,7 +477,7 @@ fn parse_image_size(size: &str) -> Option<(u64, u64)> {
     Some((width.parse().ok()?, height.parse().ok()?))
 }
 
-fn is_valid_gpt_image_2_size(width: u64, height: u64) -> bool {
+fn is_valid_gpt_image_size(width: u64, height: u64) -> bool {
     if width == 0 || height == 0 {
         return false;
     }
@@ -625,8 +626,7 @@ fn describe_reqwest_error(err: &reqwest::Error) -> String {
 mod tests {
     use super::{
         build_image_api_request_body, build_openrouter_chat_request_body, decode_image_payload,
-        is_valid_gpt_image_2_size, parse_response, resolve_endpoint, OpenAiApiPlatform,
-        OpenAiEndpoint,
+        is_valid_gpt_image_size, parse_response, resolve_endpoint, OpenAiApiPlatform, OpenAiEndpoint,
     };
     use crate::models::{GenerationOptions, GenerationRequest, ReferenceImageInput};
     use base64::{engine::general_purpose, Engine as _};
@@ -634,11 +634,7 @@ mod tests {
 
     #[test]
     fn openrouter_image_models_use_image_api_for_generation_and_references() {
-        for model in [
-            "openai/gpt-image-2",
-            "openai/gpt-image-2.5-flare",
-            "openai/gpt-image-2.5-sunburst",
-        ] {
+        for &model in crate::models::gpt_image_models("openrouter") {
             for references in [false, true] {
                 for base in [
                     "https://openrouter.ai/api/v1",
@@ -658,7 +654,7 @@ mod tests {
                 resolve_endpoint(
                     OpenAiApiPlatform::OpenAi,
                     &format!("https://openrouter.ai/{model}/api"),
-                    "gpt-image-2",
+                    "gpt-image-2.6-flare",
                     true
                 ),
                 OpenAiEndpoint::OpenRouterImages {
@@ -668,11 +664,7 @@ mod tests {
             );
             let mut request = request();
             request.model = model.to_string();
-            let quality = if model == "openai/gpt-image-2" {
-                "high"
-            } else {
-                "max"
-            };
+            let quality = "max";
             request.options.quality = Some(quality.to_string());
             request.options.aspect_ratio = Some("16:9".to_string());
             assert!(request.validate().is_ok());
@@ -702,8 +694,8 @@ mod tests {
     }
 
     #[test]
-    fn gpt_image_2_5_variants_preserve_extended_quality() {
-        for model in ["gpt-image-2.5-flare", "gpt-image-2.5-sunburst"] {
+    fn flare_and_sunburst_preserve_extended_quality() {
+        for &model in crate::models::gpt_image_models("openai") {
             for quality in ["xhigh", "max"] {
                 let mut request = request();
                 request.model = model.to_string();
@@ -717,15 +709,15 @@ mod tests {
             }
         }
         let mut request = request();
-        request.options.quality = Some("max".to_string());
+        request.options.quality = Some("invalid".to_string());
         assert!(request.validate().is_err());
     }
 
     #[test]
-    fn generation_payload_uses_gpt_image_2_options() {
+    fn generation_payload_uses_gpt_image_options() {
         let body = build_image_api_request_body(&request());
 
-        assert_eq!(body["model"], "gpt-image-2");
+        assert_eq!(body["model"], "gpt-image-2.6-flare");
         assert_eq!(body["n"], 3);
         assert_eq!(body["output_format"], "png");
         assert_eq!(body["size"], "3840x2160");
@@ -734,18 +726,18 @@ mod tests {
     }
 
     #[test]
-    fn gpt_image_2_size_validation_uses_documented_constraints() {
-        assert!(is_valid_gpt_image_2_size(1024, 1024));
-        assert!(is_valid_gpt_image_2_size(2048, 2048));
-        assert!(is_valid_gpt_image_2_size(3840, 2160));
-        assert!(is_valid_gpt_image_2_size(2160, 3840));
-        assert!(is_valid_gpt_image_2_size(3840, 1280));
+    fn gpt_image_size_validation_uses_documented_constraints() {
+        assert!(is_valid_gpt_image_size(1024, 1024));
+        assert!(is_valid_gpt_image_size(2048, 2048));
+        assert!(is_valid_gpt_image_size(3840, 2160));
+        assert!(is_valid_gpt_image_size(2160, 3840));
+        assert!(is_valid_gpt_image_size(3840, 1280));
 
-        assert!(!is_valid_gpt_image_2_size(3841, 2160));
-        assert!(!is_valid_gpt_image_2_size(1025, 1024));
-        assert!(!is_valid_gpt_image_2_size(3840, 1264));
-        assert!(!is_valid_gpt_image_2_size(3840, 3840));
-        assert!(!is_valid_gpt_image_2_size(512, 512));
+        assert!(!is_valid_gpt_image_size(3841, 2160));
+        assert!(!is_valid_gpt_image_size(1025, 1024));
+        assert!(!is_valid_gpt_image_size(3840, 1264));
+        assert!(!is_valid_gpt_image_size(3840, 3840));
+        assert!(!is_valid_gpt_image_size(512, 512));
     }
 
     #[test]
@@ -776,7 +768,7 @@ mod tests {
         let endpoint = resolve_endpoint(
             OpenAiApiPlatform::OpenAi,
             "https://openrouter.ai/openai/gpt-5.4-image-2/api",
-            "gpt-image-2",
+            "gpt-image-2.6-flare",
             false,
         );
 
@@ -812,7 +804,7 @@ mod tests {
         let endpoint = resolve_endpoint(
             OpenAiApiPlatform::OpenAi,
             "https://api.openai.com/v1",
-            "gpt-image-2",
+            "gpt-image-2.6-flare",
             true,
         );
 
@@ -927,7 +919,7 @@ mod tests {
         GenerationRequest {
             task_id: None,
             provider: "gpt-image".to_string(),
-            model: "gpt-image-2".to_string(),
+            model: "gpt-image-2.6-flare".to_string(),
             prompt: "Render a test image".to_string(),
             prompt_snapshot: None,
             batch_count: 3,

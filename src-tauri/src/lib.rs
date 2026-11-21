@@ -429,6 +429,13 @@ async fn generate_images_inner(
     mut cancellation: watch::Receiver<bool>,
 ) -> Result<GenerationBatch, String> {
     request.validate()?;
+    let mut state = load_state().map_err(|err| err.to_string())?;
+    let settings = state.settings.clone();
+    models::validate_gpt_image_platform(
+        &request.provider,
+        &settings.openai_api_platform,
+        &request.model,
+    )?;
     reference_image_cache::optimize_request_reference_images(&mut request)?;
 
     let rendered_prompt = request.prompt.trim().to_string();
@@ -437,8 +444,6 @@ async fn generate_images_inner(
         .clone()
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| request.prompt.clone());
-    let mut state = load_state().map_err(|err| err.to_string())?;
-    let settings = state.settings.clone();
     let batch_id = Uuid::new_v4().to_string();
     let created_at = Utc::now();
     let filename_datetime = Local::now();
@@ -748,8 +753,6 @@ fn filename_model(model: &str) -> &str {
         "nano_banana_2" => "nano-banana-pro",
         "nano_banana_flash" => "nano-banana-2",
         "nano_banana" => "nano-banana",
-        "gpt-image-2" => "gpt-image-2",
-        "gpt_image_2" => "gpt-image-2",
         "grok-imagine-image-quality" => "grok-imagine-quality",
         "grok-imagine-image" => "grok-imagine",
         "grok_image" => "grok-image",
@@ -837,10 +840,8 @@ fn is_higgsfield_provider(request: &GenerationRequest, settings: &AppSettings) -
 }
 
 fn provider_supports_batch(request: &GenerationRequest, settings: &AppSettings) -> bool {
-    if is_higgsfield_provider(request, settings) {
-        return request.model == "gpt_image_2";
-    }
-    ["gpt-image", "grok-imagine"].contains(&request.provider.as_str())
+    !is_higgsfield_provider(request, settings)
+        && ["gpt-image", "grok-imagine"].contains(&request.provider.as_str())
 }
 
 fn generation_platform(request: &GenerationRequest, settings: &AppSettings) -> String {

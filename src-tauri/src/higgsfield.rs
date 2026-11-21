@@ -69,8 +69,6 @@ impl Drop for TempReferenceFiles {
 const HIGGSFIELD_NANO_ASPECT_RATIOS: &[&str] = &[
     "auto", "1:1", "3:2", "2:3", "4:3", "3:4", "4:5", "5:4", "9:16", "16:9", "21:9",
 ];
-const HIGGSFIELD_GPT_IMAGE_ASPECT_RATIOS: &[&str] =
-    &["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3"];
 const HIGGSFIELD_GROK_ASPECT_RATIOS: &[&str] = &["1:1", "4:3", "3:4", "16:9", "9:16"];
 const HIGGSFIELD_CREATE_ATTEMPTS: u32 = 3;
 const HIGGSFIELD_DOWNLOAD_ATTEMPTS: u32 = 3;
@@ -312,19 +310,10 @@ fn build_generate_args(
 
     if let Some(variant) = gpt_image_2_5_variant(&request.model) {
         args.extend(["--variant".to_string(), variant.to_string()]);
-    }
-
-    if request.model == "gpt_image_2" || gpt_image_2_5_variant(&request.model).is_some() {
         if let Some(quality) = clean_option(request.options.quality.as_deref()) {
-            if ["low", "medium", "high"].contains(&quality)
-                || (gpt_image_2_5_variant(&request.model).is_some()
-                    && ["xhigh", "max"].contains(&quality))
-            {
+            if crate::models::GPT_IMAGE_QUALITIES[1..].contains(&quality) {
                 args.extend(["--quality".to_string(), quality.to_string()]);
             }
-        }
-        if request.model == "gpt_image_2" && request.batch_count > 1 {
-            args.extend(["--batch_size".to_string(), request.batch_count.to_string()]);
         }
     }
 
@@ -381,7 +370,6 @@ fn supported_cli_aspect_ratios(model: &str) -> Option<&'static [&'static str]> {
         "nano_banana_2" | "nano_banana_flash" | "nano_banana" => {
             Some(HIGGSFIELD_NANO_ASPECT_RATIOS)
         }
-        "gpt_image_2" => Some(HIGGSFIELD_GPT_IMAGE_ASPECT_RATIOS),
         "gpt_image_2_5_flare" | "gpt_image_2_5_sunburst" => Some(&[
             "auto", "1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "21:9", "27:16", "16:27",
             "9:8", "8:9", "4:5", "5:4",
@@ -396,7 +384,6 @@ fn higgsfield_model_label(model: &str) -> &'static str {
         "nano_banana_2" => "Nano Banana Pro",
         "nano_banana_flash" => "Nano Banana 2",
         "nano_banana" => "Nano Banana",
-        "gpt_image_2" => "GPT Image 2",
         "gpt_image_2_5_flare" => "GPT Image 2.5 Flare",
         "gpt_image_2_5_sunburst" => "GPT Image 2.5 Sunburst",
         "grok_image" => "Grok Imagine",
@@ -413,7 +400,7 @@ fn gpt_image_2_5_variant(model: &str) -> Option<&'static str> {
 }
 
 fn model_accepts_resolution(model: &str) -> bool {
-    matches!(model, "gpt_image_2" | "nano_banana_2" | "nano_banana_flash")
+    matches!(model, "nano_banana_2" | "nano_banana_flash")
         || gpt_image_2_5_variant(model).is_some()
 }
 
@@ -1032,19 +1019,6 @@ mod tests {
     }
 
     #[test]
-    fn gpt_image_args_include_batch_size_and_quality() {
-        let request = request("gpt-image", "gpt_image_2", 3);
-        let args = build_generate_args(&request, &[], 180, false);
-
-        assert!(contains_pair(&args, "--aspect_ratio", "2:3"));
-        assert!(contains_pair(&args, "--resolution", "2k"));
-        assert!(contains_pair(&args, "--quality", "high"));
-        assert!(contains_pair(&args, "--batch_size", "3"));
-        assert!(args.contains(&"--wait".to_string()));
-        assert!(args.contains(&"--json".to_string()));
-    }
-
-    #[test]
     fn grok_args_map_quality_to_mode() {
         let mut request = request("grok-imagine", "grok_image", 1);
         request.options.quality = Some("pro".to_string());
@@ -1056,7 +1030,7 @@ mod tests {
 
     #[test]
     fn auto_aspect_ratio_is_omitted_from_cli_args() {
-        let mut request = request("gpt-image", "gpt_image_2", 1);
+        let mut request = request("gpt-image", "gpt_image_2_5_flare", 1);
         request.options.aspect_ratio = Some("auto".to_string());
         let args = build_generate_args(&request, &[], 180, false);
 

@@ -608,18 +608,10 @@ impl GenerationRequest {
             .filter(|value| !value.is_empty())
         {
             let supported = match self.model.as_str() {
-                "gpt-image-2" | "openai/gpt-image-2" => {
-                    Some(&["auto", "low", "medium", "high"][..])
+                model if gpt_image_models("higgsfield").contains(&model) => {
+                    Some(&GPT_IMAGE_QUALITIES[1..])
                 }
-                "gpt-image-2.5-flare"
-                | "gpt-image-2.5-sunburst"
-                | "openai/gpt-image-2.5-flare"
-                | "openai/gpt-image-2.5-sunburst" => {
-                    Some(&["auto", "low", "medium", "high", "xhigh", "max"][..])
-                }
-                "gpt_image_2_5_flare" | "gpt_image_2_5_sunburst" => {
-                    Some(&["low", "medium", "high", "xhigh", "max"][..])
-                }
+                model if is_gpt_image_model(model) => Some(GPT_IMAGE_QUALITIES),
                 "grok-imagine-image-2.0" => Some(&["auto", "low", "medium"][..]),
                 _ => None,
             };
@@ -727,17 +719,53 @@ pub(crate) fn validate_ark_asset_id(id: &str) -> Result<(), String> {
 pub const HIGGSFIELD_NANO_BANANA_MODELS: [&str; 3] =
     ["nano_banana_2", "nano_banana_flash", "nano_banana"];
 
-pub const OPENAI_IMAGE_MODELS: [&str; 9] = [
-    "gpt-image-2",
-    "gpt-image-2.5-flare",
-    "gpt-image-2.5-sunburst",
-    "openai/gpt-image-2",
-    "openai/gpt-image-2.5-flare",
-    "openai/gpt-image-2.5-sunburst",
-    "gpt_image_2",
-    "gpt_image_2_5_flare",
-    "gpt_image_2_5_sunburst",
-];
+pub(crate) const GPT_IMAGE_QUALITIES: &[&str] = &["auto", "low", "medium", "high", "xhigh", "max"];
+
+pub(crate) fn gpt_image_models(platform: &str) -> &'static [&'static str] {
+    match platform {
+        "openai" => &[
+            "gpt-image-2.6-flare",
+            "gpt-image-2.6-sunburst",
+            "gpt-image-2.5-flare",
+            "gpt-image-2.5-sunburst",
+        ],
+        "openrouter" => &[
+            "openai/gpt-image-2.6-flare",
+            "openai/gpt-image-2.6-sunburst",
+            "openai/gpt-image-2.5-flare",
+            "openai/gpt-image-2.5-sunburst",
+        ],
+        "higgsfield" => &["gpt_image_2_5_flare", "gpt_image_2_5_sunburst"],
+        _ => &[],
+    }
+}
+
+pub(crate) fn default_gpt_image_model(platform: &str) -> &'static str {
+    gpt_image_models(platform)
+        .first()
+        .copied()
+        .unwrap_or(gpt_image_models("openai")[0])
+}
+
+pub(crate) fn is_gpt_image_model(model: &str) -> bool {
+    ["openai", "openrouter", "higgsfield"]
+        .iter()
+        .any(|platform| gpt_image_models(platform).contains(&model))
+}
+
+pub(crate) fn validate_gpt_image_platform(
+    provider: &str,
+    platform: &str,
+    model: &str,
+) -> Result<(), String> {
+    if provider == "gpt-image" && !gpt_image_models(platform).contains(&model) {
+        return Err(format!(
+            "Model {model} does not match the configured {platform} platform. Choose one of: {}.",
+            gpt_image_models(platform).join(", ")
+        ));
+    }
+    Ok(())
+}
 
 pub const XAI_IMAGE_MODELS: [&str; 2] = ["grok-imagine-image-2.0", "grok_image"];
 
@@ -751,7 +779,7 @@ pub const IMAGE_PROVIDERS: [&str; 4] = [
 fn supported_model(provider: &str, model: &str) -> bool {
     match provider {
         "nano-banana" => NANO_BANANA_MODELS.contains(&model),
-        "gpt-image" => OPENAI_IMAGE_MODELS.contains(&model),
+        "gpt-image" => is_gpt_image_model(model),
         "grok-imagine" => XAI_IMAGE_MODELS.contains(&model),
         crate::experimental_image::PROVIDER_ID => crate::experimental_image::model(model).is_some(),
         _ => false,

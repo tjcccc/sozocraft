@@ -64,6 +64,37 @@ fn image_dry_run_uses_config_without_keys_or_output_writes() {
     assert_eq!(output.status.code(), Some(1));
 }
 
+#[test]
+fn higgsfield_gpt_image_migrates_legacy_default_and_rejects_other_versions() {
+    let workspace = Workspace::new(
+        "[app]\ndefault_provider='gpt-image'\n[openai]\napi_platform='higgsfield'\ndefault_model='gpt_image_2'\n",
+    );
+    let output = workspace.run(&["--prompt", "sprite", "--dry-run"]);
+    assert!(output.status.success(), "{:?}", events(&output));
+    assert_eq!(events(&output)[0]["model"], "gpt_image_2_5_flare");
+
+    for model in [
+        "gpt_image_2",
+        "gpt_image_2_6_flare",
+        "gpt-image-2.6-flare",
+        "openai/gpt-image-2.6-sunburst",
+    ] {
+        let output = workspace.run(&["--model", model, "--prompt", "sprite", "--dry-run"]);
+        assert_eq!(output.status.code(), Some(1), "{model}: {:?}", events(&output));
+    }
+    let output = workspace.run(&[
+        "--model",
+        "gpt_image_2_5_sunburst",
+        "--prompt",
+        "sprite",
+        "--quality",
+        "max",
+        "--dry-run",
+    ]);
+    assert!(output.status.success(), "{:?}", events(&output));
+    assert_eq!(events(&output)[0]["model"], "gpt_image_2_5_sunburst");
+}
+
 fn mock_provider(response: String) -> (String, thread::JoinHandle<String>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = format!("http://{}", listener.local_addr().unwrap());
@@ -110,7 +141,7 @@ fn mock_provider(response: String) -> (String, thread::JoinHandle<String>) {
             }
         }
         write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", response.len(), response).unwrap();
-        String::from_utf8(bytes).unwrap()
+        String::from_utf8_lossy(&bytes).into_owned()
     });
     (address, handle)
 }
@@ -129,11 +160,22 @@ fn native_image_routes_generate_and_publish_png_using_shared_config() {
             "gemini-3.1-flash-image-preview",
             "/models/gemini-3.1-flash-image-preview:generateContent",
         ),
-        ("openai", "openai", "gpt-image-2", "/images/generations"),
+        (
+            "openai",
+            "openai",
+            "gpt-image-2.6-flare",
+            "/images/generations",
+        ),
+        (
+            "openai",
+            "openai",
+            "gpt-image-2.6-sunburst",
+            "/images/edits",
+        ),
         (
             "openrouter",
             "openrouter",
-            "openai/gpt-image-2",
+            "openai/gpt-image-2.6-sunburst",
             "/api/v1/images",
         ),
         (
@@ -171,13 +213,16 @@ fn native_image_routes_generate_and_publish_png_using_shared_config() {
         ];
         let reference = workspace.0.join("reference.png");
         let reference_name = reference.to_str().unwrap();
-        if section == "gemini" {
+        if section == "gemini" || section == "openrouter" || suffix == "/images/edits" {
             fs::write(
                 &reference,
                 general_purpose::STANDARD.decode(&encoded).unwrap(),
             )
             .unwrap();
             args.extend(["--reference", reference_name]);
+        }
+        if section == "openai" || section == "openrouter" {
+            args.extend(["--quality", "max"]);
         }
         let output = workspace.run(&args);
         assert!(
@@ -189,6 +234,19 @@ fn native_image_routes_generate_and_publish_png_using_shared_config() {
         let request = server.join().unwrap();
         assert!(request.starts_with(&format!("POST {suffix} ")), "{request}");
         assert!(request.contains("test-only-key"));
+        if section == "openai" || section == "openrouter" {
+            assert!(request.contains(model));
+            if suffix == "/images/edits" {
+                assert!(request.contains("name=\"image[]\""));
+                assert!(request.contains("name=\"quality\"\r\n\r\nmax"));
+            } else {
+                assert!(request.contains("\"quality\":\"max\""));
+            }
+        }
+        if section == "openrouter" {
+            assert!(request.contains("\"input_references\""));
+            assert!(request.contains(&encoded));
+        }
         if section == "gemini" {
             assert!(request.contains("inline_data"));
             assert!(request.contains(&encoded));
@@ -232,7 +290,7 @@ fn corrupt_provider_image_leaves_no_output_or_partial_file() {
     ));
     let output = workspace.run(&[
         "--model",
-        "gpt-image-2",
+        "gpt-image-2.6-flare",
         "--prompt",
         "sprite",
         "--output",
