@@ -82,6 +82,7 @@ const fn seedream(
     id: &'static str,
     filename_model: &'static str,
     resolutions: &'static [&'static str],
+    max_reference_images: usize,
 ) -> ExperimentalImageModel {
     ExperimentalImageModel {
         id,
@@ -90,7 +91,7 @@ const fn seedream(
         aspect_ratio_param: AspectRatioParam::AspectRatio,
         aspect_ratios: SEEDREAM_ASPECT_RATIOS,
         resolutions,
-        max_reference_images: 14,
+        max_reference_images,
         low_moderation_provider: None,
     }
 }
@@ -126,19 +127,28 @@ pub const MODELS: &[ExperimentalImageModel] = &[
         low_moderation_provider: Some("meta"),
     },
     seedream(
+        "bytedance-seed/seedream-5-5",
+        "seedream-5-5",
+        &["1K", "1.5K", "2K"],
+        10,
+    ),
+    seedream(
         "bytedance-seed/seedream-5-0-pro",
         "seedream-5-0-pro",
         &["1K", "2K"],
+        14,
     ),
     seedream(
         "bytedance-seed/seedream-5-0-flash",
         "seedream-5-0-flash",
         &["1K", "2K"],
+        14,
     ),
     seedream(
         "bytedance-seed/seedream-5-0-lite",
         "seedream-5-0-lite",
         &["2K", "4K"],
+        14,
     ),
 ];
 
@@ -430,6 +440,34 @@ mod tests {
         let mut model = request();
         model.model = "openai/gpt-image-2".to_string();
         assert!(validate_request(&model).is_err());
+    }
+
+    #[test]
+    fn seedream_5_5_sends_1_5k_and_accepts_at_most_ten_references() {
+        let mut request = request();
+        request.model = "bytedance-seed/seedream-5-5".to_string();
+        request.options.image_size = Some("1.5K".to_string());
+        let reference = ReferenceImageInput {
+            name: "ref.png".to_string(),
+            mime_type: "image/png".to_string(),
+            data: "QUJD".to_string(),
+            asset_id: None,
+        };
+        request.reference_images = Some(vec![reference.clone(); 10]);
+        assert!(request.validate().is_ok());
+
+        let body = build_request_body(&request);
+        assert_eq!(body["resolution"], "1.5K");
+        assert_eq!(body["aspect_ratio"], "16:9");
+        assert_eq!(body["n"], 1);
+        assert_eq!(body["output_format"], "png");
+        assert_eq!(body["input_references"].as_array().unwrap().len(), 10);
+
+        request.options.image_size = Some("4K".to_string());
+        assert!(request.validate().is_err());
+        request.options.image_size = Some("2K".to_string());
+        request.reference_images.as_mut().unwrap().push(reference);
+        assert!(request.validate().unwrap_err().contains("at most 10"));
     }
 
     #[test]

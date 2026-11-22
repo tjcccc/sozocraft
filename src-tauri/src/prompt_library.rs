@@ -94,10 +94,10 @@ pub fn rescan_prompt_directory(prompt_directory: &str) -> Result<Vec<PromptListI
     }
 
     let mut stmt = conn
-        .prepare("SELECT id FROM prompts WHERE root = ?1")
+        .prepare("SELECT id FROM prompts WHERE root IN (?1, ?2)")
         .map_err(|err| err.to_string())?;
     let ids = stmt
-        .query_map(params![root.to_string_lossy().to_string()], |row| {
+        .query_map(params![stored_path(&conn, &root), root.to_string_lossy()], |row| {
             row.get::<_, String>(0)
         })
         .map_err(|err| err.to_string())?
@@ -127,12 +127,15 @@ pub fn list_prompts(
         .prepare(
             "SELECT id, path, name, tags, description, created_at, updated_at
              FROM prompts
-             WHERE root = ?1 AND missing = 0
+             WHERE root IN (?1, ?2) AND missing = 0
              ORDER BY updated_at DESC, name ASC",
         )
         .map_err(|err| err.to_string())?;
     let mut items = stmt
-        .query_map(params![root.to_string_lossy().to_string()], row_to_item)
+        .query_map(
+            params![stored_path(&conn, &root), root.to_string_lossy()],
+            row_to_item(&conn),
+        )
         .map_err(|err| err.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|err| err.to_string())?;
@@ -175,8 +178,8 @@ pub fn create_prompt(
         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 0)",
         params![
             id,
-            root.to_string_lossy().to_string(),
-            path.to_string_lossy().to_string(),
+            stored_path(&conn, &root),
+            stored_path(&conn, &path),
             name,
             serde_json::to_string(&tags).unwrap_or_else(|_| "[]".to_string()),
             normalize_optional_text(&request.description).unwrap_or_default(),
@@ -235,14 +238,15 @@ pub fn save_prompt(
     conn.execute(
         "UPDATE prompts
          SET content_hash = ?1, file_mtime = ?2, updated_at = ?3, last_indexed_at = ?4, missing = 0
-         WHERE id = ?5 AND root = ?6",
+         WHERE id = ?5 AND root IN (?6, ?7)",
         params![
             content_hash(&source),
             file_mtime(&path),
             now.clone(),
             now,
             request.id,
-            root.to_string_lossy().to_string(),
+            stored_path(&conn, &root),
+            root.to_string_lossy(),
         ],
     )
     .map_err(|err| err.to_string())?;
@@ -270,7 +274,7 @@ pub fn update_prompt_metadata(
     conn.execute(
         "UPDATE prompts
          SET name = ?1, tags = ?2, updated_at = ?3, last_indexed_at = ?4
-         WHERE id = ?5 AND root = ?6 AND missing = 0",
+         WHERE id = ?5 AND root IN (?6, ?7) AND missing = 0",
         params![
             normalize_prompt_name(&request.name),
             serde_json::to_string(&normalize_tags(request.tags))
@@ -278,7 +282,8 @@ pub fn update_prompt_metadata(
             now.clone(),
             now,
             request.id,
-            root.to_string_lossy().to_string(),
+            stored_path(&conn, &root),
+            root.to_string_lossy(),
         ],
     )
     .map_err(|err| err.to_string())?;
@@ -306,11 +311,14 @@ pub fn rename_prompt_tag(
         .prepare(
             "SELECT id, path, name, tags, description, created_at, updated_at
              FROM prompts
-             WHERE root = ?1 AND missing = 0",
+             WHERE root IN (?1, ?2) AND missing = 0",
         )
         .map_err(|err| err.to_string())?;
     let items = stmt
-        .query_map(params![root.to_string_lossy().to_string()], row_to_item)
+        .query_map(
+            params![stored_path(&conn, &root), root.to_string_lossy()],
+            row_to_item(&conn),
+        )
         .map_err(|err| err.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|err| err.to_string())?;
@@ -325,13 +333,14 @@ pub fn rename_prompt_tag(
         conn.execute(
             "UPDATE prompts
              SET tags = ?1, updated_at = ?2, last_indexed_at = ?3
-             WHERE id = ?4 AND root = ?5 AND missing = 0",
+             WHERE id = ?4 AND root IN (?5, ?6) AND missing = 0",
             params![
                 tags_json,
                 now.clone(),
                 now,
                 item.id,
-                root.to_string_lossy().to_string(),
+                stored_path(&conn, &root),
+                root.to_string_lossy(),
             ],
         )
         .map_err(|err| err.to_string())?;
@@ -500,8 +509,8 @@ fn index_file(conn: &Connection, root: &Path, path: &Path) -> Result<PromptListI
             OR prompts.missing IS NOT 0",
         params![
             id,
-            root.to_string_lossy().to_string(),
-            path.to_string_lossy().to_string(),
+            stored_path(conn, root),
+            stored_path(conn, path),
             name,
             serde_json::to_string(&tags).unwrap_or_else(|_| "[]".to_string()),
             description,
@@ -522,9 +531,9 @@ fn get_item(conn: &Connection, root: &Path, id: &str) -> Result<PromptListItem, 
     conn.query_row(
         "SELECT id, path, name, tags, description, created_at, updated_at
          FROM prompts
-         WHERE id = ?1 AND root = ?2 AND missing = 0",
-        params![id, root.to_string_lossy().to_string()],
-        row_to_item,
+         WHERE id = ?1 AND root IN (?2, ?3) AND missing = 0",
+        params![id, stored_path(conn, root), root.to_string_lossy()],
+        row_to_item(conn),
     )
     .optional()
     .map_err(|err| err.to_string())?
@@ -537,7 +546,7 @@ fn get_item_by_id(conn: &Connection, id: &str) -> Result<PromptListItem, String>
          FROM prompts
          WHERE id = ?1 AND missing = 0",
         params![id],
-        row_to_item,
+        row_to_item(conn),
     )
     .optional()
     .map_err(|err| err.to_string())?
@@ -547,14 +556,15 @@ fn get_item_by_id(conn: &Connection, id: &str) -> Result<PromptListItem, String>
 fn path_for_id(conn: &Connection, root: &Path, id: &str) -> Result<PathBuf, String> {
     let path = conn
         .query_row(
-            "SELECT path FROM prompts WHERE id = ?1 AND root = ?2 AND missing = 0",
-            params![id, root.to_string_lossy().to_string()],
+            "SELECT path FROM prompts WHERE id = ?1 AND root IN (?2, ?3) AND missing = 0",
+            params![id, stored_path(conn, root), root.to_string_lossy()],
             |row| row.get::<_, String>(0),
         )
         .optional()
         .map_err(|err| err.to_string())?
         .ok_or_else(|| "Prompt not found.".to_string())?;
-    ensure_existing_prompt_path(root, Path::new(&path))
+    let path = resolve_stored_path(database_directory(conn).as_deref(), path);
+    ensure_existing_prompt_path(root, &path)
 }
 
 fn find_prompt_by_title(
@@ -567,14 +577,14 @@ fn find_prompt_by_title(
         .prepare(
             "SELECT id, path, name, tags, description, created_at, updated_at
              FROM prompts
-             WHERE root = ?1 AND missing = 0 AND lower(name) = lower(?2)
+             WHERE root IN (?1, ?2) AND missing = 0 AND lower(name) = lower(?3)
              ORDER BY updated_at DESC, name ASC",
         )
         .map_err(|err| err.to_string())?;
     let items = stmt
         .query_map(
-            params![root.to_string_lossy().to_string(), title],
-            row_to_item,
+            params![stored_path(conn, root), root.to_string_lossy(), title],
+            row_to_item(conn),
         )
         .map_err(|err| err.to_string())?
         .collect::<Result<Vec<_>, _>>()
@@ -731,12 +741,15 @@ fn all_items_for_root(conn: &Connection, root: &Path) -> Result<Vec<PromptListIt
         .prepare(
             "SELECT id, path, name, tags, description, created_at, updated_at
              FROM prompts
-             WHERE root = ?1 AND missing = 0
+             WHERE root IN (?1, ?2) AND missing = 0
              ORDER BY updated_at DESC, name ASC",
         )
         .map_err(|err| err.to_string())?;
     let items = stmt
-        .query_map(params![root.to_string_lossy().to_string()], row_to_item)
+        .query_map(
+            params![stored_path(conn, root), root.to_string_lossy()],
+            row_to_item(conn),
+        )
         .map_err(|err| err.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|err| err.to_string())?;
@@ -797,18 +810,49 @@ fn resolve_prompt_includes(
     Ok(output)
 }
 
-fn row_to_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<PromptListItem> {
-    let tags_json: String = row.get(3)?;
-    let tags = serde_json::from_str(&tags_json).unwrap_or_default();
-    Ok(PromptListItem {
-        id: row.get(0)?,
-        path: row.get(1)?,
-        name: row.get(2)?,
-        tags,
-        description: row.get(4)?,
-        created_at: row.get(5)?,
-        updated_at: row.get(6)?,
-    })
+fn database_directory(conn: &Connection) -> Option<PathBuf> {
+    let database_path = Path::new(conn.path()?).canonicalize().ok()?;
+    database_path.parent().map(Path::to_path_buf)
+}
+
+// Libraries bundled with the database may move between checkout paths.
+fn stored_path(conn: &Connection, path: &Path) -> String {
+    if let Some(directory) = database_directory(conn) {
+        if let Ok(relative) = path.strip_prefix(directory) {
+            return relative
+                .to_string_lossy()
+                .replace(std::path::MAIN_SEPARATOR, "/");
+        }
+    }
+    path.to_string_lossy().into_owned()
+}
+
+fn resolve_stored_path(directory: Option<&Path>, path: String) -> PathBuf {
+    let path = PathBuf::from(path);
+    match directory {
+        Some(directory) if path.is_relative() => directory.join(path),
+        _ => path,
+    }
+}
+
+fn row_to_item(
+    conn: &Connection,
+) -> impl FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<PromptListItem> {
+    let directory = database_directory(conn);
+    move |row| {
+        let tags_json: String = row.get(3)?;
+        let tags = serde_json::from_str(&tags_json).unwrap_or_default();
+        let path = resolve_stored_path(directory.as_deref(), row.get(1)?);
+        Ok(PromptListItem {
+            id: row.get(0)?,
+            path: path.to_string_lossy().into_owned(),
+            name: row.get(2)?,
+            tags,
+            description: row.get(4)?,
+            created_at: row.get(5)?,
+            updated_at: row.get(6)?,
+        })
+    }
 }
 
 fn collect_markdown_files(root: &Path) -> io::Result<Vec<PathBuf>> {
@@ -1444,6 +1488,69 @@ prompt = {
         assert_eq!(item.description, "portable metadata");
 
         fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[test]
+    fn moving_a_synced_library_preserves_the_database_bytes() {
+        let temp = std::env::temp_dir().join(format!("sozocraft-prompt-portable-{}", Uuid::new_v4()));
+        fs::create_dir_all(&temp).unwrap();
+        let temp = temp.canonicalize().unwrap();
+        let checkout = temp.join("first-checkout");
+        let root = checkout.join("prompts");
+        fs::create_dir_all(&root).unwrap();
+
+        let id = Uuid::new_v4().to_string();
+        let filename = format!("{id}.md");
+        let prompt = root.join(&filename);
+        fs::write(&prompt, "Stable body.").unwrap();
+        let db = checkout.join("prompts.sqlite");
+        let conn = Connection::open(&db).unwrap();
+        init_db(&conn).unwrap();
+        insert_prompt_for_test(
+            &conn,
+            &root,
+            &id,
+            &prompt,
+            "Example",
+            r#"["saved/tag"]"#,
+            "2026-01-02T00:00:00Z",
+        );
+
+        // Absolute-path rows are readable before indexing migrates them.
+        assert_eq!(path_for_id(&conn, &root, &id).unwrap(), prompt);
+        index_file(&conn, &root, &prompt).unwrap();
+        let stored: (String, String) = conn
+            .query_row("SELECT root, path FROM prompts", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(stored, ("prompts".to_string(), format!("prompts/{filename}")));
+        drop(conn);
+        let bytes = fs::read(&db).unwrap();
+        let mtime = fs::metadata(&db).unwrap().modified().unwrap();
+
+        let moved_checkout = temp.join("another-checkout");
+        fs::rename(&checkout, &moved_checkout).unwrap();
+        let db = moved_checkout.join("prompts.sqlite");
+        let root = moved_checkout.join("prompts");
+        let prompt = root.join(&filename);
+        let conn = Connection::open(&db).unwrap();
+        init_db(&conn).unwrap();
+        let item = index_file(&conn, &root, &prompt).unwrap();
+        assert_eq!(item.name, "Example");
+        assert_eq!(item.tags, ["saved/tag"]);
+        assert_eq!(item.updated_at.as_deref(), Some("2026-01-02T00:00:00Z"));
+        assert_eq!(path_for_id(&conn, &root, &id).unwrap(), prompt);
+        assert_eq!(conn.total_changes(), 0);
+
+        let rendered =
+            resolve_prompt_includes(&conn, &root, "{# Example}", None, &mut HashSet::new(), 0)
+                .unwrap();
+        assert_eq!(rendered, "Stable body.");
+        drop(conn);
+        assert_eq!(fs::read(&db).unwrap(), bytes);
+        assert_eq!(fs::metadata(&db).unwrap().modified().unwrap(), mtime);
+        fs::remove_dir_all(temp).unwrap();
     }
 
     #[test]

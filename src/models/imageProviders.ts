@@ -191,17 +191,18 @@ const EXPERIMENTAL_IMAGE_MODELS: ProviderModelConfig[] = [
     defaults: { aspectRatio: "auto", imageSize: null, quality: null },
   },
   ...([
-    ["pro", "Pro", ["1K", "2K"]],
-    ["flash", "Flash", ["1K", "2K"]],
-    ["lite", "Lite", ["2K", "4K"]],
-  ] as const).map(([tier, label, resolutions]) => ({
-    id: `bytedance-seed/seedream-5-0-${tier}`,
-    label: `Seedream 5.0 ${label}`,
-    productName: `Seedream 5.0 ${label} (ByteDance)`,
+    ["5-5", "Seedream 5.5", ["1K", "1.5K", "2K"], 10],
+    ["5-0-pro", "Seedream 5.0 Pro", ["1K", "2K"], 14],
+    ["5-0-flash", "Seedream 5.0 Flash", ["1K", "2K"], 14],
+    ["5-0-lite", "Seedream 5.0 Lite", ["2K", "4K"], 14],
+  ] as const).map(([version, label, resolutions, maxReferenceImages]) => ({
+    id: `bytedance-seed/seedream-${version}`,
+    label,
+    productName: `${label} (ByteDance)`,
     aspectRatios: SEEDREAM_ASPECT_RATIOS,
     imageSizes: [...resolutions],
     qualityLevels: null,
-    maxReferenceImages: 14,
+    maxReferenceImages,
     defaults: { aspectRatio: "auto", imageSize: "2K", quality: null },
   })),
 ];

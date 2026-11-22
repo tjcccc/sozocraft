@@ -1,5 +1,18 @@
 # DEVLOG
 
+## 2026-11-22
+
+- Checkpoint release `0.34.0` for Seedream 5.5 and portable prompt index paths.
+  Synchronized package, Rust, Tauri, and Cargo lockfile versions.
+
+- Store prompt index paths relative to the database folder when the two are
+  kept together, so scanning a synced library from another checkout no longer
+  rewrites unchanged rows. Existing paths are converted on the next scan.
+
+- Added Seedream 5.5 to the Experimental image tab and CLI through
+  OpenRouter. It supports 1K, 1.5K, and 2K PNG output, 18 aspect ratios,
+  and up to 10 reference images. The Seedream 5.0 tiers remain available.
+
 ## 2026-11-21
 
 - Checkpoint release `0.33.0` for GPT Image 2.6 support. Synchronized

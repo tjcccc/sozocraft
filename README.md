@@ -284,6 +284,9 @@ the editor and imports its metadata into the database when possible.
 
 Scans and prompt reads skip database writes when only a file's modification
 timestamp changes; content and library metadata changes still update the index.
+When the prompt directory is stored alongside the database, scans store paths
+relative to the database folder so the library can be synced between checkout
+locations. Existing absolute paths are converted on the next scan.
 
 ```markdown
 character = cinematic portrait of a young woman
@@ -474,6 +477,10 @@ proxy/timeout values inherit the GPT-Image (OpenAI) values once.
   confirmation in the account's preferences before the model can be used. See
   [Meta's Muse Image docs](https://dev.meta.ai/docs/image-generation) and
   [OpenRouter's model page](https://openrouter.ai/meta/muse-image).
+
+- Seedream 5.5 (ByteDance), `bytedance-seed/seedream-5-5`, supports text-to-image
+  and reference edits with up to 10 inputs. Choose 1K, 1.5K, or 2K and any of the
+  18 Seedream aspect ratios below. [OpenRouter model page](https://openrouter.ai/bytedance-seed/seedream-5-5)
 
 - Seedream 5.0 (ByteDance) in three tiers: `bytedance-seed/seedream-5-0-pro`,
   `-flash`, and `-lite`. All accept up to 14 reference images and 18 aspect

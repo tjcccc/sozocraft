@@ -148,6 +148,7 @@ supported ID from the table. CLI flags do not change config or desktop state.
 | `grok-imagine` | xAI | `grok-imagine-image-2.0` | 5 |
 | `grok-imagine` | Higgsfield | `grok_image` | 5 |
 | `experimental` | OpenRouter (always) | `meta/muse-image` | 10 |
+| `experimental` | OpenRouter (always) | `bytedance-seed/seedream-5-5` | 10 |
 | `experimental` | OpenRouter (always) | `bytedance-seed/seedream-5-0-pro`, `bytedance-seed/seedream-5-0-flash`, `bytedance-seed/seedream-5-0-lite` | 14 |
 
 Gemini uses `[gemini].api_key`; OpenAI uses `[openai].api_key`; OpenRouter uses
@@ -181,10 +182,11 @@ Optional image flags are checked against the selected model:
   be retried unchanged. Muse reasons before rendering, so allow a generous
   OpenRouter timeout. OpenRouter requires an 18+ confirmation on the account
   before Muse Image can be used.
-- `experimental` Seedream 5.0: `--aspect-ratio` accepts `auto 1:1 1:2 2:1 2:3
+- `experimental` Seedream: `--aspect-ratio` accepts `auto 1:1 1:2 2:1 2:3
   3:2 3:4 4:3 4:5 5:4 9:16 16:9 9:19.5 19.5:9 9:20 20:9 9:21 21:9`; `--size`
-  is the resolution, `1K/2K` for Pro and Flash and `2K/4K` for Lite;
-  `--quality` and `--thinking-level` are rejected.
+  is the resolution. Seedream 5.5 accepts `1K/1.5K/2K`, 5.0 Pro and Flash accept
+  `1K/2K`, and 5.0 Lite accepts `2K/4K`. Seedream models reject `--quality` and
+  `--thinking-level`.
 
 Omitted image options are left to the provider's defaults; temporary desktop
 generation controls are not loaded. Unsupported options fail before generation.

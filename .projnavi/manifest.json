@@ -1,7 +1,7 @@
 {
   "version": 1,
   "projnaviVersion": "0.5.0",
-  "generatedAt": "2026-11-21T01:25:21.308Z",
+  "generatedAt": "2026-11-22T12:58:30.710Z",
   "root": ".",
   "files": {
     "AGENTS.md": {
@@ -15,13 +15,13 @@
       "category": "docs"
     },
     "DEVLOG.md": {
-      "hash": "3519fb6432060e66b7b68d3ceac91f52a073ae19231fbd0f5aa8426cbddbd9d1",
-      "size": 50847,
+      "hash": "a546cfc2c3e4aaac79a89a6e5f1173af90e4e49e3d70b9965d8afadbfa28bf44",
+      "size": 51453,
       "category": "docs"
     },
     "docs/agent-cli.md": {
-      "hash": "e6cfdf73e157d2d880ee8cb3862a4764926804eab8bc0dd7b244f734e933a925",
-      "size": 35183,
+      "hash": "7c772a26e9e5deaef22b65ba3e54f61dd34c83dcd81a2a39ea5acb980ca86811",
+      "size": 35320,
       "category": "docs"
     },
     "docs/architecture.md": {
@@ -30,7 +30,7 @@
       "category": "docs"
     },
     "package.json": {
-      "hash": "f7973a139796e0ea8231ec4e38d7122afcd5763de6c329d88a09cfbec29350fe",
+      "hash": "b5a491bba658697ea53294932bc2cf6d7d7104d555d5912990a418eff92477b8",
       "size": 1316,
       "category": "config"
     },
@@ -45,8 +45,8 @@
       "category": "config"
     },
     "README.md": {
-      "hash": "7bf0ad0721f5f2e5ffd9b3ffd911366ad574868f1c54d2f87cd66f06056d9b41",
-      "size": 31596,
+      "hash": "96c0cd0b1285ffb02b7144a817aa9f2923c4882c3c03a5e696421bb47fc72933",
+      "size": 32094,
       "category": "docs"
     },
     "scripts/install-cli.mjs": {
@@ -70,7 +70,7 @@
       "category": "source"
     },
     "src-tauri/tauri.conf.json": {
-      "hash": "02fe313df0c55671fcaf9913239be2c5a59caaa84a385c9fd88648ffecd28bc7",
+      "hash": "12eaa88dde2533821f0056e788ddb4f8f59a8120a660819c78ab276194768c37",
       "size": 1636,
       "category": "source"
     },
@@ -260,13 +260,13 @@
       "category": "source"
     },
     "src/models/imageProviders.test.ts": {
-      "hash": "b5b4808a7d21a46852ed189b3417ffd37ac9d4a9bac4a3e712d794b4e5924b21",
-      "size": 5456,
+      "hash": "4a71694798bedc37496f90a91b031a72dcaa9ff292a9584f42352cfc0068865b",
+      "size": 5761,
       "category": "test"
     },
     "src/models/imageProviders.ts": {
-      "hash": "834e47c28507ac80626ab99abaa5207e24143196d64a3c4806dc62aece35edfa",
-      "size": 15233,
+      "hash": "a4302e608eac6d3db99c6a7f4f0e47f1c91f195e57f787f6166634fb55c8bc3d",
+      "size": 15331,
       "category": "source"
     },
     "src/models/videoProviders.ts": {
@@ -396,7 +396,7 @@
       ]
     },
     "package.json": {
-      "hash": "f7973a139796e0ea8231ec4e38d7122afcd5763de6c329d88a09cfbec29350fe",
+      "hash": "b5a491bba658697ea53294932bc2cf6d7d7104d555d5912990a418eff92477b8",
       "size": 1316,
       "category": "config",
       "claimIds": [
@@ -404,8 +404,8 @@
       ]
     },
     "README.md": {
-      "hash": "7bf0ad0721f5f2e5ffd9b3ffd911366ad574868f1c54d2f87cd66f06056d9b41",
-      "size": 31596,
+      "hash": "96c0cd0b1285ffb02b7144a817aa9f2923c4882c3c03a5e696421bb47fc72933",
+      "size": 32094,
       "category": "docs",
       "claimIds": [
         "module.prompt-library"
@@ -459,8 +459,8 @@
       ]
     },
     "src-tauri/src/prompt_library.rs": {
-      "hash": "4e49de2fb0d71acfeae3e29f29933e6576f5c11365214d67764648759ededab4",
-      "size": 59502,
+      "hash": "45b852a709f4e36646e1d87ce1bdf39259291fb77f6fa769b2538956bda985e2",
+      "size": 63653,
       "category": "evidence",
       "claimIds": [
         "module.prompt-library"
@@ -535,8 +535,8 @@
       ]
     },
     "src/models/imageProviders.ts": {
-      "hash": "834e47c28507ac80626ab99abaa5207e24143196d64a3c4806dc62aece35edfa",
-      "size": 15233,
+      "hash": "a4302e608eac6d3db99c6a7f4f0e47f1c91f195e57f787f6166634fb55c8bc3d",
+      "size": 15331,
       "category": "source",
       "claimIds": [
         "module.frontend.providers"
